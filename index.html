@@ -212,6 +212,10 @@
             <i class="bi bi-chevron-bar-down"></i> 下拉自動收合模板
           </button>
 
+          <button class="btn btn-outline-info component-btn mt-2" data-add-template="nav-dropdown">
+            <i class="bi bi-menu-down"></i> 導覽列下拉標題
+          </button>
+
           <button class="btn btn-outline-info component-btn mt-2" data-add-template="vertical-news-carousel">
             <i class="bi bi-layout-text-window"></i> 新增垂直圖文輪播模板
           </button>
@@ -514,6 +518,13 @@
           <input type="number" class="form-control form-control-sm" id="elementBgOpacityPercent" min="0" max="100" step="1" value="100">
         </div>
 
+        <label class="simple-label">背景材質</label>
+        <select class="form-select form-select-sm mb-3" id="elementMaterial">
+          <option value="none">一般背景</option>
+          <option value="frosted">毛玻璃材質</option>
+          <option value="glass">玻璃材質</option>
+        </select>
+
         <label class="simple-label">字體大小</label>
         <input type="range" class="form-range" id="elementFontSize" min="12" max="72" step="1" value="18">
         <div class="px-input-row mb-3">
@@ -590,6 +601,50 @@
         </div>
       </div>
 
+      <div class="setting-card d-none" id="accordionDropdownStyleCard">
+        <div class="setting-title">下拉式選項樣式</div>
+
+        <div class="small text-muted mb-2">
+          選取「下拉自動收合模板」或其中一個下拉選項後可設定。
+        </div>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="accordionHoverOpenToggle">
+          <label class="form-check-label small" for="accordionHoverOpenToggle">
+            滑鼠移到選項標題時，自動下拉列表
+          </label>
+        </div>
+
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" role="switch" id="accordionIconVisibleToggle" checked>
+          <label class="form-check-label small" for="accordionIconVisibleToggle">
+            顯示選項旁邊 ICON
+          </label>
+        </div>
+
+        <label class="simple-label">目前選項標題背景顏色</label>
+        <input type="color" class="form-control form-control-color mb-3" id="accordionHeadBgColor" value="#f8f9fa">
+
+        <label class="simple-label">標題背景透明度</label>
+        <input type="range" class="form-range" id="accordionHeadBgOpacity" min="0" max="100" step="1" value="100">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="accordionHeadBgOpacityInput" min="0" max="100" step="1" value="100">
+        </div>
+
+        <label class="simple-label">目前選項內容背景顏色</label>
+        <input type="color" class="form-control form-control-color mb-3" id="accordionBodyBgColor" value="#ffffff">
+
+        <label class="simple-label">內容背景透明度</label>
+        <input type="range" class="form-range" id="accordionBodyBgOpacity" min="0" max="100" step="1" value="100">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="accordionBodyBgOpacityInput" min="0" max="100" step="1" value="100">
+        </div>
+
+        <button type="button" class="btn btn-outline-primary btn-sm w-100" id="applyAccordionDropdownStyleBtn">套用下拉樣式</button>
+      </div>
+
       <div class="setting-card d-none" id="imageSettingCard">
         <div class="setting-title">圖片設定</div>
 
@@ -618,6 +673,15 @@
 
         <div class="small text-muted" id="imageOriginalInfo">
           開啟後會依照圖片原始寬高比例調整元件大小。
+        </div>
+
+        <hr>
+
+        <label class="simple-label">圖片圓角</label>
+        <input type="range" class="form-range" id="imageRadius" min="0" max="200" step="1" value="0">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="imageRadiusPx" min="0" max="200" step="1" value="0">
         </div>
 
         <hr>
@@ -965,10 +1029,10 @@
           <option value="auto">自動輪播</option>
         </select>
 
-        <label class="simple-label">組別擺放方式</label>
+        <label class="simple-label">輪播樣式</label>
         <select class="form-select form-select-sm mb-3" id="carouselLayout">
-          <option value="full">標準滿版</option>
-          <option value="peek">圖片式：露出下一組</option>
+          <option value="full">一般</option>
+          <option value="peek">露出下一張</option>
         </select>
 
         <label class="simple-label">自動輪播速度</label>
@@ -1123,6 +1187,69 @@
           <label class="simple-label" id="selectOptionsLabel">下拉選項</label>
           <textarea class="form-control form-control-sm mb-2" id="selectOptionsInput" rows="5" placeholder="每行一個選項"></textarea>
           <button class="btn btn-outline-primary btn-sm w-100 mb-3" id="applySelectOptionsBtn">套用選項</button>
+
+          <div class="select-option-style-panel d-none" id="selectOptionStylePanel">
+            <div class="setting-title small mb-2">單一選項樣式</div>
+
+            <label class="simple-label">目前選項標題背景顏色</label>
+            <input type="color" class="form-control form-control-color mb-3" id="selectOptionHeadBgColor" value="#ffffff">
+
+            <label class="simple-label">標題背景透明度</label>
+            <input type="range" class="form-range" id="selectOptionHeadBgOpacity" min="0" max="100" step="1" value="100">
+            <div class="px-input-row mb-3">
+              <span>%</span>
+              <input type="number" class="form-control form-control-sm" id="selectOptionHeadBgOpacityInput" min="0" max="100" step="1" value="100">
+            </div>
+
+            <label class="simple-label">目前選項內容背景顏色</label>
+            <input type="color" class="form-control form-control-color mb-3" id="selectOptionBodyBgColor" value="#ffffff">
+
+            <label class="simple-label">內容背景透明度</label>
+            <input type="range" class="form-range" id="selectOptionBodyBgOpacity" min="0" max="100" step="1" value="100">
+            <div class="px-input-row mb-3">
+              <span>%</span>
+              <input type="number" class="form-control form-control-sm" id="selectOptionBodyBgOpacityInput" min="0" max="100" step="1" value="100">
+            </div>
+
+            <label class="simple-label">選項邊框顏色</label>
+            <input type="color" class="form-control form-control-color mb-3" id="selectOptionBorderColor" value="#dee2e6">
+
+            <label class="simple-label">選項邊框透明度</label>
+            <input type="range" class="form-range" id="selectOptionBorderOpacity" min="0" max="100" step="1" value="100">
+            <div class="px-input-row mb-3">
+              <span>%</span>
+              <input type="number" class="form-control form-control-sm" id="selectOptionBorderOpacityInput" min="0" max="100" step="1" value="100">
+            </div>
+
+            <label class="simple-label">選項邊框粗細</label>
+            <input type="range" class="form-range" id="selectOptionBorderWidth" min="0" max="12" step="1" value="1">
+            <div class="px-input-row mb-3">
+              <span>px</span>
+              <input type="number" class="form-control form-control-sm" id="selectOptionBorderWidthInput" min="0" max="12" step="1" value="1">
+            </div>
+
+            <label class="simple-label">開啟哪些框線</label>
+            <div class="quick-grid mb-3">
+              <label class="form-check small">
+                <input class="form-check-input" type="checkbox" id="selectOptionBorderTop" checked>
+                上框線
+              </label>
+              <label class="form-check small">
+                <input class="form-check-input" type="checkbox" id="selectOptionBorderRight" checked>
+                右框線
+              </label>
+              <label class="form-check small">
+                <input class="form-check-input" type="checkbox" id="selectOptionBorderBottom" checked>
+                下框線
+              </label>
+              <label class="form-check small">
+                <input class="form-check-input" type="checkbox" id="selectOptionBorderLeft" checked>
+                左框線
+              </label>
+            </div>
+
+            <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-3" id="applySelectOptionStyleBtn">套用此選項樣式</button>
+          </div>
 
           <hr>
 

@@ -3973,3 +3973,251 @@ body:not(.preview-mode) .block-canvas > .alignment-guide.center-guide {
   border-color: rgba(220,53,69,.28);
   background: rgba(220,53,69,.06);
 }
+
+
+/* v78：圖片圓角設定 */
+.free-element[data-type="image"] .editable-image {
+  border-radius: inherit;
+}
+
+/* v78：下拉自動收合模板背景可套用元件背景色與透明度 */
+.accordion-dropdown-template .accordion-dropdown-inner {
+  background: inherit;
+  border-radius: inherit;
+  backdrop-filter: inherit;
+  -webkit-backdrop-filter: inherit;
+}
+
+.accordion-item-template .accordion-item-inner,
+.accordion-item-template .accordion-item-head,
+.accordion-item-template .accordion-item-body,
+.accordion-item-template .accordion-item-content {
+  background: inherit;
+  border-radius: inherit;
+}
+
+/* v78：所有元件背景毛玻璃 / 玻璃材質 */
+.free-element[data-element-material="frosted"],
+.free-element[data-element-material="frosted"] > .inner {
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+}
+
+.free-element[data-element-material="glass"],
+.free-element[data-element-material="glass"] > .inner {
+  backdrop-filter: blur(8px) saturate(155%);
+  -webkit-backdrop-filter: blur(8px) saturate(155%);
+}
+
+.free-element[data-element-material="frosted"],
+.free-element[data-element-material="glass"] {
+  border: 1px solid rgba(255,255,255,.38);
+}
+
+/* v78：上傳字體後，套用到元件內所有文字節點 */
+.free-element > .inner,
+.free-element > .inner * {
+  font-family: inherit;
+}
+
+/* v78：橫向輪播設定的一般 / 露出下一張 */
+.js-css-card-carousel[data-carousel-layout="peek"] .custom-carousel,
+.custom-carousel[data-layout="peek"] {
+  overflow: visible !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="peek"] .carousel-track,
+.custom-carousel[data-layout="peek"] .carousel-track {
+  gap: var(--carousel-slide-gap, 4%) !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="peek"] .carousel-slide,
+.custom-carousel[data-layout="peek"] .carousel-slide {
+  flex: 0 0 var(--carousel-slide-width, 84%) !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="full"] .carousel-track,
+.custom-carousel[data-layout="full"] .carousel-track {
+  gap: 0 !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="full"] .carousel-slide,
+.custom-carousel[data-layout="full"] .carousel-slide {
+  flex: 0 0 100% !important;
+}
+
+
+/* v79：下拉自動收合模板每個選項可自訂標題 / 內容背景 */
+.accordion-item-template .accordion-item-head {
+  background: var(--accordion-head-bg, #f8f9fa) !important;
+}
+
+.accordion-item-template .accordion-item-body,
+.accordion-item-template .accordion-item-content {
+  background: var(--accordion-body-bg, #ffffff) !important;
+}
+
+/* v79：下拉式選項旁邊 ICON 可開關 */
+.accordion-dropdown-template[data-accordion-icon-visible="false"] .accordion-item-head::after {
+  display: none !important;
+  content: "" !important;
+}
+
+/* v79：滑鼠移到標題自動展開時，標題保留可操作游標 */
+.accordion-dropdown-template[data-accordion-hover-open="true"] .accordion-item-head {
+  cursor: pointer !important;
+}
+
+/* v79：一般 select option 背景色保留 */
+.editable-select option {
+  background-color: inherit;
+}
+
+
+/* v80：下拉式元件單一選項標題 / 內容背景設定 */
+.editable-select {
+  transition: background-color .18s ease, color .18s ease;
+}
+
+.select-option-style-panel {
+  border: 1px solid #e6eaf0;
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(248,249,250,.72);
+}
+
+/* v80：導覽列下拉標題模板 */
+.nav-dropdown {
+  overflow: visible !important;
+}
+
+.nav-dropdown-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.nav-dropdown-title {
+  width: 100%;
+  height: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid #e6eaf0;
+  border-radius: inherit;
+  background: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nav-dropdown-title::after {
+  content: "⌄";
+  font-size: .9em;
+  transition: transform .18s ease;
+}
+
+.nav-dropdown:hover .nav-dropdown-title::after {
+  transform: rotate(180deg);
+}
+
+.nav-dropdown-menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid #e6eaf0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(15,23,42,.14);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease, visibility .18s ease;
+  z-index: 9999;
+}
+
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown:focus-within .nav-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.nav-dropdown-option {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  text-align: left;
+  background: #ffffff;
+  color: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.nav-dropdown-option:hover {
+  filter: brightness(.96);
+}
+
+/* v80：避免調色時連續重繪造成卡頓 */
+.editor-inspector input[type="color"],
+.editor-inspector input[type="range"] {
+  will-change: auto;
+}
+
+
+/* v81：導覽列下拉標題不要 icon */
+.nav-dropdown-title::after {
+  display: none !important;
+  content: "" !important;
+}
+
+/* v81：移到下拉選項前不會先收起 */
+.nav-dropdown {
+  padding-bottom: 12px;
+}
+
+.nav-dropdown-menu {
+  top: 100% !important;
+}
+
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown:focus-within .nav-dropdown-menu,
+.nav-dropdown.menu-open .nav-dropdown-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+
+/* v81：單一選項樣式新增邊框設定 */
+.select-option-style-panel .quick-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.nav-dropdown-option,
+.nav-dropdown-title,
+.editable-select {
+  box-sizing: border-box;
+}
+
+/* v81：所有元件字體都可被設定面板套用 */
+.free-element,
+.free-element > .inner,
+.free-element > .inner *,
+.free-element input,
+.free-element select,
+.free-element button,
+.free-element textarea {
+  font-family: inherit;
+}
