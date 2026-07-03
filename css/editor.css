@@ -3819,3 +3819,157 @@ body.exported-site [data-resize] {
   pointer-events: none !important;
   cursor: default !important;
 }
+
+
+/* v76：橫向輪播露出下一組樣式補強 */
+.js-css-card-carousel[data-carousel-layout="peek"] .custom-carousel,
+.custom-carousel[data-layout="peek"] {
+  overflow: visible !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="peek"] .carousel-viewport,
+.custom-carousel[data-layout="peek"] .carousel-viewport {
+  overflow: hidden !important;
+  width: 100% !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="peek"] .carousel-track,
+.custom-carousel[data-layout="peek"] .carousel-track {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: var(--carousel-slide-gap, 4%) !important;
+  transition: transform .35s ease !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="peek"] .carousel-slide,
+.custom-carousel[data-layout="peek"] .carousel-slide {
+  flex: 0 0 var(--carousel-slide-width, 84%) !important;
+  width: var(--carousel-slide-width, 84%) !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="full"] .carousel-track,
+.custom-carousel[data-layout="full"] .carousel-track {
+  gap: 0 !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="full"] .carousel-slide,
+.custom-carousel[data-layout="full"] .carousel-slide {
+  flex: 0 0 100% !important;
+  width: 100% !important;
+}
+
+/* v76：形狀與一般元件對齊輔助線補強 */
+body:not(.preview-mode) .alignment-guide {
+  position: absolute !important;
+  display: none;
+  pointer-events: none !important;
+  z-index: 2147483000 !important;
+  background: #0d6efd !important;
+  box-shadow: 0 0 0 1px rgba(13,110,253,.25);
+}
+
+body:not(.preview-mode) .alignment-guide.vertical {
+  width: 1px !important;
+  top: 0 !important;
+  bottom: 0 !important;
+}
+
+body:not(.preview-mode) .alignment-guide.horizontal {
+  height: 1px !important;
+  left: 0 !important;
+  right: 0 !important;
+}
+
+body:not(.preview-mode) .alignment-guide.center-guide {
+  background: #20c997 !important;
+}
+
+/* v76：圖片裁切工具基本效果 */
+.free-element[data-type="image"] {
+  overflow: hidden;
+}
+
+.free-element[data-type="image"] .editable-image {
+  will-change: transform, filter;
+}
+
+/* v76：圖片黑白滑入彩色不被覆蓋物件擋住 */
+body.preview-mode .free-element[data-type="image"][data-grayscale-hover="true"],
+body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"] {
+  z-index: 9990 !important;
+  pointer-events: auto !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-grayscale-hover="true"]:hover,
+body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"]:hover {
+  z-index: 99999 !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-grayscale-hover="true"]:hover .editable-image,
+body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"]:hover .editable-image {
+  filter: grayscale(0) !important;
+}
+
+/* v76：快速翻轉 / 旋轉保留中心點 */
+.free-element {
+  transform-origin: center center;
+}
+
+
+/* v77：形狀拖曳也跟圖片一樣顯示對齊輔助線 */
+body:not(.preview-mode) .block-canvas > .alignment-guide {
+  display: none;
+  position: absolute !important;
+  pointer-events: none !important;
+  z-index: 2147483000 !important;
+  background: #0d6efd !important;
+}
+
+body:not(.preview-mode) .block-canvas > .alignment-guide.vertical {
+  width: 2px !important;
+  top: 0 !important;
+  bottom: 0 !important;
+}
+
+body:not(.preview-mode) .block-canvas > .alignment-guide.horizontal {
+  height: 2px !important;
+  left: 0 !important;
+  right: 0 !important;
+}
+
+body:not(.preview-mode) .block-canvas > .alignment-guide.center-guide {
+  background: #20c997 !important;
+}
+
+/* v77：即時存檔狀態 */
+.autosave-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid #e6eaf0;
+  border-radius: 999px;
+  background: #fff;
+  color: #6c757d;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.autosave-status.is-saving {
+  color: #0d6efd;
+  border-color: rgba(13,110,253,.28);
+  background: rgba(13,110,253,.06);
+}
+
+.autosave-status.is-saved {
+  color: #198754;
+  border-color: rgba(25,135,84,.28);
+  background: rgba(25,135,84,.06);
+}
+
+.autosave-status.is-error {
+  color: #dc3545;
+  border-color: rgba(220,53,69,.28);
+  background: rgba(220,53,69,.06);
+}

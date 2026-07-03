@@ -65,6 +65,10 @@
         <i class="bi bi-arrow-clockwise"></i> 載入
       </button>
 
+      <span class="autosave-status no-export" id="autosaveStatus">
+        <i class="bi bi-cloud-check"></i> 即時存檔
+      </span>
+
       <button class="btn btn-outline-danger btn-sm" id="clearBtn">
         <i class="bi bi-trash"></i> 清空
       </button>
@@ -441,9 +445,26 @@
 
         <label class="simple-label">高度</label>
         <input type="range" class="form-range" id="elH" min="24" max="800" step="1" value="120">
-        <div class="px-input-row">
+        <div class="px-input-row mb-3">
           <span>px</span>
           <input type="number" class="form-control form-control-sm" id="elHPx" value="120">
+        </div>
+
+        <label class="simple-label">快速對齊</label>
+        <div class="quick-grid mb-3">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="center-both">置中</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="left">靠左</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="right">靠右</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="top">靠上</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="bottom">靠下</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="center-x">水平置中</button>
+        </div>
+
+        <label class="simple-label">翻轉 / 旋轉</label>
+        <div class="quick-grid">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="flip-x">水平翻轉</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="flip-y">垂直翻轉</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="rotate-right">右旋 90°</button>
         </div>
       </div>
 
@@ -598,6 +619,41 @@
         <div class="small text-muted" id="imageOriginalInfo">
           開啟後會依照圖片原始寬高比例調整元件大小。
         </div>
+
+        <hr>
+
+        <div class="setting-title small mb-2">圖片裁切工具</div>
+
+        <label class="simple-label">裁切模式</label>
+        <select class="form-select form-select-sm mb-3" id="imageCropFit">
+          <option value="cover">裁切填滿</option>
+          <option value="contain">完整顯示</option>
+          <option value="fill">拉伸填滿</option>
+          <option value="none">原始大小</option>
+        </select>
+
+        <label class="simple-label">裁切位置 X</label>
+        <input type="range" class="form-range" id="imageCropX" min="0" max="100" step="1" value="50">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="imageCropXInput" min="0" max="100" step="1" value="50">
+        </div>
+
+        <label class="simple-label">裁切位置 Y</label>
+        <input type="range" class="form-range" id="imageCropY" min="0" max="100" step="1" value="50">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="imageCropYInput" min="0" max="100" step="1" value="50">
+        </div>
+
+        <label class="simple-label">裁切放大</label>
+        <input type="range" class="form-range" id="imageCropZoom" min="100" max="300" step="5" value="100">
+        <div class="px-input-row mb-2">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="imageCropZoomInput" min="100" max="300" step="5" value="100">
+        </div>
+
+        <button type="button" class="btn btn-outline-secondary btn-sm w-100 mb-2" id="resetImageCropBtn">重設裁切</button>
 
         <hr>
 
