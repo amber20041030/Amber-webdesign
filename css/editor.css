@@ -4546,3 +4546,146 @@ body.is-marquee-selecting .site-page {
 .free-element[data-element-bg-color][data-type="nav-dropdown"] .nav-dropdown-title {
   background-color: var(--element-bg-color, #fff) !important;
 }
+
+/* v94：圖片圖層與整張圖片滑鼠移入放大修正
+   - 圖片平常不再被 hover/黑白效果固定到最上層，圖層表與 Z-index 可以正常修改。
+   - 放大效果改套用在圖片容器 inner，上傳圖片、裁切、圓角會一起保留。
+   - 透過 JS 加上 image-hover-zoom-active，滑鼠被上方圖層擋住時仍會觸發。 */
+.free-element[data-type="image"] {
+  overflow: visible !important;
+}
+
+.free-element[data-type="image"] > .inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  transform: scale(var(--image-zoom-normal, 1));
+  transform-origin: var(--image-zoom-origin, center center);
+  transition: transform .25s ease;
+  will-change: transform;
+}
+
+.free-element[data-type="image"] .editable-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  transform: var(--image-crop-transform, none) !important;
+  transform-origin: var(--image-crop-origin, center center) !important;
+  will-change: transform, filter;
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover > .inner,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover > .inner,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].hover-zoom-preview:hover > .inner,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].image-hover-zoom-active > .inner {
+  transform: var(--image-zoom-boundary-transform, scale(var(--image-zoom-hover, 1.2))) !important;
+  transform-origin: var(--image-zoom-origin, center center);
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover .editable-image,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].hover-zoom-preview:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].image-hover-zoom-active .editable-image {
+  transform: var(--image-crop-transform, none) !important;
+  transform-origin: var(--image-crop-origin, center center) !important;
+}
+
+/* 修正舊版黑白滑入彩色把圖片永遠推到最上層，造成圖層不能修改。 */
+body.preview-mode .free-element[data-type="image"][data-grayscale-hover="true"],
+body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"] {
+  z-index: var(--image-layer-z-index, auto) !important;
+}
+
+/* 只有滑鼠真的在圖片範圍內時，才暫時把圖片提到最上層，避免被上方圖層擋住看不到放大。 */
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"].image-hover-zoom-active,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"].image-hover-zoom-active,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].hover-zoom-preview.image-hover-zoom-active {
+  z-index: 99999 !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-grayscale-hover="true"].image-hover-zoom-active .editable-image,
+body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"].image-hover-zoom-active .editable-image {
+  filter: grayscale(0) !important;
+}
+
+/* v95：圖片滑鼠移入只做純放大；預覽底部不被返回按鈕或視窗裁切 */
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover > .inner,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover > .inner,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].hover-zoom-preview:hover > .inner,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].image-hover-zoom-active > .inner {
+  transform: scale(var(--image-zoom-hover, 1.2)) !important;
+  transform-origin: center center !important;
+  filter: none !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover .editable-image,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].hover-zoom-preview:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].image-hover-zoom-active .editable-image {
+  transform: var(--image-crop-transform, none) !important;
+  transform-origin: var(--image-crop-origin, center center) !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
+  mix-blend-mode: normal !important;
+  transition: transform .25s ease !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"]:not([data-grayscale-hover="true"]):not([data-pure-black-white="true"]):hover .editable-image,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"]:not([data-grayscale-hover="true"]):not([data-pure-black-white="true"]):hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].hover-zoom-preview:not([data-grayscale-hover="true"]):not([data-pure-black-white="true"]):hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].image-hover-zoom-active:not([data-grayscale-hover="true"]):not([data-pure-black-white="true"]) .editable-image {
+  filter: none !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"][data-grayscale-hover="true"]:hover .editable-image,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"][data-grayscale-hover="true"]:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-grayscale-hover="true"].hover-zoom-preview:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-grayscale-hover="true"].image-hover-zoom-active .editable-image {
+  filter: grayscale(1) !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"][data-pure-black-white="true"]:hover .editable-image,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"][data-pure-black-white="true"]:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-pure-black-white="true"].hover-zoom-preview:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-pure-black-white="true"].image-hover-zoom-active .editable-image {
+  filter: grayscale(1) contrast(1.45) brightness(.92) !important;
+}
+
+html.preview-scroll-fix-v95,
+html.preview-scroll-fix-v95 body.preview-mode,
+body.preview-mode {
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow-y: auto !important;
+}
+
+body.preview-mode .editor-layout {
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow: visible !important;
+}
+
+body.preview-mode .canvas-area {
+  height: auto !important;
+  min-height: calc(100vh + 120px) !important;
+  overflow: visible !important;
+  padding-bottom: 120px !important;
+  box-sizing: border-box !important;
+}
+
+body.preview-mode .site-page {
+  margin-bottom: 120px !important;
+}
+
+body.preview-mode #floatingExitPreviewBtn,
+body.preview-mode #exitPreviewBtn {
+  max-width: calc(100vw - 32px) !important;
+}

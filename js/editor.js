@@ -11511,3 +11511,586 @@ const originalBuildExportCSSV87 = buildExportCSS;
 buildExportCSS = function() {
   return originalBuildExportCSSV87() + "\n/* v87：線條元件匯出 */\n.free-element[data-type=\"line\"] {\n  background: transparent !important;\n  overflow: visible !important;\n  cursor: default;\n}\n\n.free-element[data-type=\"line\"] .line-inner,\n.free-element[data-type=\"line\"] .editable-line {\n  width: 100%;\n  height: 100%;\n  overflow: visible;\n}\n\n.free-element[data-type=\"line\"] .line-endpoint {\n  display: none;\n}\n";
 };
+
+/* v94：圖片圖層、整張圖片放大、上方圖層遮住仍可觸發 */
+function syncImageCropCSSVarsForElementV94(el) {
+  if (!el || el.dataset?.type !== 'image') return;
+
+  const img = el.querySelector('img.editable-image, .editable-image');
+  if (!img) return;
+
+  const x = el.dataset.imageCropX || '50';
+  const y = el.dataset.imageCropY || '50';
+  const zoom = Math.max(100, Math.min(300, parseFloat(el.dataset.imageCropZoom || '100') || 100));
+  const fit = el.dataset.imageCropFit || img.style.objectFit || 'cover';
+  const cropTransform = img.style.transform && img.style.transform !== 'none'
+    ? img.style.transform
+    : `scale(${zoom / 100})`;
+  const cropOrigin = img.style.transformOrigin || `${x}% ${y}%`;
+
+  img.style.width = img.style.width || '100%';
+  img.style.height = img.style.height || '100%';
+  img.style.objectFit = fit;
+  img.style.objectPosition = img.style.objectPosition || `${x}% ${y}%`;
+  img.style.transformOrigin = cropOrigin;
+  img.style.transform = cropTransform;
+  img.style.setProperty('--image-crop-transform', cropTransform);
+  img.style.setProperty('--image-crop-origin', cropOrigin);
+
+  el.style.setProperty('--image-layer-z-index', el.style.zIndex || window.getComputedStyle(el).zIndex || 'auto');
+}
+
+function syncImageHoverZoomElementStyle(el) {
+  if (!el || el.dataset?.type !== 'image') return;
+
+  const enabled = el.dataset.hoverZoomEnabled === 'true';
+  const normal = Math.max(50, Math.min(200, parseFloat(el.dataset.zoomNormal || '100') || 100)) / 100;
+  const hover = Math.max(50, Math.min(300, parseFloat(el.dataset.zoomHover || '120') || 120)) / 100;
+  const boundaryEnabled = el.dataset.hoverZoomBoundary !== 'false';
+  const centerEnabled = el.dataset.hoverZoomCenter === 'true';
+  const gap = Math.max(0, Math.min(80, parseFloat(el.dataset.hoverZoomBoundaryGap || '10') || 10));
+
+  el.style.setProperty('--image-zoom-normal', normal);
+  el.style.setProperty('--image-zoom-hover', hover);
+  el.style.setProperty('--image-zoom-boundary-gap', gap + 'px');
+  el.style.setProperty('--image-zoom-boundary-transform', `scale(${normal})`);
+  el.style.setProperty('--image-zoom-origin', 'center center');
+  el.style.setProperty('--image-layer-z-index', el.style.zIndex || window.getComputedStyle(el).zIndex || 'auto');
+  el.dataset.hoverZoomBoundary = boundaryEnabled ? 'true' : 'false';
+  el.dataset.hoverZoomCenter = centerEnabled ? 'true' : 'false';
+  el.classList.toggle('hover-zoom-preview', enabled);
+
+  // 讓舊版 :hover 外層 transform 不會蓋過旋轉 / 翻轉，也避免圖片被放大兩次。
+  if (typeof applyElementTransformState === 'function') {
+    applyElementTransformState(el);
+  }
+
+  syncImageCropCSSVarsForElementV94(el);
+}
+
+function updateImageZoomBoundaryTransform(el, event) {
+  if (!el || el.dataset?.type !== 'image') return;
+  if (el.dataset.hoverZoomEnabled !== 'true') return;
+
+  const hoverScale = Math.max(50, Math.min(300, parseFloat(el.dataset.zoomHover || '120') || 120)) / 100;
+  const boundaryEnabled = el.dataset.hoverZoomBoundary !== 'false';
+  const centerEnabled = el.dataset.hoverZoomCenter === 'true';
+  const gap = Math.max(0, Math.min(80, parseFloat(el.dataset.hoverZoomBoundaryGap || '10') || 10));
+
+  if (!boundaryEnabled) {
+    el.style.setProperty('--image-zoom-boundary-transform', `scale(${hoverScale})`);
+    el.style.setProperty('--image-zoom-origin', 'center center');
+    return;
+  }
+
+  const page = document.getElementById('sitePage') || document.body;
+  const pageRect = page.getBoundingClientRect();
+  const rect = el.getBoundingClientRect();
+
+  let originX = 50;
+  let originY = 50;
+
+  if (!centerEnabled && event) {
+    originX = Math.max(0, Math.min(100, ((event.clientX - rect.left) / Math.max(rect.width, 1)) * 100));
+    originY = Math.max(0, Math.min(100, ((event.clientY - rect.top) / Math.max(rect.height, 1)) * 100));
+  }
+
+  const originXPx = rect.width * originX / 100;
+  const originYPx = rect.height * originY / 100;
+  const scaledLeft = rect.left - originXPx * (hoverScale - 1);
+  const scaledTop = rect.top - originYPx * (hoverScale - 1);
+  const scaledRight = scaledLeft + rect.width * hoverScale;
+  const scaledBottom = scaledTop + rect.height * hoverScale;
+
+  let dx = 0;
+  let dy = 0;
+
+  const minLeft = pageRect.left + gap;
+  const minTop = pageRect.top + gap;
+  const maxRight = pageRect.right - gap;
+  const maxBottom = pageRect.bottom - gap;
+
+  if (scaledLeft < minLeft) dx += minLeft - scaledLeft;
+  if (scaledRight + dx > maxRight) dx += maxRight - (scaledRight + dx);
+  if (scaledTop < minTop) dy += minTop - scaledTop;
+  if (scaledBottom + dy > maxBottom) dy += maxBottom - (scaledBottom + dy);
+
+  el.style.setProperty('--image-zoom-origin', `${originX}% ${originY}%`);
+  el.style.setProperty('--image-zoom-boundary-transform', `translate(${dx}px, ${dy}px) scale(${hoverScale})`);
+}
+
+function resetImageZoomBoundaryTransform(el) {
+  if (!el || el.dataset?.type !== 'image') return;
+
+  const normalScale = Math.max(50, Math.min(200, parseFloat(el.dataset.zoomNormal || '100') || 100)) / 100;
+  el.style.setProperty('--image-zoom-boundary-transform', `scale(${normalScale})`);
+  el.classList.remove('image-hover-zoom-active');
+}
+
+function updateImageHoverZoomHitTestV94(event) {
+  const page = document.getElementById('sitePage');
+  if (!page || !event) return;
+
+  const pageRect = page.getBoundingClientRect();
+  const insidePage = event.clientX >= pageRect.left && event.clientX <= pageRect.right && event.clientY >= pageRect.top && event.clientY <= pageRect.bottom;
+  const images = Array.from(page.querySelectorAll('.free-element[data-type="image"][data-hover-zoom-enabled="true"]'));
+
+  images.forEach(el => {
+    syncImageHoverZoomElementStyle(el);
+
+    if (!insidePage) {
+      resetImageZoomBoundaryTransform(el);
+      return;
+    }
+
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+      resetImageZoomBoundaryTransform(el);
+      return;
+    }
+
+    const rect = el.getBoundingClientRect();
+    const hit = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+
+    el.classList.toggle('image-hover-zoom-active', hit);
+
+    if (hit) {
+      updateImageZoomBoundaryTransform(el, event);
+    } else {
+      resetImageZoomBoundaryTransform(el);
+    }
+  });
+}
+
+function clearImageHoverZoomHitTestV94() {
+  document.querySelectorAll('.free-element[data-type="image"].image-hover-zoom-active').forEach(resetImageZoomBoundaryTransform);
+}
+
+function initImageHoverZoomHitTestV94() {
+  if (document.documentElement.dataset.imageHoverZoomHitTestV94 === 'true') return;
+
+  document.documentElement.dataset.imageHoverZoomHitTestV94 = 'true';
+  document.addEventListener('pointermove', updateImageHoverZoomHitTestV94, true);
+  document.addEventListener('pointerdown', updateImageHoverZoomHitTestV94, true);
+  document.addEventListener('pointerleave', clearImageHoverZoomHitTestV94, true);
+  window.addEventListener('blur', clearImageHoverZoomHitTestV94);
+}
+
+const originalApplyImageCropSettingsV94 = applyImageCropSettings;
+applyImageCropSettings = function() {
+  originalApplyImageCropSettingsV94();
+  syncImageCropCSSVarsForElementV94(selectedElement);
+};
+
+const originalBringFrontV94 = bringFront;
+bringFront = function() {
+  originalBringFrontV94();
+  if (selectedElement?.dataset?.type === 'image') syncImageHoverZoomElementStyle(selectedElement);
+  renderLayerList();
+};
+
+const originalSendBackV94 = sendBack;
+sendBack = function() {
+  originalSendBackV94();
+  if (selectedElement?.dataset?.type === 'image') syncImageHoverZoomElementStyle(selectedElement);
+  renderLayerList();
+};
+
+const imageHoverZoomCSSV94 = `
+/* v94：圖片圖層與整張圖片滑鼠移入放大修正 */
+.free-element[data-type="image"] {
+  overflow: visible !important;
+}
+
+.free-element[data-type="image"] > .inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  transform: scale(var(--image-zoom-normal, 1));
+  transform-origin: var(--image-zoom-origin, center center);
+  transition: transform .25s ease;
+  will-change: transform;
+}
+
+.free-element[data-type="image"] .editable-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  transform: var(--image-crop-transform, none) !important;
+  transform-origin: var(--image-crop-origin, center center) !important;
+  will-change: transform, filter;
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover > .inner,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover > .inner,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].hover-zoom-preview:hover > .inner,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].image-hover-zoom-active > .inner {
+  transform: var(--image-zoom-boundary-transform, scale(var(--image-zoom-hover, 1.2))) !important;
+  transform-origin: var(--image-zoom-origin, center center);
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover .editable-image,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].hover-zoom-preview:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].image-hover-zoom-active .editable-image {
+  transform: var(--image-crop-transform, none) !important;
+  transform-origin: var(--image-crop-origin, center center) !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-grayscale-hover="true"],
+body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"] {
+  z-index: var(--image-layer-z-index, auto) !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"].image-hover-zoom-active,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"].image-hover-zoom-active,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].hover-zoom-preview.image-hover-zoom-active {
+  z-index: 99999 !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-grayscale-hover="true"].image-hover-zoom-active .editable-image,
+body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"].image-hover-zoom-active .editable-image {
+  filter: grayscale(0) !important;
+}
+`;
+
+const originalBuildExportCSSV94 = buildExportCSS;
+buildExportCSS = function() {
+  return originalBuildExportCSSV94() + imageHoverZoomCSSV94;
+};
+
+const exportImageHoverZoomRuntimeV94 = `
+(function () {
+  function qsa(selector, root) {
+    return Array.prototype.slice.call((root || document).querySelectorAll(selector));
+  }
+
+  function getSitePageV94() {
+    return document.getElementById('sitePage');
+  }
+
+  function syncImageCropVarsV94(el) {
+    if (!el) return;
+    var img = el.querySelector('img.editable-image, .editable-image');
+    if (!img) return;
+
+    var x = el.getAttribute('data-image-crop-x') || '50';
+    var y = el.getAttribute('data-image-crop-y') || '50';
+    var zoom = Math.max(100, Math.min(300, parseFloat(el.getAttribute('data-image-crop-zoom') || '100') || 100));
+    var fit = el.getAttribute('data-image-crop-fit') || img.style.objectFit || 'cover';
+    var cropTransform = img.style.transform && img.style.transform !== 'none' ? img.style.transform : 'scale(' + (zoom / 100) + ')';
+    var cropOrigin = img.style.transformOrigin || (x + '% ' + y + '%');
+
+    img.style.width = img.style.width || '100%';
+    img.style.height = img.style.height || '100%';
+    img.style.objectFit = fit;
+    img.style.objectPosition = img.style.objectPosition || (x + '% ' + y + '%');
+    img.style.transformOrigin = cropOrigin;
+    img.style.transform = cropTransform;
+    img.style.setProperty('--image-crop-transform', cropTransform);
+    img.style.setProperty('--image-crop-origin', cropOrigin);
+    el.style.setProperty('--image-layer-z-index', el.style.zIndex || window.getComputedStyle(el).zIndex || 'auto');
+  }
+
+  function syncImageZoomVarsV94(el) {
+    if (!el) return;
+    var normal = Math.max(50, Math.min(200, parseFloat(el.getAttribute('data-zoom-normal') || '100') || 100)) / 100;
+    var hover = Math.max(50, Math.min(300, parseFloat(el.getAttribute('data-zoom-hover') || '120') || 120)) / 100;
+    var gap = Math.max(0, Math.min(80, parseFloat(el.getAttribute('data-hover-zoom-boundary-gap') || '10') || 10));
+    el.style.setProperty('--image-zoom-normal', normal);
+    el.style.setProperty('--image-zoom-hover', hover);
+    el.style.setProperty('--image-zoom-boundary-gap', gap + 'px');
+    el.style.setProperty('--image-zoom-boundary-transform', 'scale(' + normal + ')');
+    el.style.setProperty('--image-zoom-origin', 'center center');
+    el.style.setProperty('--image-layer-z-index', el.style.zIndex || window.getComputedStyle(el).zIndex || 'auto');
+    syncImageCropVarsV94(el);
+  }
+
+  function updateBoundaryV94(el, event) {
+    if (!el || el.getAttribute('data-hover-zoom-enabled') !== 'true') return;
+
+    var hoverScale = Math.max(50, Math.min(300, parseFloat(el.getAttribute('data-zoom-hover') || '120') || 120)) / 100;
+    var boundaryEnabled = el.getAttribute('data-hover-zoom-boundary') !== 'false';
+    var centerEnabled = el.getAttribute('data-hover-zoom-center') === 'true';
+    var gap = Math.max(0, Math.min(80, parseFloat(el.getAttribute('data-hover-zoom-boundary-gap') || '10') || 10));
+
+    if (!boundaryEnabled) {
+      el.style.setProperty('--image-zoom-boundary-transform', 'scale(' + hoverScale + ')');
+      el.style.setProperty('--image-zoom-origin', 'center center');
+      return;
+    }
+
+    var page = getSitePageV94() || document.body;
+    var pageRect = page.getBoundingClientRect();
+    var rect = el.getBoundingClientRect();
+    var originX = 50;
+    var originY = 50;
+
+    if (!centerEnabled && event) {
+      originX = Math.max(0, Math.min(100, ((event.clientX - rect.left) / Math.max(rect.width, 1)) * 100));
+      originY = Math.max(0, Math.min(100, ((event.clientY - rect.top) / Math.max(rect.height, 1)) * 100));
+    }
+
+    var originXPx = rect.width * originX / 100;
+    var originYPx = rect.height * originY / 100;
+    var scaledLeft = rect.left - originXPx * (hoverScale - 1);
+    var scaledTop = rect.top - originYPx * (hoverScale - 1);
+    var scaledRight = scaledLeft + rect.width * hoverScale;
+    var scaledBottom = scaledTop + rect.height * hoverScale;
+    var dx = 0;
+    var dy = 0;
+    var minLeft = pageRect.left + gap;
+    var minTop = pageRect.top + gap;
+    var maxRight = pageRect.right - gap;
+    var maxBottom = pageRect.bottom - gap;
+
+    if (scaledLeft < minLeft) dx += minLeft - scaledLeft;
+    if (scaledRight + dx > maxRight) dx += maxRight - (scaledRight + dx);
+    if (scaledTop < minTop) dy += minTop - scaledTop;
+    if (scaledBottom + dy > maxBottom) dy += maxBottom - (scaledBottom + dy);
+
+    el.style.setProperty('--image-zoom-origin', originX + '% ' + originY + '%');
+    el.style.setProperty('--image-zoom-boundary-transform', 'translate(' + dx + 'px, ' + dy + 'px) scale(' + hoverScale + ')');
+  }
+
+  function resetImageV94(el) {
+    if (!el) return;
+    var normal = Math.max(50, Math.min(200, parseFloat(el.getAttribute('data-zoom-normal') || '100') || 100)) / 100;
+    el.style.setProperty('--image-zoom-boundary-transform', 'scale(' + normal + ')');
+    el.classList.remove('image-hover-zoom-active');
+  }
+
+  function updateHitTestV94(event) {
+    var page = getSitePageV94();
+    if (!page || !event) return;
+
+    var pageRect = page.getBoundingClientRect();
+    var insidePage = event.clientX >= pageRect.left && event.clientX <= pageRect.right && event.clientY >= pageRect.top && event.clientY <= pageRect.bottom;
+    var images = qsa('.free-element[data-type="image"][data-hover-zoom-enabled="true"]', page);
+
+    images.forEach(function (el) {
+      syncImageZoomVarsV94(el);
+
+      if (!insidePage) {
+        resetImageV94(el);
+        return;
+      }
+
+      var style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+        resetImageV94(el);
+        return;
+      }
+
+      var rect = el.getBoundingClientRect();
+      var hit = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+      el.classList.toggle('image-hover-zoom-active', hit);
+
+      if (hit) updateBoundaryV94(el, event);
+      else resetImageV94(el);
+    });
+  }
+
+  function clearAllV94() {
+    qsa('.free-element[data-type="image"].image-hover-zoom-active').forEach(resetImageV94);
+  }
+
+  function initImageHoverZoomRuntimeV94() {
+    qsa('.free-element[data-type="image"]').forEach(syncImageZoomVarsV94);
+
+    if (document.documentElement.getAttribute('data-export-image-hover-zoom-v94') === 'true') return;
+    document.documentElement.setAttribute('data-export-image-hover-zoom-v94', 'true');
+    document.addEventListener('pointermove', updateHitTestV94, true);
+    document.addEventListener('pointerdown', updateHitTestV94, true);
+    document.addEventListener('pointerleave', clearAllV94, true);
+    window.addEventListener('blur', clearAllV94);
+  }
+
+  if (typeof initExportRuntime === 'function' && !window.__imageHoverZoomV94Patched) {
+    window.__imageHoverZoomV94Patched = true;
+    var originalInitExportRuntimeV94 = initExportRuntime;
+    initExportRuntime = function () {
+      originalInitExportRuntimeV94();
+      initImageHoverZoomRuntimeV94();
+    };
+  }
+
+  initImageHoverZoomRuntimeV94();
+})();
+`;
+
+const originalBuildExportJSV94 = buildExportJS;
+buildExportJS = function(exportPagesJSON, currentPageIdJSON) {
+  return originalBuildExportJSV94(exportPagesJSON, currentPageIdJSON) + exportImageHoverZoomRuntimeV94;
+};
+
+initImageHoverZoomHitTestV94();
+sitePage.querySelectorAll('.free-element[data-type="image"]').forEach(syncImageHoverZoomElementStyle);
+renderLayerList();
+
+/* v94：Z-index 輸入與圖層拖拉後，同步圖片實際圖層變數 */
+function syncAllImageLayerVarsV94(scope = sitePage) {
+  if (!scope) return;
+  scope.querySelectorAll('.free-element[data-type="image"]').forEach(el => {
+    el.style.setProperty('--image-layer-z-index', el.style.zIndex || window.getComputedStyle(el).zIndex || 'auto');
+  });
+}
+
+const originalUpdateSelectedStyleV94 = updateSelectedStyle;
+updateSelectedStyle = function(event) {
+  originalUpdateSelectedStyleV94(event);
+  if (selectedElement?.dataset?.type === 'image') syncImageHoverZoomElementStyle(selectedElement);
+  syncAllImageLayerVarsV94();
+};
+
+const originalUpdateSelectedStyleByManualInputV94 = updateSelectedStyleByManualInput;
+updateSelectedStyleByManualInput = function() {
+  originalUpdateSelectedStyleByManualInputV94();
+  if (selectedElement?.dataset?.type === 'image') syncImageHoverZoomElementStyle(selectedElement);
+  syncAllImageLayerVarsV94();
+};
+
+const originalRenderLayerListV94 = renderLayerList;
+renderLayerList = function() {
+  syncAllImageLayerVarsV94();
+  originalRenderLayerListV94();
+};
+
+syncAllImageLayerVarsV94();
+
+/* v95：圖片純放大與預覽底部裁切修正 */
+const imagePureZoomPreviewCSSV95 = `
+/* v95：圖片滑鼠移入只做純放大；預覽底部不被返回按鈕或視窗裁切 */
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover > .inner,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover > .inner,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].hover-zoom-preview:hover > .inner,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].image-hover-zoom-active > .inner {
+  transform: scale(var(--image-zoom-hover, 1.2)) !important;
+  transform-origin: center center !important;
+  filter: none !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover .editable-image,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].hover-zoom-preview:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].image-hover-zoom-active .editable-image {
+  transform: var(--image-crop-transform, none) !important;
+  transform-origin: var(--image-crop-origin, center center) !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
+  mix-blend-mode: normal !important;
+  transition: transform .25s ease !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"]:not([data-grayscale-hover="true"]):not([data-pure-black-white="true"]):hover .editable-image,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"]:not([data-grayscale-hover="true"]):not([data-pure-black-white="true"]):hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].hover-zoom-preview:not([data-grayscale-hover="true"]):not([data-pure-black-white="true"]):hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].image-hover-zoom-active:not([data-grayscale-hover="true"]):not([data-pure-black-white="true"]) .editable-image {
+  filter: none !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"][data-grayscale-hover="true"]:hover .editable-image,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"][data-grayscale-hover="true"]:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-grayscale-hover="true"].hover-zoom-preview:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-grayscale-hover="true"].image-hover-zoom-active .editable-image {
+  filter: grayscale(1) !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"][data-pure-black-white="true"]:hover .editable-image,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"][data-pure-black-white="true"]:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-pure-black-white="true"].hover-zoom-preview:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-pure-black-white="true"].image-hover-zoom-active .editable-image {
+  filter: grayscale(1) contrast(1.45) brightness(.92) !important;
+}
+
+html.preview-scroll-fix-v95,
+html.preview-scroll-fix-v95 body.preview-mode,
+body.preview-mode {
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow-y: auto !important;
+}
+
+body.preview-mode .editor-layout {
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow: visible !important;
+}
+
+body.preview-mode .canvas-area {
+  height: auto !important;
+  min-height: calc(100vh + 120px) !important;
+  overflow: visible !important;
+  padding-bottom: 120px !important;
+  box-sizing: border-box !important;
+}
+
+body.preview-mode .site-page {
+  margin-bottom: 120px !important;
+}
+
+body.preview-mode #floatingExitPreviewBtn,
+body.preview-mode #exitPreviewBtn {
+  max-width: calc(100vw - 32px) !important;
+}
+`;
+
+(function initImagePureZoomPreviewFixV95() {
+  if (!document.getElementById('imagePureZoomPreviewCSSV95')) {
+    const style = document.createElement('style');
+    style.id = 'imagePureZoomPreviewCSSV95';
+    style.textContent = imagePureZoomPreviewCSSV95;
+    document.head.appendChild(style);
+  }
+
+  function applyPreviewScrollFixV95() {
+    const active = document.body.classList.contains('preview-mode');
+    document.documentElement.classList.toggle('preview-scroll-fix-v95', active);
+
+    const canvas = document.querySelector('.canvas-area');
+    if (!canvas) return;
+
+    if (!active) {
+      canvas.style.removeProperty('--preview-bottom-extra-v95');
+      canvas.style.removeProperty('min-height');
+      return;
+    }
+
+    const sitePageEl = document.getElementById('sitePage');
+    const bottomExtra = 120;
+    if (sitePageEl) {
+      const pageHeight = Math.ceil(sitePageEl.getBoundingClientRect().height || sitePageEl.scrollHeight || window.innerHeight);
+      const targetMinHeight = Math.max(window.innerHeight + bottomExtra, pageHeight + bottomExtra);
+      canvas.style.minHeight = targetMinHeight + 'px';
+    }
+  }
+
+  document.getElementById('previewBtn')?.addEventListener('click', () => {
+    window.requestAnimationFrame(() => {
+      applyPreviewScrollFixV95();
+      window.setTimeout(applyPreviewScrollFixV95, 80);
+      window.setTimeout(applyPreviewScrollFixV95, 350);
+    });
+  });
+
+  document.getElementById('exitPreviewBtn')?.addEventListener('click', () => {
+    window.setTimeout(applyPreviewScrollFixV95, 0);
+  });
+  document.getElementById('floatingExitPreviewBtn')?.addEventListener('click', () => {
+    window.setTimeout(applyPreviewScrollFixV95, 0);
+  });
+  window.addEventListener('resize', applyPreviewScrollFixV95);
+
+  const originalBuildExportCSSV95 = buildExportCSS;
+  buildExportCSS = function() {
+    return originalBuildExportCSSV95() + imagePureZoomPreviewCSSV95;
+  };
+})();
