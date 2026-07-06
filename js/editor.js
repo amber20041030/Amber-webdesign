@@ -14,6 +14,8 @@ let lastUsedBlockId = null;
 let selectedQAItem = null;
 let dragState = null;
 let resizeState = null;
+let marqueeSelectState = null;
+let suppressNextMarqueeClick = false;
 let editorHistory = [];
 let isRestoringHistory = false;
 let uploadedFonts = [];
@@ -378,7 +380,11 @@ function applyShapeMaterial(el) {
 
   el.dataset.shapeMaterial = material;
 
-  if (material === 'none') {
+  const shapeColor = normalizeHexColor(el.dataset.shapeColor || rgbToHex(window.getComputedStyle(el).backgroundColor), '#0d6efd');
+  const shapeOpacityPercent = clampNumber(parseFloat(el.dataset.shapeOpacity ?? getColorAlphaPercent(window.getComputedStyle(el).backgroundColor) ?? 100), 0, 100);
+  applyShapeColorVars(el, shapeColor, shapeOpacityPercent);
+
+  if (material === 'none' || material === 'dark-matte') {
     el.style.backdropFilter = '';
     el.style.webkitBackdropFilter = '';
 
@@ -672,6 +678,7 @@ function initPageRuntimeAfterHTMLLoad() {
   initSelectSwitchers(sitePage);
   initSideDrawerRuntime(sitePage);
   initHoverSlideGroups(sitePage);
+  repairElementColorState(sitePage);
   updateLockButtons(sitePage);
   sitePage.querySelectorAll('.js-css-vertical-news-carousel').forEach(block => setVerticalNewsIndex(block, parseInt(block.dataset.verticalIndex || '0', 10) || 0));
 }
@@ -3149,7 +3156,7 @@ function updateMultiSelectionLabel() {
 
   if (selectedElements.length > 1) {
     document.getElementById('selectedName').textContent = `已選取 ${selectedElements.length} 個元件`;
-    document.getElementById('selectedHint').textContent = 'Ctrl 可加選或取消選取；可按浮動工具列或右側操作的「建立群組」。';
+    document.getElementById('selectedHint').textContent = 'Ctrl 可加選或取消選取；也可以在空白畫布拖曳反藍框選多個元件。';
   }
 }
 
@@ -3248,7 +3255,7 @@ function selectElement(el, additive = false) {
 
   if (selectedElement) {
     document.getElementById('selectedName').textContent = selectedElement.dataset.name || '自由元件';
-    document.getElementById('selectedHint').textContent = '目前選取的是自由元件；拖移請使用上方「移動」把手';
+    document.getElementById('selectedHint').textContent = '目前選取的是自由元件；拖移請使用上方「移動」把手；空白畫布可拖曳反藍框選。';
   } else {
     document.getElementById('selectedName').textContent = '尚未選取';
     document.getElementById('selectedHint').textContent = '請先點選區塊或自由元件';
@@ -3521,6 +3528,136 @@ function colorWithOpacity(hex, opacity = 100) {
   const { r, g, b } = hexToRgbParts(hex);
   const alpha = Math.max(0, Math.min(100, parseFloat(opacity) || 0)) / 100;
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/* v93：顏色統一處理，避免材質覆蓋背景色、透明度或切換顏色失效 */
+function normalizeHexColor(value, fallback = '#ffffff') {
+  const raw = String(value || '').trim();
+
+  if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw.toLowerCase();
+
+  if (/^#[0-9a-fA-F]{3}$/.test(raw)) {
+    return '#' + raw.slice(1).split('').map(ch => ch + ch).join('').toLowerCase();
+  }
+
+  const rgb = raw.match(/rgba?\(([^)]+)\)/i);
+  if (rgb) {
+    const parts = rgb[1].split(',').map(part => parseFloat(part.trim()));
+    if (parts.length >= 3 && parts.slice(0, 3).every(part => !Number.isNaN(part))) {
+      return '#' + parts.slice(0, 3).map(part => {
+        const hex = Math.max(0, Math.min(255, Math.round(part))).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+      }).join('');
+    }
+  }
+
+  if (raw === 'transparent' || raw === 'rgba(0, 0, 0, 0)') return fallback;
+
+  return fallback;
+}
+
+function setColorVars(node, prefix, hex, opacity) {
+  if (!node) return;
+
+  const safeHex = normalizeHexColor(hex, '#ffffff');
+  const { r, g, b } = hexToRgbParts(safeHex);
+  const alpha = clampNumber(parseFloat(opacity), 0, 100) / 100;
+
+  node.style.setProperty(`--${prefix}-bg-color`, `rgba(${r}, ${g}, ${b}, ${alpha})`);
+  node.style.setProperty(`--${prefix}-bg-rgb`, `${r}, ${g}, ${b}`);
+  node.style.setProperty(`--${prefix}-bg-alpha`, String(alpha));
+}
+
+/* v93：元件背景顏色修正
+   - 選色時一定寫回真正可見的背景
+   - select / input / 下拉標題這類內層白底也同步
+   - 材質只當覆蓋層，不再接管背景顏色 */
+function syncElementBackgroundTargets(el, bg) {
+  if (!el) return;
+
+  const type = el.dataset.type || '';
+  const material = el.dataset.elementMaterial || 'none';
+  const targets = [];
+
+  if (['select', 'input', 'select-switcher-control'].includes(type)) {
+    const inner = el.querySelector(':scope > .inner');
+    if (inner) targets.push(inner);
+  }
+
+  el.querySelectorAll(':scope > .editable-select, :scope > .editable-input, :scope > .select-switcher-control, :scope .nav-dropdown-title').forEach(node => {
+    targets.push(node);
+  });
+
+  // 深灰霧面材質的 inner 需要保持透明，讓 ::before 材質覆蓋層顯示。
+  if (material === 'dark-matte') return;
+
+  [...new Set(targets)].forEach(target => {
+    // select / input 使用 background-color，避免覆蓋 Bootstrap 下拉箭頭背景圖。
+    if (target.matches?.('select, input, .form-select, .editable-select, .editable-input, .select-switcher-control')) {
+      target.style.backgroundColor = bg;
+    } else {
+      target.style.background = bg;
+      target.style.backgroundColor = bg;
+    }
+    target.style.color = 'inherit';
+  });
+}
+
+function applyElementBackgroundState(el, hex, opacity) {
+  if (!el) return;
+
+  const safeHex = normalizeHexColor(hex, '#ffffff');
+  const safeOpacity = clampNumber(parseFloat(opacity), 0, 100);
+  const bg = colorWithOpacity(safeHex, safeOpacity);
+
+  el.dataset.elementBgColor = safeHex;
+  el.dataset.elementBgOpacity = String(safeOpacity);
+  el.style.background = bg;
+  el.style.backgroundColor = bg;
+  el.style.backgroundImage = 'none';
+  setColorVars(el, 'element', safeHex, safeOpacity);
+  syncElementBackgroundTargets(el, bg);
+}
+
+function repairElementColorState(scope = sitePage) {
+  if (!scope) return;
+
+  scope.querySelectorAll('.free-element').forEach(el => {
+    if (!el || el.dataset.type === 'line') return;
+
+    const computedBg = window.getComputedStyle(el).backgroundColor;
+    const hasStoredBg = !!el.dataset.elementBgColor || el.dataset.elementBgOpacity !== undefined;
+
+    if (hasStoredBg && el.dataset.type !== 'shape') {
+      const color = normalizeHexColor(el.dataset.elementBgColor || computedBg, '#ffffff');
+      const opacity = clampNumber(parseFloat(el.dataset.elementBgOpacity ?? getColorAlphaPercent(computedBg) ?? 100), 0, 100);
+      applyElementBackgroundState(el, color, opacity);
+      applyElementMaterial(el);
+    } else {
+      const color = normalizeHexColor(computedBg, '#ffffff');
+      const opacity = clampNumber(parseFloat(getColorAlphaPercent(computedBg) ?? 100), 0, 100);
+      setColorVars(el, 'element', color, opacity);
+      syncElementBackgroundTargets(el, colorWithOpacity(color, opacity));
+    }
+
+    if (el.dataset.type === 'shape') {
+      const shapeColor = normalizeHexColor(el.dataset.shapeColor || window.getComputedStyle(el).backgroundColor, '#0d6efd');
+      const shapeOpacity = clampNumber(parseFloat(el.dataset.shapeOpacity ?? getColorAlphaPercent(window.getComputedStyle(el).backgroundColor) ?? 100), 0, 100);
+      applyShapeColorVars(el, shapeColor, shapeOpacity);
+      applyShapeMaterial(el);
+    }
+  });
+}
+
+function applyShapeColorVars(el, hex, opacity) {
+  if (!el) return;
+
+  const safeHex = normalizeHexColor(hex, '#0d6efd');
+  const safeOpacity = clampNumber(parseFloat(opacity), 0, 100);
+  setColorVars(el, 'shape', safeHex, safeOpacity);
+
+  const fill = el.querySelector('.shape-fill');
+  if (fill) setColorVars(fill, 'shape', safeHex, safeOpacity);
 }
 
 function syncElementHoverColorPanel() {
@@ -4793,11 +4930,17 @@ function refreshInspector() {
     const textAlpha = selectedElement.dataset.textOpacity ?? getElementTextOpacity(selectedElement);
     setValue('elementTextOpacity', textAlpha);
     setValue('elementTextOpacityPercent', textAlpha);
-    setValue('elementBgColor', selectedElement.dataset.elementBgColor || values.background);
+    const syncedElementBgColor = normalizeHexColor(selectedElement.dataset.elementBgColor || computedStyle.backgroundColor || values.background, values.background || '#ffffff');
     const elementBgAlpha = selectedElement.dataset.elementBgOpacity ?? getColorAlphaPercent(computedStyle.backgroundColor) ?? 0;
+    setValue('elementBgColor', syncedElementBgColor);
     setValue('elementBgOpacity', elementBgAlpha);
     setValue('elementBgOpacityPercent', elementBgAlpha);
     setValue('elementMaterial', selectedElement.dataset.elementMaterial || 'none');
+    setColorVars(selectedElement, 'element', syncedElementBgColor, elementBgAlpha);
+    if (selectedElement.dataset.elementBgColor || selectedElement.dataset.elementBgOpacity !== undefined) {
+      applyElementBackgroundState(selectedElement, syncedElementBgColor, elementBgAlpha);
+      applyElementMaterial(selectedElement);
+    }
 
     setValue('elementFontSize', Math.round(fontSize));
     setValue('elementFontSizePx', Math.round(fontSize));
@@ -5855,11 +5998,16 @@ function buildShapeBackground(color, opacity, gradientEnabled, directions, depth
   return layers.join(', ');
 }
 
-function applyShapeStyle() {
+function applyShapeStyle(event) {
   if (!selectedElement || selectedElement.dataset.type !== 'shape') return;
 
   const color = document.getElementById('shapeColor').value || '#0d6efd';
-  const opacity = clampPercent(document.getElementById('shapeOpacity').value, 100);
+  let opacity = clampPercent(document.getElementById('shapeOpacity').value, 100);
+  if (event?.target?.id === 'shapeColor' && opacity <= 0) {
+    opacity = 100;
+    setValue('shapeOpacity', opacity);
+    setValue('shapeOpacityPercent', opacity);
+  }
   const radius = Math.max(0, parseFloat(document.getElementById('shapeRadius').value) || 0);
   const gradientEnabled = document.getElementById('shapeGradientEnabled').checked;
   const directions = selectedShapeGradientDirections();
@@ -5868,6 +6016,7 @@ function applyShapeStyle() {
   const background = buildShapeBackground(color, opacity, gradientEnabled, directions, depth, gradientColors);
 
   selectedElement.style.background = background;
+  selectedElement.style.backgroundColor = colorWithOpacity(color, opacity);
   selectedElement.style.borderRadius = radius + 'px';
   selectedElement.dataset.shapeColor = color;
   selectedElement.dataset.shapeOpacity = opacity;
@@ -5876,11 +6025,13 @@ function applyShapeStyle() {
   selectedElement.dataset.shapeGradientDirections = directions.join(',');
   selectedElement.dataset.shapeGradientColors = serializeShapeGradientColors();
   selectedElement.dataset.shapeGradientDepth = depth;
+  applyShapeColorVars(selectedElement, color, opacity);
 
   const fill = selectedElement.querySelector('.shape-fill');
   if (fill) {
     fill.style.background = background;
     fill.style.borderRadius = radius + 'px';
+    applyShapeColorVars(selectedElement, color, opacity);
   }
 
   setValue('shapeOpacityPercent', opacity);
@@ -6610,10 +6761,16 @@ function applyElementMaterial(el) {
   const material = el.dataset.elementMaterial || 'none';
   el.dataset.elementMaterial = material;
 
+  const computedBg = window.getComputedStyle(el).backgroundColor;
+  const elementBgColor = normalizeHexColor(el.dataset.elementBgColor || computedBg, '#ffffff');
+  const elementBgOpacityPercent = clampNumber(parseFloat(el.dataset.elementBgOpacity ?? getColorAlphaPercent(computedBg) ?? 100), 0, 100);
+  setColorVars(el, 'element', elementBgColor, elementBgOpacityPercent);
+
   const targets = [el, el.querySelector(':scope > .inner')].filter(Boolean);
 
   targets.forEach(target => {
-    if (material === 'none') {
+    if (material === 'none' || material === 'dark-matte') {
+      // v91：dark-matte 只使用 CSS 覆蓋層，不改 inline background，避免背景透明度被覆蓋。
       target.style.backdropFilter = '';
       target.style.webkitBackdropFilter = '';
       return;
@@ -6690,23 +6847,27 @@ function applySelectedTextColorFromPanel() {
   syncTextStyleButtons();
 }
 
-function applySelectedBackgroundFromPanel() {
+function applySelectedBackgroundFromPanel(event) {
   if (!selectedElement) return;
 
-  const elementBgColor = document.getElementById('elementBgColor')?.value || selectedElement.dataset.elementBgColor || '#ffffff';
-  const elementBgOpacity = clampNumber(numberValue('elementBgOpacity', 100), 0, 100);
+  const elementBgColor = normalizeHexColor(document.getElementById('elementBgColor')?.value || selectedElement.dataset.elementBgColor || '#ffffff', '#ffffff');
+  let elementBgOpacity = clampNumber(numberValue('elementBgOpacity', 100), 0, 100);
   const material = document.getElementById('elementMaterial')?.value || selectedElement.dataset.elementMaterial || 'none';
-  const bg = colorWithOpacity(elementBgColor, elementBgOpacity);
 
-  selectedElement.style.background = bg;
-  selectedElement.dataset.elementBgColor = elementBgColor;
-  selectedElement.dataset.elementBgOpacity = elementBgOpacity;
+  // 使用者換背景顏色時，如果目前透明度是 0%，會看起來像顏色沒有接上；自動恢復可見。
+  if (event?.target?.id === 'elementBgColor' && elementBgOpacity <= 0) {
+    elementBgOpacity = 100;
+    setValue('elementBgOpacity', elementBgOpacity);
+  }
+
   selectedElement.dataset.elementMaterial = material;
-  selectedElement.style.setProperty('--element-bg-color', bg);
+  applyElementBackgroundState(selectedElement, elementBgColor, elementBgOpacity);
 
   applyElementMaterial(selectedElement);
   applyAccordionBackgroundStyles(selectedElement);
 
+  setValue('elementBgColor', elementBgColor);
+  setValue('elementBgOpacity', elementBgOpacity);
   setValue('elementBgOpacityPercent', elementBgOpacity);
 }
 
@@ -8987,6 +9148,15 @@ sitePage.addEventListener('change', e => {
   handleSelectOptionAction(select);
 });
 
+
+sitePage.addEventListener('click', e => {
+  if (!suppressNextMarqueeClick) return;
+
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  suppressNextMarqueeClick = false;
+}, true);
+
 // 點選 / 工具按鈕
 sitePage.addEventListener('click', e => {
   const hoverSlideAction = e.target.closest('[data-hover-slide-action]');
@@ -9094,6 +9264,176 @@ sitePage.addEventListener('click', e => {
 });
 
 
+/* v89：滑鼠拖曳反藍框選多個元件 */
+function isMarqueeSelectableStart(event) {
+  if (document.body.classList.contains('preview-mode')) return false;
+  if (event.button !== 0) return false;
+  if (isTypingNow()) return false;
+
+  const target = event.target;
+  if (!target || !sitePage.contains(target)) return false;
+
+  // 點到工具列、縮放點、表單或可編輯文字時，不啟動框選，避免影響原本操作。
+  if (target.closest(
+    '.editor-actions, .move-handle, .element-toolbar, .resize-handle, ' +
+    '[data-block-action], [data-element-action], [data-carousel-action], [data-select-switcher-action], ' +
+    '[data-vertical-carousel-action], [data-hover-slide-action], [data-accordion-action], ' +
+    'input, textarea, select, button, a, [contenteditable="true"]'
+  )) {
+    return false;
+  }
+
+  const scope = getMarqueeSelectScope(target);
+  if (!scope) return false;
+
+  // 點在元件本體上仍維持原本「選取 / 拖移」邏輯；只有畫布空白處可拉框。
+  // 若是在群組內空白處，closest('.free-element') 會拿到群組外框，這種情況允許框選群組內子元件。
+  const nearestElement = target.closest('.free-element');
+  const parentGroup = scope.classList.contains('group-inner')
+    ? scope.closest('.free-element[data-type="group"]')
+    : null;
+
+  if (nearestElement && nearestElement !== parentGroup) return false;
+
+  return true;
+}
+
+function getMarqueeSelectScope(target) {
+  if (!target || !sitePage.contains(target)) return null;
+  return target.closest('.group-inner, .block-canvas');
+}
+
+function getScopeSelectableElements(scope) {
+  if (!scope) return [];
+
+  return Array.from(scope.children).filter(child => {
+    if (!child.classList || !child.classList.contains('free-element')) return false;
+    if (!child.isConnected) return false;
+
+    const rect = child.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+
+    const style = window.getComputedStyle(child);
+    return style.display !== 'none' && style.visibility !== 'hidden';
+  });
+}
+
+function ensureMarqueeSelectBox() {
+  let box = document.getElementById('marqueeSelectBox');
+
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'marqueeSelectBox';
+    box.className = 'drag-select-marquee no-export';
+    box.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(box);
+  }
+
+  return box;
+}
+
+function setMarqueeBoxRect(box, x1, y1, x2, y2) {
+  const left = Math.min(x1, x2);
+  const top = Math.min(y1, y2);
+  const width = Math.abs(x2 - x1);
+  const height = Math.abs(y2 - y1);
+
+  box.style.left = left + 'px';
+  box.style.top = top + 'px';
+  box.style.width = width + 'px';
+  box.style.height = height + 'px';
+
+  return { left, top, right: left + width, bottom: top + height, width, height };
+}
+
+function rectsIntersect(a, b) {
+  return !(b.left > a.right || b.right < a.left || b.top > a.bottom || b.bottom < a.top);
+}
+
+function getElementsInsideMarquee(scope, marqueeRect) {
+  return getScopeSelectableElements(scope).filter(el => {
+    const rect = el.getBoundingClientRect();
+    return rectsIntersect(marqueeRect, rect);
+  });
+}
+
+function sameElementList(a, b) {
+  if (a.length !== b.length) return false;
+  return a.every((item, index) => item === b[index]);
+}
+
+function applyMarqueeSelection(elements, final = false) {
+  const cleanElements = elements.filter(el => el && el.isConnected);
+
+  if (!final && sameElementList(cleanElements, selectedElements)) return;
+
+  document.querySelectorAll('.html-block').forEach(item => item.classList.remove('selected'));
+  document.querySelectorAll('.free-element').forEach(item => item.classList.remove('selected', 'multi-selected'));
+
+  selectedElements = cleanElements;
+  selectedElement = cleanElements[cleanElements.length - 1] || null;
+  selectedBlock = selectedElement ? selectedElement.closest('.html-block') : null;
+
+  cleanElements.forEach(item => {
+    item.classList.add('selected');
+    item.classList.toggle('multi-selected', cleanElements.length > 1);
+  });
+
+  if (selectedBlock) lastUsedBlockId = selectedBlock.dataset.id || null;
+
+  clearGroupChildEditMarkers();
+  syncGroupSelectionState();
+
+  const selectedName = document.getElementById('selectedName');
+  const selectedHint = document.getElementById('selectedHint');
+
+  if (cleanElements.length > 1) {
+    if (selectedName) selectedName.textContent = `已選取 ${cleanElements.length} 個元件`;
+    if (selectedHint) selectedHint.textContent = '拖曳反藍框選完成；可一起移動、刪除、鎖定 / 解鎖，3 個以上可平均分配。';
+  } else if (cleanElements.length === 1) {
+    if (selectedName) selectedName.textContent = cleanElements[0].dataset.name || '自由元件';
+    if (selectedHint) selectedHint.textContent = '已框選 1 個元件；可拖移、縮放或調整右側設定。';
+  } else {
+    if (selectedName) selectedName.textContent = '尚未選取';
+    if (selectedHint) selectedHint.textContent = '空白畫布可按住滑鼠拖曳，反藍框選多個元件。';
+  }
+
+  syncMultiDistributeTools();
+  updateLockButtons(sitePage);
+
+  if (final) {
+    refreshInspector();
+    renderLayerList();
+  }
+}
+
+function finishMarqueeSelection(event, cancelled = false) {
+  if (!marqueeSelectState) return;
+
+  const state = marqueeSelectState;
+  const box = state.box;
+
+  if (state.active && !cancelled) {
+    const rect = setMarqueeBoxRect(box, state.startX, state.startY, event?.clientX ?? state.lastX, event?.clientY ?? state.lastY);
+    const elements = getElementsInsideMarquee(state.scope, rect);
+    applyMarqueeSelection(elements, true);
+    suppressNextMarqueeClick = true;
+    window.setTimeout(() => {
+      suppressNextMarqueeClick = false;
+    }, 0);
+  }
+
+  if (box) box.style.display = 'none';
+  document.body.classList.remove('is-marquee-selecting');
+
+  try {
+    state.captureTarget?.releasePointerCapture?.(state.pointerId);
+  } catch (error) {}
+
+  marqueeSelectState = null;
+}
+
+
 function isPointerNearElementEdge(event, el, threshold = 12) {
   if (!el) return false;
 
@@ -9109,6 +9449,69 @@ function isPointerNearElementEdge(event, el, threshold = 12) {
   );
 }
 
+
+
+sitePage.addEventListener('pointerdown', e => {
+  if (!isMarqueeSelectableStart(e)) return;
+
+  const scope = getMarqueeSelectScope(e.target);
+  if (!scope) return;
+
+  const box = ensureMarqueeSelectBox();
+  box.style.display = 'none';
+
+  marqueeSelectState = {
+    scope,
+    box,
+    pointerId: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    lastX: e.clientX,
+    lastY: e.clientY,
+    active: false,
+    captureTarget: e.target
+  };
+
+  try {
+    e.target.setPointerCapture?.(e.pointerId);
+  } catch (error) {}
+}, true);
+
+sitePage.addEventListener('pointermove', e => {
+  if (!marqueeSelectState || marqueeSelectState.pointerId !== e.pointerId) return;
+
+  const state = marqueeSelectState;
+  state.lastX = e.clientX;
+  state.lastY = e.clientY;
+
+  const distanceX = Math.abs(e.clientX - state.startX);
+  const distanceY = Math.abs(e.clientY - state.startY);
+
+  if (!state.active && Math.max(distanceX, distanceY) < 6) return;
+
+  if (!state.active) {
+    state.active = true;
+    state.box.style.display = 'block';
+    document.body.classList.add('is-marquee-selecting');
+    e.preventDefault();
+  }
+
+  const rect = setMarqueeBoxRect(state.box, state.startX, state.startY, e.clientX, e.clientY);
+  const elements = getElementsInsideMarquee(state.scope, rect);
+  applyMarqueeSelection(elements, false);
+
+  e.preventDefault();
+}, true);
+
+sitePage.addEventListener('pointerup', e => {
+  if (!marqueeSelectState || marqueeSelectState.pointerId !== e.pointerId) return;
+  finishMarqueeSelection(e, false);
+}, true);
+
+sitePage.addEventListener('pointercancel', e => {
+  if (!marqueeSelectState || marqueeSelectState.pointerId !== e.pointerId) return;
+  finishMarqueeSelection(e, true);
+}, true);
 
 
 sitePage.addEventListener('pointerdown', e => {
@@ -9811,8 +10214,10 @@ document.getElementById('blockFixedBottomToggle')?.addEventListener('change', ap
 bindNumberInput('blockBgOpacityPercent', applyBlockBackgroundFromPercentInput);
 
 // v26：形狀顏色、透明度、圓角與漸層
-document.getElementById('shapeColor').addEventListener('input', applyShapeStyle);
-document.getElementById('shapeOpacity').addEventListener('input', applyShapeStyle);
+['input', 'change'].forEach(eventName => {
+  document.getElementById('shapeColor')?.addEventListener(eventName, applyShapeStyle);
+  document.getElementById('shapeOpacity')?.addEventListener(eventName, applyShapeStyle);
+});
 bindNumberInput('shapeOpacityPercent', applyShapeStyleFromPercentInput);
 
 document.getElementById('shapeRadius').addEventListener('input', applyShapeStyle);
@@ -9907,8 +10312,10 @@ document.querySelectorAll('[data-line-angle-preset]').forEach(btn => {
 
 // 自由元件樣式
 document.getElementById('elementTextColor')?.addEventListener('input', applySelectedTextColorFromPanel);
-document.getElementById('elementBgColor')?.addEventListener('input', applySelectedBackgroundFromPanel);
-document.getElementById('elementBgOpacity')?.addEventListener('input', applySelectedBackgroundFromPanel);
+['input', 'change'].forEach(eventName => {
+  document.getElementById('elementBgColor')?.addEventListener(eventName, applySelectedBackgroundFromPanel);
+  document.getElementById('elementBgOpacity')?.addEventListener(eventName, applySelectedBackgroundFromPanel);
+});
 document.getElementById('elementFontFamily')?.addEventListener('input', applySelectedFontFromPanel);
 document.getElementById('elementFontFamily')?.addEventListener('change', applySelectedFontFromPanel);
 ['elementFontSize', 'elementLineHeight', 'elementLetterSpacing', 'elementRadius', 'elementZIndex'].forEach(id => {
@@ -10964,6 +11371,100 @@ function initTemplateDrawer() {
 }
 
 
+/* v91：匯出時補上深灰霧面材質 CSS，材質不覆蓋背景色透明度 */
+const originalBuildExportCSSV90 = buildExportCSS;
+buildExportCSS = function() {
+  return originalBuildExportCSSV90() + `
+
+/* v93：元件背景顏色、透明度與材質同步 */
+.free-element {
+  --element-bg-rgb: 255, 255, 255;
+  --element-bg-alpha: 1;
+  --element-bg-color: rgba(var(--element-bg-rgb), var(--element-bg-alpha));
+}
+
+.free-element[data-element-bg-color]:not([data-type="line"]):not([data-type="shape"]) {
+  background-color: var(--element-bg-color, #fff) !important;
+}
+
+.free-element[data-element-bg-color][data-type="select"] .editable-select,
+.free-element[data-element-bg-color][data-type="input"] .editable-input,
+.free-element[data-element-bg-color][data-type="select-switcher-control"] .select-switcher-control,
+.free-element[data-element-bg-color][data-type="nav-dropdown"] .nav-dropdown-title {
+  background-color: var(--element-bg-color, #fff) !important;
+}
+
+.free-element[data-element-material="dark-matte"] {
+  position: absolute;
+  overflow: hidden;
+  border: 1px solid rgba(185,185,185,.54) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,.22),
+    inset 0 -10px 20px rgba(0,0,0,.32),
+    0 10px 24px rgba(0,0,0,.22) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.free-element[data-element-material="dark-matte"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: var(--element-bg-alpha, 1);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,.06) 42%, rgba(0,0,0,.28) 100%),
+    radial-gradient(ellipse at 22% 0%, rgba(255,255,255,.2), rgba(255,255,255,0) 46%),
+    radial-gradient(ellipse at 50% 100%, rgba(0,0,0,.4), rgba(0,0,0,0) 68%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.04) 0 1px, rgba(255,255,255,0) 1px 4px),
+    linear-gradient(90deg, rgba(var(--element-bg-rgb, 45,45,45), .82) 0%, rgba(var(--element-bg-rgb, 45,45,45), .66) 50%, rgba(var(--element-bg-rgb, 45,45,45), .82) 100%);
+}
+
+.free-element[data-element-material="dark-matte"] > .inner {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+  border-radius: inherit;
+}
+
+.free-element[data-type="shape"] {
+  --shape-bg-rgb: 13, 110, 253;
+  --shape-bg-alpha: 1;
+  --shape-bg-color: rgba(var(--shape-bg-rgb), var(--shape-bg-alpha));
+}
+
+.free-element[data-type="shape"][data-shape-material="dark-matte"] .shape-fill {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(185,185,185,.54) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,.22),
+    inset 0 -10px 20px rgba(0,0,0,.32),
+    0 10px 24px rgba(0,0,0,.22) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.free-element[data-type="shape"][data-shape-material="dark-matte"] .shape-fill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: var(--shape-bg-alpha, 1);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,.06) 42%, rgba(0,0,0,.28) 100%),
+    radial-gradient(ellipse at 22% 0%, rgba(255,255,255,.2), rgba(255,255,255,0) 46%),
+    radial-gradient(ellipse at 50% 100%, rgba(0,0,0,.4), rgba(0,0,0,0) 68%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.04) 0 1px, rgba(255,255,255,0) 1px 4px),
+    linear-gradient(90deg, rgba(var(--shape-bg-rgb, 45,45,45), .82) 0%, rgba(var(--shape-bg-rgb, 45,45,45), .66) 50%, rgba(var(--shape-bg-rgb, 45,45,45), .82) 100%);
+}`;
+};
+
+
 // 初始化
 restorePermanentUploadedFonts();
 initPages();
@@ -10981,6 +11482,7 @@ initAccordionDropdowns(sitePage);
 sitePage.querySelectorAll('.editable-select').forEach(applyOptionStylesToHost);
 sitePage.querySelectorAll('.nav-dropdown').forEach(applyOptionStylesToHost);
 sitePage.querySelectorAll('.accordion-dropdown-template').forEach(applyAccordionRootStyle);
+repairElementColorState(sitePage);
 updateLockButtons(sitePage);
 sitePage.querySelectorAll('.js-css-vertical-news-carousel').forEach(block => setVerticalNewsIndex(block, parseInt(block.dataset.verticalIndex || '0', 10) || 0));
 refreshPageSelector();

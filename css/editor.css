@@ -4422,3 +4422,127 @@ body:not(.preview-mode) .block-canvas > .alignment-guide.center-guide {
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
 }
+
+
+/* v89：滑鼠拖曳反藍框選多個元件 */
+.drag-select-marquee {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 2147483600;
+  display: none;
+  border: 1px solid rgba(13, 110, 253, .92);
+  background: rgba(13, 110, 253, .18);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .45) inset;
+  pointer-events: none;
+}
+
+body.is-marquee-selecting,
+body.is-marquee-selecting * {
+  user-select: none !important;
+}
+
+body.is-marquee-selecting .site-page {
+  cursor: crosshair;
+}
+
+/* v93：元件背景顏色、透明度與材質同步 */
+.free-element {
+  --element-bg-rgb: 255, 255, 255;
+  --element-bg-alpha: 1;
+  --element-bg-color: rgba(var(--element-bg-rgb), var(--element-bg-alpha));
+}
+
+.free-element[data-element-bg-color]:not([data-type="line"]):not([data-type="shape"]) {
+  background-color: var(--element-bg-color, #fff) !important;
+}
+
+.free-element[data-element-bg-color][data-type="select"] .editable-select,
+.free-element[data-element-bg-color][data-type="input"] .editable-input,
+.free-element[data-element-bg-color][data-type="select-switcher-control"] .select-switcher-control,
+.free-element[data-element-bg-color][data-type="nav-dropdown"] .nav-dropdown-title {
+  background-color: var(--element-bg-color, #fff) !important;
+}
+
+.free-element[data-element-material="dark-matte"] {
+  position: absolute;
+  overflow: hidden;
+  border: 1px solid rgba(185,185,185,.54) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,.22),
+    inset 0 -10px 20px rgba(0,0,0,.32),
+    0 10px 24px rgba(0,0,0,.22) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.free-element[data-element-material="dark-matte"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: var(--element-bg-alpha, 1);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,.06) 42%, rgba(0,0,0,.28) 100%),
+    radial-gradient(ellipse at 22% 0%, rgba(255,255,255,.2), rgba(255,255,255,0) 46%),
+    radial-gradient(ellipse at 50% 100%, rgba(0,0,0,.4), rgba(0,0,0,0) 68%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.04) 0 1px, rgba(255,255,255,0) 1px 4px),
+    linear-gradient(90deg, rgba(var(--element-bg-rgb, 45,45,45), .82) 0%, rgba(var(--element-bg-rgb, 45,45,45), .66) 50%, rgba(var(--element-bg-rgb, 45,45,45), .82) 100%);
+}
+
+.free-element[data-element-material="dark-matte"] > .inner {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+  border-radius: inherit;
+}
+
+.free-element[data-type="shape"] {
+  --shape-bg-rgb: 13, 110, 253;
+  --shape-bg-alpha: 1;
+  --shape-bg-color: rgba(var(--shape-bg-rgb), var(--shape-bg-alpha));
+}
+
+.free-element[data-type="shape"][data-shape-material="dark-matte"] .shape-fill {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(185,185,185,.54) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,.22),
+    inset 0 -10px 20px rgba(0,0,0,.32),
+    0 10px 24px rgba(0,0,0,.22) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.free-element[data-type="shape"][data-shape-material="dark-matte"] .shape-fill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: var(--shape-bg-alpha, 1);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,.06) 42%, rgba(0,0,0,.28) 100%),
+    radial-gradient(ellipse at 22% 0%, rgba(255,255,255,.2), rgba(255,255,255,0) 46%),
+    radial-gradient(ellipse at 50% 100%, rgba(0,0,0,.4), rgba(0,0,0,0) 68%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.04) 0 1px, rgba(255,255,255,0) 1px 4px),
+    linear-gradient(90deg, rgba(var(--shape-bg-rgb, 45,45,45), .82) 0%, rgba(var(--shape-bg-rgb, 45,45,45), .66) 50%, rgba(var(--shape-bg-rgb, 45,45,45), .82) 100%);
+}
+
+
+
+/* v93：防止材質或 Bootstrap 內層白底蓋住元件背景顏色 */
+.free-element[data-element-bg-color]:not([data-type="line"]):not([data-type="shape"]) {
+  background-color: var(--element-bg-color, #fff) !important;
+}
+
+.free-element[data-element-bg-color][data-type="select"] .editable-select,
+.free-element[data-element-bg-color][data-type="input"] .editable-input,
+.free-element[data-element-bg-color][data-type="select-switcher-control"] .select-switcher-control,
+.free-element[data-element-bg-color][data-type="nav-dropdown"] .nav-dropdown-title {
+  background-color: var(--element-bg-color, #fff) !important;
+}
