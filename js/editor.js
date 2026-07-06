@@ -4401,6 +4401,7 @@ function defaultOptionStyle(index = 0) {
     headOpacity: 100,
     bodyBg: '#ffffff',
     bodyOpacity: 100,
+    bodyRadius: 0,
     radius: 0,
     gap: 0,
     padding: 12,
@@ -4496,6 +4497,8 @@ function applyOptionStylesToHost(host) {
 
     if (menu) {
       menu.style.backgroundColor = rgbaFromOptionStyle(current.bodyBg, current.bodyOpacity);
+      menu.style.borderRadius = `${clampNumber(parseFloat(current.bodyRadius ?? 0), 0, 100)}px`;
+      menu.style.overflow = 'hidden';
     }
   }
 }
@@ -4520,6 +4523,8 @@ function syncSelectedOptionStylePanel() {
   setValue('selectOptionBodyBgColor', data.bodyBg || '#ffffff');
   setValue('selectOptionBodyBgOpacity', data.bodyOpacity ?? 100);
   setValue('selectOptionBodyBgOpacityInput', data.bodyOpacity ?? 100);
+  setValue('selectMenuRadius', data.bodyRadius ?? 0);
+  setValue('selectMenuRadiusInput', data.bodyRadius ?? 0);
   setValue('selectOptionRadius', data.radius ?? 0);
   setValue('selectOptionRadiusInput', data.radius ?? 0);
   setValue('selectOptionGap', data.gap ?? 0);
@@ -4564,6 +4569,7 @@ function applySelectedOptionStyleFromPanel() {
     headOpacity: clampNumber(numberValue('selectOptionHeadBgOpacity', 100), 0, 100),
     bodyBg: document.getElementById('selectOptionBodyBgColor')?.value || '#ffffff',
     bodyOpacity: clampNumber(numberValue('selectOptionBodyBgOpacity', 100), 0, 100),
+    bodyRadius: clampNumber(numberValue('selectMenuRadius', 0), 0, 100),
     radius: clampNumber(numberValue('selectOptionRadius', 0), 0, 100),
     gap: clampNumber(numberValue('selectOptionGap', 0), 0, 60),
     padding: clampNumber(numberValue('selectOptionPadding', 12), 0, 80),
@@ -4581,6 +4587,8 @@ function applySelectedOptionStyleFromPanel() {
   setOptionStyleData(host, styles);
   setValue('selectOptionHeadBgOpacityInput', styles[index].headOpacity);
   setValue('selectOptionBodyBgOpacityInput', styles[index].bodyOpacity);
+  setValue('selectMenuRadius', styles[index].bodyRadius);
+  setValue('selectMenuRadiusInput', styles[index].bodyRadius);
   setValue('selectOptionRadiusInput', styles[index].radius);
   setValue('selectOptionGapInput', styles[index].gap);
   setValue('selectOptionPaddingInput', styles[index].padding);
@@ -11525,7 +11533,7 @@ sitePage.addEventListener('click', event => {
 
 
 // v80：下拉式元件 / 導覽下拉單一選項樣式
-['selectOptionHeadBgColor', 'selectOptionHeadBgOpacity', 'selectOptionBodyBgColor', 'selectOptionBodyBgOpacity', 'selectOptionBorderColor', 'selectOptionBorderOpacity', 'selectOptionBorderWidth'].forEach(id => {
+['selectOptionHeadBgColor', 'selectOptionHeadBgOpacity', 'selectOptionBodyBgColor', 'selectOptionBodyBgOpacity', 'selectMenuRadius', 'selectOptionBorderColor', 'selectOptionBorderOpacity', 'selectOptionBorderWidth'].forEach(id => {
   document.getElementById(id)?.addEventListener('input', applySelectedOptionStyleFromPanel);
 });
 
@@ -11540,6 +11548,13 @@ bindNumberInput('selectOptionBodyBgOpacityInput', () => {
   const value = clampNumber(numberValue('selectOptionBodyBgOpacityInput', 100), 0, 100);
   setValue('selectOptionBodyBgOpacity', value);
   setValue('selectOptionBodyBgOpacityInput', value);
+  applySelectedOptionStyleFromPanel();
+});
+
+bindNumberInput('selectMenuRadiusInput', () => {
+  const value = clampNumber(numberValue('selectMenuRadiusInput', 0), 0, 100);
+  setValue('selectMenuRadius', value);
+  setValue('selectMenuRadiusInput', value);
   applySelectedOptionStyleFromPanel();
 });
 
@@ -14334,6 +14349,7 @@ function defaultOptionStyle(index = 0) {
     bodyBg: '#ffffff',
     bodyOpacity: 100,
     bodyMaterial: 'none',
+    bodyRadius: 0,
     radius: 0,
     gap: 0,
     padding: 12,
@@ -14483,7 +14499,11 @@ function applyOptionStylesToHost(host) {
         applyOptionMaterialToNode(title, current.headMaterial || 'none', titleColor);
         applyOptionBorderToNodeImportant(title, current);
       }
-      if (menu) applyOptionMaterialToNode(menu, current.bodyMaterial || 'none', bodyColor);
+      if (menu) {
+        applyOptionMaterialToNode(menu, current.bodyMaterial || 'none', bodyColor);
+        menu.style.setProperty('border-radius', `${clampNumber(parseFloat(current.bodyRadius ?? 0), 0, 100)}px`, 'important');
+        menu.style.setProperty('overflow', 'hidden', 'important');
+      }
       syncEditableSelectComboTitle(host);
     }
     return;
@@ -14521,6 +14541,8 @@ function syncSelectedOptionStylePanelV108() {
   setValue('selectOptionBodyBgOpacity', data.bodyOpacity ?? 100);
   setValue('selectOptionBodyBgOpacityInput', data.bodyOpacity ?? 100);
   setValue('selectOptionBodyMaterial', data.bodyMaterial || 'none');
+  setValue('selectMenuRadius', data.bodyRadius ?? 0);
+  setValue('selectMenuRadiusInput', data.bodyRadius ?? 0);
   setValue('selectOptionRadius', data.radius ?? 0);
   setValue('selectOptionRadiusInput', data.radius ?? 0);
   setValue('selectOptionGap', data.gap ?? 0);
@@ -14563,6 +14585,7 @@ function applySelectedOptionStyleFromPanelV108() {
     bodyBg: document.getElementById('selectOptionBodyBgColor')?.value || '#ffffff',
     bodyOpacity: clampNumber(numberValue('selectOptionBodyBgOpacity', 100), 0, 100),
     bodyMaterial: document.getElementById('selectOptionBodyMaterial')?.value || 'none',
+    bodyRadius: clampNumber(numberValue('selectMenuRadius', 0), 0, 100),
     radius: clampNumber(numberValue('selectOptionRadius', 0), 0, 100),
     gap: clampNumber(numberValue('selectOptionGap', 0), 0, 60),
     padding: clampNumber(numberValue('selectOptionPadding', 12), 0, 80),
@@ -14580,6 +14603,8 @@ function applySelectedOptionStyleFromPanelV108() {
   setOptionStyleData(host, styles);
   setValue('selectOptionHeadBgOpacityInput', styles[index].headOpacity);
   setValue('selectOptionBodyBgOpacityInput', styles[index].bodyOpacity);
+  setValue('selectMenuRadius', styles[index].bodyRadius);
+  setValue('selectMenuRadiusInput', styles[index].bodyRadius);
   setValue('selectOptionRadiusInput', styles[index].radius);
   setValue('selectOptionGapInput', styles[index].gap);
   setValue('selectOptionPaddingInput', styles[index].padding);
@@ -14841,7 +14866,7 @@ function applyNavDropdownStyleFromPanelV108() {
     applyOptionStylesToHost(select);
   }, true);
 
-  ['selectOptionHeadBgColor', 'selectOptionHeadBgOpacity', 'selectOptionHeadMaterial', 'selectOptionBodyBgColor', 'selectOptionBodyBgOpacity', 'selectOptionBodyMaterial', 'selectOptionBorderColor', 'selectOptionBorderOpacity', 'selectOptionBorderWidth', 'selectOptionBorderTop', 'selectOptionBorderRight', 'selectOptionBorderBottom', 'selectOptionBorderLeft'].forEach(id => {
+  ['selectOptionHeadBgColor', 'selectOptionHeadBgOpacity', 'selectOptionHeadMaterial', 'selectOptionBodyBgColor', 'selectOptionBodyBgOpacity', 'selectOptionBodyMaterial', 'selectMenuRadius', 'selectOptionBorderColor', 'selectOptionBorderOpacity', 'selectOptionBorderWidth', 'selectOptionBorderTop', 'selectOptionBorderRight', 'selectOptionBorderBottom', 'selectOptionBorderLeft'].forEach(id => {
     const el = document.getElementById(id);
     el?.addEventListener('input', applySelectedOptionStyleFromPanelV108);
     el?.addEventListener('change', applySelectedOptionStyleFromPanelV108);
@@ -14859,6 +14884,12 @@ function applyNavDropdownStyleFromPanelV108() {
     const value = clampNumber(numberValue('selectOptionBodyBgOpacityInput', 100), 0, 100);
     setValue('selectOptionBodyBgOpacity', value);
     setValue('selectOptionBodyBgOpacityInput', value);
+    applySelectedOptionStyleFromPanelV108();
+  });
+  bindNumberInput?.('selectMenuRadiusInput', () => {
+    const value = clampNumber(numberValue('selectMenuRadiusInput', 0), 0, 100);
+    setValue('selectMenuRadius', value);
+    setValue('selectMenuRadiusInput', value);
     applySelectedOptionStyleFromPanelV108();
   });
   bindNumberInput?.('selectOptionBorderOpacityInput', () => {
@@ -14982,11 +15013,27 @@ function applyNavDropdownStyleFromPanelV108() {
     node.style.setProperty('border-bottom', data.borderBottom === false ? '0' : width + ' solid ' + color, 'important');
     node.style.setProperty('border-left', data.borderLeft === false ? '0' : width + ' solid ' + color, 'important');
   }
+  function px2(v, fallback){ var n = parseFloat(v); if (!isFinite(n)) n = fallback || 0; return Math.max(0, n) + 'px'; }
+  function applyOptionLayout2(node, data){
+    if (!node) return;
+    node.style.setProperty('border-radius', px2(data.radius, 0), 'important');
+    node.style.setProperty('padding', px2(data.padding, 12), 'important');
+    var h = parseFloat(data.optionHeight || 0) || 0;
+    if (h > 0) { node.style.setProperty('height', h + 'px', 'important'); node.style.setProperty('min-height', h + 'px', 'important'); node.style.setProperty('display', 'flex', 'important'); node.style.setProperty('align-items', 'center', 'important'); node.style.setProperty('justify-content', 'center', 'important'); }
+  }
+  function applyMenuLayout2(menu, data){
+    if (!menu) return;
+    menu.style.setProperty('gap', px2(data.gap, 0), 'important');
+    menu.style.setProperty('padding', px2(data.menuPadding, 0), 'important');
+    menu.style.setProperty('border-radius', px2(data.bodyRadius, 0), 'important');
+    menu.style.setProperty('overflow', 'hidden', 'important');
+  }
   function defaultData(data){
     data = data || {};
     return {
       headBg: data.headBg || '#ffffff', headOpacity: data.headOpacity == null ? 100 : data.headOpacity, headMaterial: data.headMaterial || 'none',
-      bodyBg: data.bodyBg || '#ffffff', bodyOpacity: data.bodyOpacity == null ? 100 : data.bodyOpacity, bodyMaterial: data.bodyMaterial || 'none',
+      bodyBg: data.bodyBg || '#ffffff', bodyOpacity: data.bodyOpacity == null ? 100 : data.bodyOpacity, bodyMaterial: data.bodyMaterial || 'none', bodyRadius: data.bodyRadius == null ? 0 : data.bodyRadius,
+      radius: data.radius == null ? 0 : data.radius, gap: data.gap == null ? 0 : data.gap, padding: data.padding == null ? 12 : data.padding, menuPadding: data.menuPadding == null ? 0 : data.menuPadding, optionHeight: data.optionHeight == null ? 0 : data.optionHeight,
       borderColor: data.borderColor || '#dee2e6', borderOpacity: data.borderOpacity == null ? 100 : data.borderOpacity, borderWidth: data.borderWidth == null ? 1 : data.borderWidth,
       borderTop: data.borderTop !== false, borderRight: data.borderRight !== false, borderBottom: data.borderBottom !== false, borderLeft: data.borderLeft !== false
     };
@@ -15018,9 +15065,9 @@ function applyNavDropdownStyleFromPanelV108() {
     var styles = {}; try { styles = JSON.parse(host.getAttribute('data-option-styles') || '{}') || {}; } catch(e) {}
     if (host.matches && host.matches('.editable-select')) {
       var combo = ensureCombo(host);
-      qsa2('option', host).forEach(function(option, index){ var d = defaultData(styles[String(index)]); option.style.backgroundColor = rgba2(d.bodyBg, d.bodyOpacity); var btn = combo && combo.querySelector('.editable-select-option[data-option-index="' + index + '"]'); if (btn) { var c = rgba2(d.headBg, d.headOpacity); btn.style.setProperty('--select-option-bg', c); applyMat(btn, d.headMaterial, c); applyBorder2(btn, d); } });
+      qsa2('option', host).forEach(function(option, index){ var d = defaultData(styles[String(index)]); option.style.backgroundColor = rgba2(d.bodyBg, d.bodyOpacity); var btn = combo && combo.querySelector('.editable-select-option[data-option-index="' + index + '"]'); if (btn) { var c = rgba2(d.headBg, d.headOpacity); btn.style.setProperty('--select-option-bg', c); applyMat(btn, d.headMaterial, c); applyBorder2(btn, d); applyOptionLayout2(btn, d); } });
       var current = defaultData(styles[String(host.selectedIndex || 0)]); var titleColor = rgba2(current.headBg, current.headOpacity); var bodyColor = rgba2(current.bodyBg, current.bodyOpacity);
-      if (combo) { combo.style.setProperty('--select-title-bg', titleColor); combo.style.setProperty('--select-menu-bg', bodyColor); applyMat(combo.querySelector('.editable-select-title'), current.headMaterial, titleColor); applyMat(combo.querySelector('.editable-select-menu'), current.bodyMaterial, bodyColor); applyBorder2(combo.querySelector('.editable-select-title'), current); syncCombo(host); }
+      if (combo) { var menuEl = combo.querySelector('.editable-select-menu'); combo.style.setProperty('--select-title-bg', titleColor); combo.style.setProperty('--select-menu-bg', bodyColor); applyMat(combo.querySelector('.editable-select-title'), current.headMaterial, titleColor); applyMat(menuEl, current.bodyMaterial, bodyColor); applyMenuLayout2(menuEl, current); applyBorder2(combo.querySelector('.editable-select-title'), current); syncCombo(host); }
       return;
     }
     if (host.matches && host.matches('.nav-dropdown')) {
@@ -15029,8 +15076,8 @@ function applyNavDropdownStyleFromPanelV108() {
       var hoverBg = rgba2(host.getAttribute('data-nav-option-hover-bg-color') || '#edf6ff', host.getAttribute('data-nav-option-hover-bg-opacity') || '100');
       host.style.setProperty('--nav-title-bg', titleBg); host.style.setProperty('--nav-menu-bg', menuBg); host.style.setProperty('--nav-option-hover-bg', hoverBg);
       host.style.setProperty('--nav-title-text', host.getAttribute('data-nav-title-text-color') || '#ffffff'); host.style.setProperty('--nav-option-text', host.getAttribute('data-nav-option-text-color') || '#333333'); host.style.setProperty('--nav-option-hover-text', host.getAttribute('data-nav-option-hover-text-color') || '#0b3557');
-      applyMat(host.querySelector('.nav-dropdown-title'), host.getAttribute('data-nav-title-material') || 'none', titleBg); applyMat(host.querySelector('.nav-dropdown-menu'), host.getAttribute('data-nav-menu-material') || 'none', menuBg);
-      qsa2('.nav-dropdown-option', host).forEach(function(option, index){ var d = defaultData(styles[String(index)]); var c = rgba2(d.headBg, d.headOpacity); option.style.setProperty('--nav-option-bg', c); applyMat(option, d.headMaterial, c); applyBorder2(option, d); });
+      applyMat(host.querySelector('.nav-dropdown-title'), host.getAttribute('data-nav-title-material') || 'none', titleBg); var navMenuEl = host.querySelector('.nav-dropdown-menu'); applyMat(navMenuEl, host.getAttribute('data-nav-menu-material') || 'none', menuBg);
+      var navCurrent = defaultData(styles['0']); applyMenuLayout2(navMenuEl, navCurrent); qsa2('.nav-dropdown-option', host).forEach(function(option, index){ var d = defaultData(styles[String(index)]); var c = rgba2(d.headBg, d.headOpacity); option.style.setProperty('--nav-option-bg', c); applyMat(option, d.headMaterial, c); applyBorder2(option, d); applyOptionLayout2(option, d); });
     }
   }
   function init(){ qsa2('.editable-select').forEach(applyStyles); qsa2('.nav-dropdown').forEach(applyStyles); }
@@ -17072,6 +17119,8 @@ const selectSettingsLayoutCSSV122 = `
 .free-element[data-type="select"] .editable-select-menu {
   gap: var(--select-option-gap-v122, 0px) !important;
   padding: var(--select-menu-padding-v122, 0px) !important;
+  border-radius: var(--select-menu-radius-v125, 0px) !important;
+  overflow: hidden !important;
 }
 
 .free-element[data-type="select"] .editable-select-option {
@@ -17087,6 +17136,8 @@ const selectSettingsLayoutCSSV122 = `
 .nav-dropdown .nav-dropdown-menu {
   gap: var(--select-option-gap-v122, 4px) !important;
   padding: var(--select-menu-padding-v122, 8px) !important;
+  border-radius: var(--select-menu-radius-v125, 8px) !important;
+  overflow: hidden !important;
 }
 
 .nav-dropdown .nav-dropdown-option {
@@ -17114,6 +17165,7 @@ const selectSettingsLayoutCSSV122 = `
   function normalizeOptionExtraDataV122(data) {
     const safe = Object.assign({}, data || {});
     safe.radius = clamp(safe.radius, 0, 100, 0);
+    safe.bodyRadius = clamp(safe.bodyRadius, 0, 100, 0);
     safe.gap = clamp(safe.gap, 0, 60, 0);
     safe.padding = clamp(safe.padding, 0, 80, 12);
     safe.menuPadding = clamp(safe.menuPadding, 0, 80, 0);
@@ -17160,6 +17212,7 @@ const selectSettingsLayoutCSSV122 = `
       [wrapper, combo].forEach(node => {
         if (!node) return;
         node.style.setProperty('--select-option-radius-v122', px(current.radius));
+        node.style.setProperty('--select-menu-radius-v125', px(current.bodyRadius));
         node.style.setProperty('--select-option-gap-v122', px(current.gap));
         node.style.setProperty('--select-option-padding-v122', px(current.padding));
         node.style.setProperty('--select-menu-padding-v122', px(current.menuPadding));
@@ -17168,6 +17221,8 @@ const selectSettingsLayoutCSSV122 = `
       if (menu) {
         menu.style.setProperty('gap', px(current.gap), 'important');
         menu.style.setProperty('padding', px(current.menuPadding), 'important');
+        menu.style.setProperty('border-radius', px(current.bodyRadius), 'important');
+        menu.style.setProperty('overflow', 'hidden', 'important');
       }
     }
 
@@ -17178,6 +17233,7 @@ const selectSettingsLayoutCSSV122 = `
       });
       const current = normalizeOptionExtraDataV122(Object.assign(typeof defaultOptionStyle === 'function' ? defaultOptionStyle(0) : {}, styles['0'] || {}));
       host.style.setProperty('--select-option-radius-v122', px(current.radius));
+      host.style.setProperty('--select-menu-radius-v125', px(current.bodyRadius));
       host.style.setProperty('--select-option-gap-v122', px(current.gap));
       host.style.setProperty('--select-option-padding-v122', px(current.padding));
       host.style.setProperty('--select-menu-padding-v122', px(current.menuPadding));
@@ -17186,6 +17242,8 @@ const selectSettingsLayoutCSSV122 = `
       if (menu) {
         menu.style.setProperty('gap', px(current.gap), 'important');
         menu.style.setProperty('padding', px(current.menuPadding), 'important');
+        menu.style.setProperty('border-radius', px(current.bodyRadius), 'important');
+        menu.style.setProperty('overflow', 'hidden', 'important');
       }
     }
   }
@@ -17279,7 +17337,7 @@ const selectSettingsLayoutCSSV122 = `
     applyTitlePaddingFromPanelV122();
   });
 
-  ['selectOptionRadius', 'selectOptionGap', 'selectOptionPadding', 'selectMenuPadding', 'selectOptionHeight'].forEach(id => {
+  ['selectOptionRadius', 'selectMenuRadius', 'selectOptionGap', 'selectOptionPadding', 'selectMenuPadding', 'selectOptionHeight'].forEach(id => {
     const el = document.getElementById(id);
     el?.addEventListener('input', () => applySelectedOptionStyleFromPanelV108?.());
     el?.addEventListener('change', () => applySelectedOptionStyleFromPanelV108?.());
@@ -17287,6 +17345,7 @@ const selectSettingsLayoutCSSV122 = `
 
   [
     ['selectOptionRadiusInput', 'selectOptionRadius', 0, 100, 0],
+    ['selectMenuRadiusInput', 'selectMenuRadius', 0, 100, 0],
     ['selectOptionGapInput', 'selectOptionGap', 0, 60, 0],
     ['selectOptionPaddingInput', 'selectOptionPadding', 0, 80, 12],
     ['selectMenuPaddingInput', 'selectMenuPadding', 0, 80, 0],
