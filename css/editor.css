@@ -4452,6 +4452,13 @@ body:not(.preview-mode) .block-canvas > .alignment-guide.center-guide {
   stroke-linejoin: round;
 }
 
+.free-element[data-type="line"] .line-start-arrow2,
+.free-element[data-type="line"] .line-end-arrow2 {
+  fill: none !important;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
 
 /* v89：滑鼠拖曳反藍框選多個元件 */
 .drag-select-marquee {
@@ -5413,4 +5420,30 @@ body.exported-site .free-element [data-editable-text][contenteditable="true"] {
   -webkit-user-modify: read-only !important;
   outline: 0 !important;
   box-shadow: none !important;
+}
+
+
+/* v114：下拉式選項元件不要邊框 */
+.free-element[data-type="select"] .editable-select-title,
+.free-element[data-type="select"] .editable-select-menu,
+.free-element[data-type="select"] .editable-select-option,
+.free-element[data-type="select"] .editable-select-combo,
+.free-element[data-type="select"] .editable-select,
+.free-element[data-type="select"] select {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+.free-element[data-type="select"] .editable-select-title {
+  border-color: transparent !important;
+}
+
+.free-element[data-type="line"] .line-gradient-defs {
+  pointer-events: none;
+}
+
+/* v115：形狀由內到外漸層淡出、線條漸層只作用在線條本體 */
+.free-element[data-type="line"] .line-main {
+  vector-effect: non-scaling-stroke;
 }

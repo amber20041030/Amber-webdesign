@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>自訂網站編輯器 V97</title>
+  <title>自訂網站編輯器 V115</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
@@ -134,6 +134,10 @@
 
       <button class="btn btn-outline-success component-btn" data-add-element="line">
         <i class="bi bi-slash-lg"></i> 線條
+      </button>
+
+      <button class="btn btn-outline-success component-btn" data-add-element="line-arrow2">
+        <i class="bi bi-arrow-up-right"></i> 線條箭頭 2
       </button>
 
       <button class="btn btn-outline-success component-btn" data-add-element="shape-square">
@@ -502,6 +506,7 @@
         <select class="form-select form-select-sm mb-3" id="elementFontFamily">
           <option value="">預設字體</option>
           <option value="'Noto Sans TC', sans-serif">Noto Sans TC</option>
+          <option value="'SourceHanSerifTW-SemiBold-Local', 'Noto Serif TC', 'Noto Serif CJK TC', serif">思源宋體 TW SemiBold</option>
           <option value="'Microsoft JhengHei', sans-serif">微軟正黑體</option>
           <option value="'Arial', sans-serif">Arial</option>
           <option value="'Times New Roman', serif">Times New Roman</option>
@@ -511,7 +516,7 @@
         <label class="simple-label">上傳字體</label>
         <input type="file" class="form-control form-control-sm mb-2" id="fontUploadInput" accept=".ttf,.otf,.woff,.woff2,font/*">
         <div class="small text-muted mb-3">
-          支援 ttf / otf / woff / woff2，上傳後會加入上方字體選單。
+          支援 ttf / otf / woff / woff2，上傳後會加入上方字體選單。已內建「思源宋體 TW SemiBold」選項；若使用者電腦未安裝此字體，可自行將字體檔放到 fonts/SourceHanSerifTW-SemiBold.otf。
         </div>
 
         <label class="simple-label">文字樣式</label>
@@ -644,6 +649,23 @@
           <label class="form-check-label small" for="accordionIconVisibleToggle">
             顯示選項旁邊 ICON
           </label>
+        </div>
+
+        <label class="simple-label">下拉 ICON 樣式</label>
+        <select class="form-select form-select-sm mb-3" id="accordionIconStyleSelect">
+          <option value="caret">預設倒三角旋轉</option>
+          <option value="plus-x">下拉前 +，下拉後 ×</option>
+          <option value="triangle-line">下拉前倒三角，下拉後橫線</option>
+        </select>
+
+        <label class="simple-label">ICON 顏色</label>
+        <input type="color" class="form-control form-control-color mb-3" id="accordionIconColor" value="#6c757d">
+
+        <label class="simple-label">ICON 大小</label>
+        <input type="range" class="form-range" id="accordionIconSize" min="8" max="80" step="1" value="18">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="accordionIconSizeInput" min="8" max="80" step="1" value="18">
         </div>
 
         <label class="simple-label">目前選項標題背景顏色</label>
@@ -841,6 +863,11 @@
             <input class="form-check-input" type="checkbox" data-shape-gradient="to-left">
             由右到左
           </label>
+
+          <label class="form-check small">
+            <input class="form-check-input" type="checkbox" data-shape-gradient="inside-out">
+            由內到外漸層
+          </label>
         </div>
 
         <label class="simple-label">漸層顏色，可複選</label>
@@ -958,19 +985,74 @@
         <select class="form-select form-select-sm mb-3" id="lineStart">
           <option value="none">無</option>
           <option value="arrow">箭頭</option>
+          <option value="arrow2">線條箭頭 2</option>
           <option value="circle">圓點</option>
           <option value="square">方塊</option>
           <option value="diamond">菱形</option>
         </select>
 
         <label class="simple-label">右側端點造型</label>
-        <select class="form-select form-select-sm mb-2" id="lineEnd">
+        <select class="form-select form-select-sm mb-3" id="lineEnd">
           <option value="none">無</option>
           <option value="arrow">箭頭</option>
+          <option value="arrow2">線條箭頭 2</option>
           <option value="circle">圓點</option>
           <option value="square">方塊</option>
           <option value="diamond">菱形</option>
         </select>
+
+        <label class="simple-label">箭頭寬度</label>
+        <input type="range" class="form-range" id="lineArrowWidth" min="18" max="320" step="1" value="76">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="lineArrowWidthInput" min="18" max="320" step="1" value="76">
+        </div>
+
+        <label class="simple-label">箭頭高度</label>
+        <input type="range" class="form-range" id="lineArrowHeight" min="8" max="240" step="1" value="44">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="lineArrowHeightInput" min="8" max="240" step="1" value="44">
+        </div>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="lineGradientEnabled">
+          <label class="form-check-label small" for="lineGradientEnabled">開啟線條漸層</label>
+        </div>
+
+        <label class="simple-label">線條漸層效果</label>
+        <select class="form-select form-select-sm mb-3" id="lineGradientMode">
+          <option value="left-right">由左到右</option>
+          <option value="right-left">由右到左</option>
+          <option value="top-bottom">由上到下</option>
+          <option value="bottom-top">由下到上</option>
+          <option value="inside-out">由內到外漸層</option>
+        </select>
+
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="simple-label">漸層內側/起始色</label>
+            <input type="color" class="form-control form-control-color w-100" id="lineGradientStartColor" value="#212529">
+          </div>
+          <div class="col-6">
+            <label class="simple-label">漸層外側/結束色</label>
+            <input type="color" class="form-control form-control-color w-100" id="lineGradientEndColor" value="#212529">
+          </div>
+        </div>
+
+        <label class="simple-label">線條漸層起始透明度</label>
+        <input type="range" class="form-range" id="lineGradientStartOpacity" min="0" max="100" step="1" value="100">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="lineGradientStartOpacityInput" min="0" max="100" step="1" value="100">
+        </div>
+
+        <label class="simple-label">線條漸層結束透明度</label>
+        <input type="range" class="form-range" id="lineGradientEndOpacity" min="0" max="100" step="1" value="100">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="lineGradientEndOpacityInput" min="0" max="100" step="1" value="100">
+        </div>
 
         <label class="simple-label">箭頭快速樣式</label>
         <div class="line-arrow-preset-grid mb-3">
@@ -978,6 +1060,9 @@
           <button type="button" class="btn btn-outline-secondary btn-sm" data-line-arrow-preset="left">左箭頭</button>
           <button type="button" class="btn btn-outline-secondary btn-sm" data-line-arrow-preset="right">右箭頭</button>
           <button type="button" class="btn btn-outline-secondary btn-sm" data-line-arrow-preset="both">雙箭頭</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-line-arrow-preset="left2">左箭頭 2</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-line-arrow-preset="right2">右箭頭 2</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-line-arrow-preset="both2">雙箭頭 2</button>
         </div>
 
         <label class="simple-label">線條角度</label>
@@ -995,7 +1080,7 @@
         </div>
 
         <div class="small text-muted">
-          可像 Canva 一樣調整粗細、顏色、實線/虛線/點線、左右端點、箭頭與角度；拖拉外框可調整長度。
+          可像 Canva 一樣調整粗細、顏色、實線/虛線/點線、左右端點、箭頭樣式、箭頭寬度、箭頭高度、線條漸層與角度；拖拉外框可調整整體長度。
         </div>
       </div>
 
@@ -1063,7 +1148,7 @@
         <div class="css-function-list d-none" id="elementCssFunctionList">
           <label class="form-check small mb-2">
             <input class="form-check-input" type="checkbox" id="scrollToIdEnabled">
-            滑鼠點擊後頁面下拉到指定 ID 區塊
+            滑鼠點擊後頁面下拉到指定 ID 區塊，並對齊區塊底部
           </label>
 
           <label class="simple-label">指定 ID 區塊</label>
@@ -1112,13 +1197,13 @@
       <div class="setting-card d-none" id="youtubeSettingCard">
         <div class="setting-title">YouTube 影片設定</div>
 
-        <label class="simple-label">YouTube 連結</label>
-        <input type="text" class="form-control form-control-sm mb-2" id="youtubeUrlInput" placeholder="貼上 YouTube 網址">
-        <button class="btn btn-primary btn-sm w-100 mb-3" id="applyYoutubeBtn">從連結產生官方 iframe</button>
+        <label class="simple-label">YouTube 影片網址</label>
+        <input type="url" class="form-control form-control-sm mb-2" id="youtubeUrlInput" placeholder="貼上 YouTube 影片網址，例如 https://www.youtube.com/watch?v=..." inputmode="url" autocomplete="off">
+        <button class="btn btn-primary btn-sm w-100 mb-3" id="applyYoutubeBtn">儲存 YouTube 影片網址</button>
 
-        <label class="simple-label">嵌入 HTML 程式碼</label>
-        <textarea class="form-control form-control-sm code-textarea mb-2" id="youtubeEmbedHtmlInput" rows="7" placeholder="這裡會產生 YouTube 官方 iframe HTML，也可以自己修改"></textarea>
-        <button class="btn btn-outline-primary btn-sm w-100 mb-3" id="applyYoutubeHtmlBtn">套用 iframe HTML</button>
+        <div class="small text-muted mb-3">
+          後台只儲存 YouTube 影片網址；前台會自動轉成 YouTube embed iframe 播放。請勿貼 iframe HTML，也不可上傳影片檔到 VM。
+        </div>
 
         <hr>
 
@@ -1135,9 +1220,10 @@
         </div>
 
         <div class="small text-muted mt-2">
-          影片只能等比例縮放。支援 youtube.com/watch?v=、youtu.be、shorts、embed、live。
+          支援 youtube.com/watch?v=、youtu.be、shorts、embed、live。影片 ID 需為 11 碼；系統只會產生 YouTube iframe，不會儲存或上傳影片檔案。
         </div>
       </div>
+
 
 
       <div class="setting-card d-none" id="carouselSettingCard">
@@ -1310,12 +1396,97 @@
           <div class="small text-muted mb-2 d-none" id="selectSwitcherControlHint">
             這裡編輯的是下拉換組元件的每個選項名稱，每行一個名稱。
           </div>
-          <label class="simple-label">選取多樣式</label>
+          <label class="simple-label">下拉式選項樣式</label>
           <select class="form-select form-select-sm mb-3" id="dropdownStyleModeSelect">
-            <option value="v78">V78 一般下拉樣式</option>
-            <option value="hover-title">選項標題：滑鼠移上去自動下拉</option>
-            <option value="vertical-list">下拉垂直並排選項</option>
+            <option value="v78">點擊標題才展開</option>
+            <option value="hover-title">滑鼠移到標題自動下拉</option>
+            <option value="vertical-list">選項垂直展開排列</option>
           </select>
+
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="dropdownIconVisibleToggle" checked>
+            <label class="form-check-label small" for="dropdownIconVisibleToggle">
+              顯示選項旁邊 ICON
+            </label>
+          </div>
+
+          <label class="simple-label">下拉 ICON 樣式</label>
+          <select class="form-select form-select-sm mb-3" id="dropdownIconStyleSelect">
+            <option value="default">預設倒三角旋轉</option>
+            <option value="plus-x">下拉前 +，下拉後 ×</option>
+            <option value="triangle-line">下拉前倒三角，下拉後橫線</option>
+            <option value="none">取消 ICON</option>
+          </select>
+
+          <label class="simple-label">ICON 顏色</label>
+          <input type="color" class="form-control form-control-color mb-3" id="dropdownIconColor" value="#6c757d">
+
+          <label class="simple-label">ICON 大小</label>
+          <input type="range" class="form-range" id="dropdownIconSize" min="8" max="80" step="1" value="18">
+          <div class="px-input-row mb-3">
+            <span>px</span>
+            <input type="number" class="form-control form-control-sm" id="dropdownIconSizeInput" min="8" max="80" step="1" value="18">
+          </div>
+
+          <div id="navDropdownStylePanelV107" class="d-none">
+            <hr>
+            <div class="setting-title small mb-2">導覽列下拉樣式</div>
+
+            <label class="simple-label">標題背景顏色</label>
+            <input type="color" class="form-control form-control-color mb-3" id="navDropdownTitleBgColor" value="#0b3557">
+
+            <label class="simple-label">標題背景透明度</label>
+            <input type="range" class="form-range" id="navDropdownTitleBgOpacity" min="0" max="100" step="1" value="100">
+            <div class="px-input-row mb-3">
+              <span>%</span>
+              <input type="number" class="form-control form-control-sm" id="navDropdownTitleBgOpacityInput" min="0" max="100" step="1" value="100">
+            </div>
+
+            <label class="simple-label">標題背景材質</label>
+            <select class="form-select form-select-sm mb-3" id="navDropdownTitleMaterial">
+              <option value="none">一般背景</option>
+              <option value="frosted">毛玻璃材質</option>
+              <option value="glass">玻璃材質</option>
+              <option value="dark-matte">深灰霧面材質（同圖片）</option>
+            </select>
+
+            <label class="simple-label">標題文字顏色</label>
+            <input type="color" class="form-control form-control-color mb-3" id="navDropdownTitleTextColor" value="#ffffff">
+
+            <label class="simple-label">下拉背景顏色</label>
+            <input type="color" class="form-control form-control-color mb-3" id="navDropdownMenuBgColor" value="#ffffff">
+
+            <label class="simple-label">下拉背景透明度</label>
+            <input type="range" class="form-range" id="navDropdownMenuBgOpacity" min="0" max="100" step="1" value="100">
+            <div class="px-input-row mb-3">
+              <span>%</span>
+              <input type="number" class="form-control form-control-sm" id="navDropdownMenuBgOpacityInput" min="0" max="100" step="1" value="100">
+            </div>
+
+            <label class="simple-label">下拉背景材質</label>
+            <select class="form-select form-select-sm mb-3" id="navDropdownMenuMaterial">
+              <option value="none">一般背景</option>
+              <option value="frosted">毛玻璃材質</option>
+              <option value="glass">玻璃材質</option>
+              <option value="dark-matte">深灰霧面材質（同圖片）</option>
+            </select>
+
+            <label class="simple-label">下拉選項文字顏色</label>
+            <input type="color" class="form-control form-control-color mb-3" id="navDropdownOptionTextColor" value="#333333">
+
+            <label class="simple-label">選項滑入背景顏色</label>
+            <input type="color" class="form-control form-control-color mb-3" id="navDropdownOptionHoverBgColor" value="#edf6ff">
+
+            <label class="simple-label">選項滑入背景透明度</label>
+            <input type="range" class="form-range" id="navDropdownOptionHoverBgOpacity" min="0" max="100" step="1" value="100">
+            <div class="px-input-row mb-3">
+              <span>%</span>
+              <input type="number" class="form-control form-control-sm" id="navDropdownOptionHoverBgOpacityInput" min="0" max="100" step="1" value="100">
+            </div>
+
+            <label class="simple-label">選項滑入文字顏色</label>
+            <input type="color" class="form-control form-control-color mb-3" id="navDropdownOptionHoverTextColor" value="#0b3557">
+          </div>
 
           <label class="simple-label" id="selectOptionsLabel">下拉選項</label>
           <textarea class="form-control form-control-sm mb-2" id="selectOptionsInput" rows="5" placeholder="每行一個選項"></textarea>
@@ -1334,6 +1505,14 @@
               <input type="number" class="form-control form-control-sm" id="selectOptionHeadBgOpacityInput" min="0" max="100" step="1" value="100">
             </div>
 
+            <label class="simple-label">標題背景材質</label>
+            <select class="form-select form-select-sm mb-3" id="selectOptionHeadMaterial">
+              <option value="none">一般背景</option>
+              <option value="frosted">毛玻璃材質</option>
+              <option value="glass">玻璃材質</option>
+              <option value="dark-matte">深灰霧面材質（同圖片）</option>
+            </select>
+
             <label class="simple-label">目前選項內容背景顏色</label>
             <input type="color" class="form-control form-control-color mb-3" id="selectOptionBodyBgColor" value="#ffffff">
 
@@ -1343,6 +1522,14 @@
               <span>%</span>
               <input type="number" class="form-control form-control-sm" id="selectOptionBodyBgOpacityInput" min="0" max="100" step="1" value="100">
             </div>
+
+            <label class="simple-label">內容背景材質</label>
+            <select class="form-select form-select-sm mb-3" id="selectOptionBodyMaterial">
+              <option value="none">一般背景</option>
+              <option value="frosted">毛玻璃材質</option>
+              <option value="glass">玻璃材質</option>
+              <option value="dark-matte">深灰霧面材質（同圖片）</option>
+            </select>
 
             <label class="simple-label">選項邊框顏色</label>
             <input type="color" class="form-control form-control-color mb-3" id="selectOptionBorderColor" value="#dee2e6">
@@ -1404,7 +1591,7 @@
             <div class="select-option-function-list d-none" id="selectOptionFunctionList">
               <label class="form-check small mb-2">
                 <input class="form-check-input" type="checkbox" id="selectOptionScrollEnabled">
-                選取後下拉到指定 ID 區塊
+                選取後下拉到指定 ID 區塊，並對齊區塊底部
               </label>
 
               <label class="simple-label">指定 ID 區塊</label>

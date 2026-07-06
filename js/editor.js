@@ -2502,6 +2502,8 @@ function elementTemplate(type) {
             <line class="line-main" x1="24" y1="50" x2="976" y2="50"></line>
             <polygon class="line-endpoint line-start-arrow" points="24,50 58,32 58,68"></polygon>
             <polygon class="line-endpoint line-end-arrow" points="976,50 942,32 942,68"></polygon>
+            <polyline class="line-endpoint line-start-arrow2" points="76,28 24,50 76,72"></polyline>
+            <polyline class="line-endpoint line-end-arrow2" points="924,28 976,50 924,72"></polyline>
             <circle class="line-endpoint line-start-circle" cx="24" cy="50" r="16"></circle>
             <circle class="line-endpoint line-end-circle" cx="976" cy="50" r="16"></circle>
             <rect class="line-endpoint line-start-square" x="8" y="34" width="32" height="32"></rect>
@@ -2511,6 +2513,27 @@ function elementTemplate(type) {
           </svg>
         </div>
       ${commonEnd}
+    `,
+
+    'line-arrow2': `
+      <div class="free-element" data-id="${id}" data-type="line" data-name="線條箭頭 2" data-line-color="#404040" data-line-weight="4" data-line-opacity="100" data-line-style="solid" data-line-cap="round" data-line-start="none" data-line-end="arrow2" data-line-arrow-width="115" data-line-arrow-height="44" data-rotate-deg="315" style="left: 8%; top: 90px; width: 18%; height: 70px; z-index: 10; background: transparent; border-radius: 0; transform: rotate(315deg); transform-origin: center center;">
+        ${elementToolbarHTML()}
+        <div class="inner line-inner">
+          <svg class="editable-line" viewBox="0 0 1000 100" preserveAspectRatio="none" aria-label="線條箭頭 2">
+            <line class="line-main" x1="24" y1="50" x2="976" y2="50"></line>
+            <polygon class="line-endpoint line-start-arrow" points="24,50 58,32 58,68"></polygon>
+            <polygon class="line-endpoint line-end-arrow" points="976,50 942,32 942,68"></polygon>
+            <polyline class="line-endpoint line-start-arrow2" points="139,28 24,50 139,72"></polyline>
+            <polyline class="line-endpoint line-end-arrow2" points="861,28 976,50 861,72"></polyline>
+            <circle class="line-endpoint line-start-circle" cx="24" cy="50" r="16"></circle>
+            <circle class="line-endpoint line-end-circle" cx="976" cy="50" r="16"></circle>
+            <rect class="line-endpoint line-start-square" x="8" y="34" width="32" height="32"></rect>
+            <rect class="line-endpoint line-end-square" x="960" y="34" width="32" height="32"></rect>
+            <polygon class="line-endpoint line-start-diamond" points="24,28 46,50 24,72 2,50"></polygon>
+            <polygon class="line-endpoint line-end-diamond" points="976,28 998,50 976,72 954,50"></polygon>
+          </svg>
+        </div>
+      </div>
     `,
 
     'shape-square': `
@@ -2535,7 +2558,7 @@ function elementTemplate(type) {
           <div class="youtube-placeholder no-export">
             請在右側貼上 YouTube 連結
           </div>
-          <iframe class="editable-youtube d-none" src="" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+          <iframe class="editable-youtube d-none" src="" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
         </div>
       ${commonEnd}
     `
@@ -4240,6 +4263,11 @@ function applyAccordionRootStyle(root) {
 
   root.dataset.accordionHoverOpen = root.dataset.accordionHoverOpen === 'true' ? 'true' : 'false';
   root.dataset.accordionIconVisible = root.dataset.accordionIconVisible === 'false' ? 'false' : 'true';
+  root.dataset.accordionIconStyle = root.dataset.accordionIconStyle || 'caret';
+  root.dataset.accordionIconColor = root.dataset.accordionIconColor || '#6c757d';
+  root.dataset.accordionIconSize = root.dataset.accordionIconSize || '18';
+  root.style.setProperty('--dropdown-icon-color', root.dataset.accordionIconColor);
+  root.style.setProperty('--dropdown-icon-size', `${root.dataset.accordionIconSize}px`);
 
   root.querySelectorAll('.accordion-item-template').forEach(applyAccordionItemStyle);
 }
@@ -4250,9 +4278,16 @@ function syncAccordionDropdownStylePanel() {
 
   const hover = document.getElementById('accordionHoverOpenToggle');
   const icon = document.getElementById('accordionIconVisibleToggle');
+  const iconStyle = document.getElementById('accordionIconStyleSelect');
+  const iconColor = document.getElementById('accordionIconColor');
+  const iconSize = root ? (root.dataset.accordionIconSize || '18') : '18';
 
   if (hover) hover.checked = root ? root.dataset.accordionHoverOpen === 'true' : false;
   if (icon) icon.checked = root ? root.dataset.accordionIconVisible !== 'false' : true;
+  if (iconStyle) iconStyle.value = root ? (root.dataset.accordionIconStyle || 'caret') : 'caret';
+  if (iconColor) iconColor.value = root ? (root.dataset.accordionIconColor || '#6c757d') : '#6c757d';
+  setValue('accordionIconSize', iconSize);
+  setValue('accordionIconSizeInput', iconSize);
 
   if (!item) return;
 
@@ -4272,6 +4307,10 @@ function applyAccordionDropdownStyleFromPanel() {
 
   root.dataset.accordionHoverOpen = document.getElementById('accordionHoverOpenToggle')?.checked ? 'true' : 'false';
   root.dataset.accordionIconVisible = document.getElementById('accordionIconVisibleToggle')?.checked ? 'true' : 'false';
+  root.dataset.accordionIconStyle = document.getElementById('accordionIconStyleSelect')?.value || 'caret';
+  root.dataset.accordionIconColor = document.getElementById('accordionIconColor')?.value || '#6c757d';
+  root.dataset.accordionIconSize = String(clampNumber(numberValue('accordionIconSize', 18), 8, 80));
+  setValue('accordionIconSizeInput', root.dataset.accordionIconSize);
 
   if (item) {
     item.dataset.accordionHeadBg = document.getElementById('accordionHeadBgColor')?.value || '#f8f9fa';
@@ -4300,7 +4339,7 @@ function openAccordionItemByHover(root, item) {
 
 /* v80：泛用下拉選項功能與單一選項樣式 */
 function isSelectLikeOptionElement(el) {
-  return !!(el && ['select', 'nav-dropdown'].includes(el.dataset.type));
+  return !!(el && ['select', 'nav-dropdown', 'select-switcher-control'].includes(el.dataset.type));
 }
 
 function getSelectedOptionHost() {
@@ -4308,6 +4347,10 @@ function getSelectedOptionHost() {
 
   if (selectedElement.dataset.type === 'select') {
     return selectedElement.querySelector('.editable-select');
+  }
+
+  if (selectedElement.dataset.type === 'select-switcher-control') {
+    return selectedElement.querySelector('.select-switcher-control');
   }
 
   if (selectedElement.dataset.type === 'nav-dropdown') {
@@ -4524,6 +4567,45 @@ function applySelectedOptionStyleFromPanel() {
   syncSelectedOptionStylePanel();
 }
 
+
+function scrollTargetToBlockBottom(target, behavior = 'smooth') {
+  if (!target) return false;
+
+  const scrollParent = (() => {
+    let parent = target.parentElement;
+    while (parent && parent !== document.body && parent !== document.documentElement) {
+      const style = window.getComputedStyle(parent);
+      const overflowY = style.overflowY || style.overflow;
+      if ((overflowY === 'auto' || overflowY === 'scroll') && parent.scrollHeight > parent.clientHeight) {
+        return parent;
+      }
+      parent = parent.parentElement;
+    }
+    return window;
+  })();
+
+  if (scrollParent === window) {
+    const rect = target.getBoundingClientRect();
+    const top = Math.max(0, window.scrollY + rect.bottom - window.innerHeight);
+    window.scrollTo({ top, behavior });
+  } else {
+    const targetRect = target.getBoundingClientRect();
+    const parentRect = scrollParent.getBoundingClientRect();
+    const top = Math.max(0, scrollParent.scrollTop + targetRect.bottom - parentRect.bottom);
+    scrollParent.scrollTo({ top, behavior });
+  }
+
+  return true;
+}
+
+function scrollToBlockIdBottom(targetId, behavior = 'smooth') {
+  if (!targetId) return false;
+  let target = document.getElementById(targetId);
+  if (!target && window.CSS && CSS.escape) target = document.querySelector('#' + CSS.escape(targetId));
+  if (!target) target = document.querySelector('[id="' + String(targetId).replace(/"/g, '\\"') + '"]');
+  return scrollTargetToBlockBottom(target, behavior);
+}
+
 function runOptionActionData(data) {
   if (!data) return false;
 
@@ -4535,7 +4617,7 @@ function runOptionActionData(data) {
     if (data.scrollEnabled && data.scrollTarget) {
       setTimeout(() => {
         const target = document.getElementById(data.scrollTarget);
-        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (target) scrollTargetToBlockBottom(target);
       }, 80);
     }
   }
@@ -4543,7 +4625,7 @@ function runOptionActionData(data) {
   if (data.linkEnabled && data.linkUrl) {
     if (data.linkUrl.startsWith('#')) {
       const target = document.getElementById(data.linkUrl.slice(1));
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (target) scrollTargetToBlockBottom(target);
     } else {
       window.open(data.linkUrl, '_blank');
     }
@@ -4566,19 +4648,20 @@ function handleNavDropdownOptionAction(option) {
 /* v80：導覽列下拉標題模板 */
 function navDropdownTemplateHTML() {
   return `
-    <div class="free-element nav-dropdown" data-id="${uid()}" data-type="nav-dropdown" data-name="導覽列下拉標題" style="left: 8%; top: 40px; width: 24%; height: 52px; z-index: 30; font-size: 16px; color: #212529; background: transparent; border-radius: 10px;">
+    <div class="free-element nav-dropdown" data-id="${uid()}" data-type="nav-dropdown" data-name="導覽列下拉標題" data-dropdown-style-mode="hover-title" data-nav-style-mode="hover-title" data-nav-dropdown-style="navbar-hover" data-dropdown-icon-style="triangle-line" data-dropdown-icon-color="#dbeafe" data-dropdown-icon-size="16" data-nav-title-bg-color="#0b3557" data-nav-title-text-color="#ffffff" data-nav-menu-bg-color="#ffffff" data-nav-option-text-color="#333333" data-nav-option-hover-bg-color="#edf6ff" data-nav-option-hover-text-color="#0b3557" style="left: 8%; top: 40px; width: 170px; height: 52px; z-index: 30; font-size: 18px; color: #ffffff; background: transparent; border-radius: 0; --dropdown-icon-color: #dbeafe; --dropdown-icon-size: 16px; --nav-title-bg: #0b3557; --nav-title-text: #ffffff; --nav-menu-bg: #ffffff; --nav-option-text: #333333; --nav-option-hover-bg: #edf6ff; --nav-option-hover-text: #0b3557;">
       ${elementToolbarHTML()}
       <div class="inner nav-dropdown-inner">
-        <div class="nav-dropdown-title" data-editable-text contenteditable="false">選單標題</div>
+        <div class="nav-dropdown-title" data-editable-text contenteditable="false">研發製程</div>
         <div class="nav-dropdown-menu">
-          <button type="button" class="nav-dropdown-option" data-option-index="0"><span data-editable-text contenteditable="false">選項一</span></button>
-          <button type="button" class="nav-dropdown-option" data-option-index="1"><span data-editable-text contenteditable="false">選項二</span></button>
-          <button type="button" class="nav-dropdown-option" data-option-index="2"><span data-editable-text contenteditable="false">選項三</span></button>
+          <button type="button" class="nav-dropdown-option" data-option-index="0"><span data-editable-text contenteditable="false">薄膜製程</span></button>
+          <button type="button" class="nav-dropdown-option" data-option-index="1"><span data-editable-text contenteditable="false">不織布製程</span></button>
+          <button type="button" class="nav-dropdown-option" data-option-index="2"><span data-editable-text contenteditable="false">熔噴布濾效資訊</span></button>
         </div>
       </div>
     </div>
   `;
 }
+
 
 function addNavDropdownTemplate() {
   const block = getTargetBlockForElement();
@@ -4700,6 +4783,78 @@ function applyDropdownStyleModeFromPanel() {
   if (wrapper) wrapper.dataset.dropdownStyleMode = mode;
   host.dataset.dropdownStyleMode = mode;
   applyDropdownStyleMode(host);
+}
+
+function getDropdownIconWrapperFromHost(host) {
+  if (!host) return null;
+  if (host.classList?.contains('editable-select') || host.classList?.contains('select-switcher-control') || host.tagName === 'SELECT') {
+    return host.closest('.free-element');
+  }
+  return host;
+}
+
+function syncDropdownIconStylePanel() {
+  const host = getSelectedOptionHost?.();
+  const select = document.getElementById('dropdownIconStyleSelect');
+  if (!select) return;
+
+  if (!host) {
+    select.value = 'default';
+    setValue('dropdownIconColor', '#6c757d');
+    setValue('dropdownIconSize', '18');
+    setValue('dropdownIconSizeInput', '18');
+    return;
+  }
+
+  const wrapper = getDropdownIconWrapperFromHost(host);
+  select.value = wrapper?.dataset.dropdownIconStyle || host.dataset.dropdownIconStyle || 'default';
+  setValue('dropdownIconColor', wrapper?.dataset.dropdownIconColor || host.dataset.dropdownIconColor || '#6c757d');
+  const size = wrapper?.dataset.dropdownIconSize || host.dataset.dropdownIconSize || '18';
+  setValue('dropdownIconSize', size);
+  setValue('dropdownIconSizeInput', size);
+}
+
+function applyDropdownIconStyle(host) {
+  if (!host) return;
+  const wrapper = getDropdownIconWrapperFromHost(host);
+  const style = wrapper?.dataset.dropdownIconStyle || host.dataset.dropdownIconStyle || 'default';
+  const color = wrapper?.dataset.dropdownIconColor || host.dataset.dropdownIconColor || '#6c757d';
+  const size = clampNumber(parseFloat(wrapper?.dataset.dropdownIconSize || host.dataset.dropdownIconSize || '18') || 18, 8, 80);
+
+  if (wrapper) {
+    wrapper.dataset.dropdownIconStyle = style;
+    wrapper.dataset.dropdownIconColor = color;
+    wrapper.dataset.dropdownIconSize = String(size);
+    wrapper.style.setProperty('--dropdown-icon-color', color);
+    wrapper.style.setProperty('--dropdown-icon-size', `${size}px`);
+  }
+  host.dataset.dropdownIconStyle = style;
+  host.dataset.dropdownIconColor = color;
+  host.dataset.dropdownIconSize = String(size);
+  host.style?.setProperty?.('--dropdown-icon-color', color);
+  host.style?.setProperty?.('--dropdown-icon-size', `${size}px`);
+}
+
+function applyDropdownIconStyleFromPanel() {
+  const host = getSelectedOptionHost?.();
+  if (!host) return;
+
+  const style = document.getElementById('dropdownIconStyleSelect')?.value || 'default';
+  const color = document.getElementById('dropdownIconColor')?.value || '#6c757d';
+  const size = clampNumber(numberValue('dropdownIconSize', 18), 8, 80);
+  const wrapper = getDropdownIconWrapperFromHost(host);
+
+  if (wrapper) {
+    wrapper.dataset.dropdownIconStyle = style;
+    wrapper.dataset.dropdownIconColor = color;
+    wrapper.dataset.dropdownIconSize = String(size);
+  }
+  host.dataset.dropdownIconStyle = style;
+  host.dataset.dropdownIconColor = color;
+  host.dataset.dropdownIconSize = String(size);
+  setValue('dropdownIconSizeInput', size);
+  applyDropdownIconStyle(host);
+  scheduleAutoSave?.();
 }
 
 function resetSelectOptionStyleToV78(host) {
@@ -5160,6 +5315,7 @@ function refreshInspector() {
     syncImageHoverZoomPanel();
     syncFormElementPanel();
     syncDropdownStyleModePanel();
+  syncDropdownIconStylePanel?.();
     syncSelectOptionBgColorsPanel();
 
     const link = selectedElement.querySelector('a');
@@ -5168,7 +5324,6 @@ function refreshInspector() {
     const youtube = selectedElement.querySelector('iframe.editable-youtube');
     if (youtube) {
       setValue('youtubeUrlInput', selectedElement.dataset.youtubeUrl || youtube.getAttribute('src') || '');
-      setValue('youtubeEmbedHtmlInput', selectedElement.dataset.youtubeEmbedHtml || youtube.outerHTML || '');
     }
 
     if (selectedElement.dataset.type === 'shape') {
@@ -5298,7 +5453,7 @@ function updateYoutubeCookieStatus() {
   }
 
   if (protocol === 'file:') {
-    warnings.push('目前是 file:// 開啟，建議用本機伺服器或正式網址測試影片。');
+    warnings.push('目前是 file:// 開啟；YouTube 可能出現錯誤 153。請用 localhost、GitHub Pages 或正式 HTTPS 網址測試影片。');
   } else {
     warnings.push(`目前網址協定：${protocol}`);
   }
@@ -5309,7 +5464,7 @@ function updateYoutubeCookieStatus() {
     warnings.push('目前影片 iframe src 已存在。');
   }
 
-  warnings.push('第三方 Cookie 是否被 YouTube / Chrome 阻擋，前端無法 100% 直接讀取；若預覽仍不能播放，請檢查瀏覽器網址列是否有 Cookie/追蹤防護封鎖圖示，並允許 youtube.com。');
+  warnings.push('若仍不能播放，請確認影片允許嵌入、網址 ID 為 11 碼，並避免用 file:// 直接開啟 HTML。');
 
   box.innerHTML = warnings.map(item => `<div>• ${item}</div>`).join('');
   box.classList.toggle('warning', !cookieEnabled || protocol === 'file:' || !hasVideo);
@@ -5452,48 +5607,66 @@ function attachImageLoadHandler(img) {
 }
 
 
+function cleanYoutubeVideoIdCandidate(value) {
+  const candidate = (value || '').trim().split(/[?&#/]/)[0];
+  return /^[a-zA-Z0-9_-]{11}$/.test(candidate) ? candidate : '';
+}
+
 function extractYoutubeId(url) {
   const value = (url || '').trim();
 
   if (!value) return '';
 
-  // 已經是影片 ID
-  if (/^[a-zA-Z0-9_-]{11}$/.test(value)) {
-    return value;
-  }
+  // 已經是 11 碼影片 ID
+  const directId = cleanYoutubeVideoIdCandidate(value);
+  if (directId) return directId;
 
   try {
     const parsed = new URL(value);
-    const host = parsed.hostname.replace('www.', '');
+    const host = parsed.hostname.replace(/^www\./, '').replace(/^m\./, '');
+    const pathParts = parsed.pathname.split('/').filter(Boolean);
+    let candidate = '';
 
     if (host === 'youtu.be') {
-      return parsed.pathname.replace('/', '').split('/')[0];
+      candidate = pathParts[0] || '';
+    } else if (pathParts[0] === 'shorts') {
+      candidate = pathParts[1] || '';
+    } else if (pathParts[0] === 'embed') {
+      candidate = pathParts[1] || '';
+    } else if (pathParts[0] === 'live') {
+      candidate = pathParts[1] || '';
+    } else {
+      candidate = parsed.searchParams.get('v') || '';
     }
 
-    if (parsed.pathname.includes('/shorts/')) {
-      return parsed.pathname.split('/shorts/')[1].split('/')[0];
-    }
-
-    if (parsed.pathname.includes('/embed/')) {
-      return parsed.pathname.split('/embed/')[1].split('/')[0];
-    }
-
-    if (parsed.pathname.includes('/live/')) {
-      return parsed.pathname.split('/live/')[1].split('/')[0];
-    }
-
-    const watchId = parsed.searchParams.get('v');
-    if (watchId) return watchId;
+    return cleanYoutubeVideoIdCandidate(candidate);
   } catch (err) {
     return '';
   }
+}
 
-  return '';
+function youtubeWatchUrl(url) {
+  const id = extractYoutubeId(url);
+  return id ? `https://www.youtube.com/watch?v=${id}` : '';
 }
 
 function youtubeEmbedUrl(url) {
   const id = extractYoutubeId(url);
-  return id ? `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&playsinline=1` : '';
+  if (!id) return '';
+
+  const params = new URLSearchParams({
+    rel: '0',
+    modestbranding: '1',
+    playsinline: '1',
+    enablejsapi: '0'
+  });
+
+  // 正式網址 / GitHub Pages / localhost 預覽時帶入 origin，降低 YouTube 播放器設定錯誤機率。
+  if (/^https?:$/.test(window.location.protocol) && window.location.origin) {
+    params.set('origin', window.location.origin);
+  }
+
+  return `https://www.youtube.com/embed/${id}?${params.toString()}`;
 }
 
 function officialYoutubeIframeHtml(url) {
@@ -5507,86 +5680,78 @@ function officialYoutubeIframeHtml(url) {
 function normalizeYoutubeIframe(iframe) {
   iframe.classList.add('editable-youtube');
   iframe.classList.remove('d-none');
-
-  if (!iframe.getAttribute('title')) {
-    iframe.setAttribute('title', 'YouTube video player');
-  }
-
-  if (!iframe.getAttribute('frameborder')) {
-    iframe.setAttribute('frameborder', '0');
-  }
-
-  if (!iframe.getAttribute('allow')) {
-    iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
-  }
-
+  iframe.setAttribute('title', iframe.getAttribute('title') || 'YouTube video player');
+  iframe.setAttribute('frameborder', '0');
+  iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+  iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+  iframe.setAttribute('loading', 'lazy');
   iframe.setAttribute('allowfullscreen', '');
 
   return iframe;
 }
 
 function applyYoutubeIframeHtmlToElement(html, originalUrl = '') {
+  // v102：為符合影片物件儲存規範，停用直接儲存 / 套用 iframe HTML。
+  // 後台只能儲存 YouTube 影片網址；iframe 由 applyYoutubeEmbedToElement 依網址產生。
+  return false;
+}
+
+function applyYoutubeEmbedToElement(url) {
   if (!selectedElement || selectedElement.dataset.type !== 'youtube') return false;
 
-  const temp = document.createElement('div');
-  temp.innerHTML = (html || '').trim();
+  const originalUrl = (url || '').trim();
 
-  const sourceIframe = temp.querySelector('iframe');
-
-  if (!sourceIframe) {
+  // 管理後台只允許輸入 YouTube 網址，不接受 iframe / HTML / 影片檔路徑。
+  if (!originalUrl || /<\s*iframe|<\s*video|<\s*source|\.mp4(\?|$)|\.mov(\?|$)|\.webm(\?|$)/i.test(originalUrl)) {
     return false;
   }
 
-  const src = sourceIframe.getAttribute('src') || '';
+  const videoId = extractYoutubeId(originalUrl);
+  const embed = youtubeEmbedUrl(originalUrl);
 
-  // 只接受 YouTube embed iframe，避免貼入其他危險或不相關 HTML
-  const isYoutubeEmbed = /https:\/\/(www\.)?youtube(-nocookie)?\.com\/embed\//.test(src);
-
-  if (!isYoutubeEmbed) {
+  if (!videoId || !embed) {
+    const placeholder = selectedElement.querySelector('.youtube-placeholder');
+    if (placeholder) {
+      placeholder.classList.remove('d-none');
+      placeholder.innerHTML = 'YouTube 網址無效或影片 ID 不完整<br><span class="small">請確認網址中的影片 ID 為 11 碼</span>';
+    }
     return false;
   }
 
   const youtubeInner = selectedElement.querySelector('.youtube-inner') || selectedElement.querySelector('.inner');
-  const oldIframe = selectedElement.querySelector('iframe.editable-youtube');
-  const placeholder = selectedElement.querySelector('.youtube-placeholder');
-
   if (!youtubeInner) return false;
 
-  const newIframe = normalizeYoutubeIframe(sourceIframe.cloneNode(true));
-
-  if (oldIframe) {
-    oldIframe.replaceWith(newIframe);
-  } else {
-    youtubeInner.appendChild(newIframe);
+  let iframe = selectedElement.querySelector('iframe.editable-youtube');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.className = 'editable-youtube';
+    youtubeInner.appendChild(iframe);
   }
 
+  iframe.setAttribute('src', embed);
+  normalizeYoutubeIframe(iframe);
+
+  const placeholder = selectedElement.querySelector('.youtube-placeholder');
   if (placeholder) {
     placeholder.classList.add('d-none');
   }
 
-  selectedElement.dataset.youtubeUrl = originalUrl || selectedElement.dataset.youtubeUrl || '';
-  selectedElement.dataset.youtubeEmbed = newIframe.getAttribute('src') || '';
-  selectedElement.dataset.youtubeEmbedHtml = newIframe.outerHTML;
+  // 只把 YouTube 影片網址視為影片物件資料來源；iframe 一律由前端依網址產生。
+  selectedElement.dataset.youtubeUrl = originalUrl;
+  selectedElement.dataset.youtubeId = videoId;
+  selectedElement.dataset.youtubeWatchUrl = youtubeWatchUrl(originalUrl);
   selectedElement.dataset.youtubeAspectRatio = selectedElement.dataset.youtubeAspectRatio || '1.7777777778';
+  delete selectedElement.dataset.youtubeEmbedHtml;
+  delete selectedElement.dataset.localVideoFile;
+  delete selectedElement.dataset.videoUploadPath;
 
-  setValue('youtubeEmbedHtmlInput', newIframe.outerHTML);
   syncYoutubeWidthControls();
   updateYoutubeCookieStatus();
+  scheduleAutoSave();
 
   return true;
 }
 
-function applyYoutubeEmbedToElement(url) {
-  const html = officialYoutubeIframeHtml(url);
-
-  if (!html) {
-    return false;
-  }
-
-  setValue('youtubeEmbedHtmlInput', html);
-
-  return applyYoutubeIframeHtmlToElement(html, url);
-}
 
 function rgbToHex(rgb) {
   if (!rgb || rgb === 'transparent' || rgb === 'rgba(0, 0, 0, 0)') return '#ffffff';
@@ -5863,10 +6028,7 @@ function handleElementFunctionClick(el) {
       const target = document.getElementById(targetId);
       if (!target) return;
 
-      target.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
+      scrollTargetToBlockBottom(target);
     }, hasPageJump ? 80 : 0);
   }
 }
@@ -5933,10 +6095,7 @@ function openElementHyperlink(el) {
   if (url.startsWith('#')) {
     const target = document.querySelector(url);
     if (target) {
-      target.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
+      scrollTargetToBlockBottom(target);
     }
     return true;
   }
@@ -6127,6 +6286,10 @@ function colorToRgbaWithOpacity(hex, opacityPercent, depthPercent) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function shapeGradientHasInsideOutFade(directions = []) {
+  return Array.isArray(directions) && directions.includes('inside-out');
+}
+
 function buildShapeBackground(color, opacity, gradientEnabled, directions, depth, gradientColors = []) {
   const { r, g, b } = hexToRgbParts(color);
   const baseAlpha = clampPercent(opacity, 100) / 100;
@@ -6151,8 +6314,6 @@ function buildShapeBackground(color, opacity, gradientEnabled, directions, depth
   };
 
   const layers = directions.map(dir => {
-    const cssDir = map[dir] || 'to bottom';
-
     const stops = activeColors.map((item, index) => {
       const percent = activeColors.length === 1
         ? 100
@@ -6161,6 +6322,11 @@ function buildShapeBackground(color, opacity, gradientEnabled, directions, depth
       return `${colorToRgbaWithOpacity(item.color, item.opacity, depth)} ${percent}%`;
     }).join(', ');
 
+    if (dir === 'inside-out') {
+      return `radial-gradient(circle at center, ${stops})`;
+    }
+
+    const cssDir = map[dir] || 'to bottom';
     return `linear-gradient(${cssDir}, ${stops})`;
   });
 
@@ -6201,6 +6367,7 @@ function applyShapeStyle(event) {
   const fill = selectedElement.querySelector('.shape-fill');
   if (fill) {
     fill.style.background = background;
+    fill.style.backgroundColor = colorWithOpacity(color, opacity);
     fill.style.borderRadius = radius + 'px';
     applyShapeColorVars(selectedElement, color, opacity);
   }
@@ -6252,24 +6419,32 @@ function lineSettingValue(id, fallback = '') {
 
 function setLineEndpointVisibility(lineEl, prefix, value) {
   if (!lineEl) return;
-  ['arrow', 'circle', 'square', 'diamond'].forEach(type => {
+  ['arrow', 'arrow2', 'circle', 'square', 'diamond'].forEach(type => {
     const endpoint = lineEl.querySelector(`.line-${prefix}-${type}`);
     if (endpoint) endpoint.style.display = value === type ? 'inline' : 'none';
   });
 }
 
-function updateLineEndpointGeometry(el, start, end, weight) {
+function updateLineEndpointGeometry(el, start, end, weight, arrowWidth = null, arrowHeight = null) {
   if (!el) return { startInset: 24, endInset: 976 };
 
   const centerY = 50;
   const startX = 24;
   const endX = 976;
-  const arrowHalf = clampNumber(weight * 1.4, 9, 26);
-  const arrowLength = clampNumber(weight * 4.2, 26, 76);
+  const requestedArrowWidth = arrowWidth === null || arrowWidth === undefined
+    ? parseFloat(el.dataset.lineArrowWidth || '')
+    : parseFloat(arrowWidth);
+  const requestedArrowHeight = arrowHeight === null || arrowHeight === undefined
+    ? parseFloat(el.dataset.lineArrowHeight || '')
+    : parseFloat(arrowHeight);
+  const arrowLength = clampNumber(Number.isFinite(requestedArrowWidth) && requestedArrowWidth > 0 ? requestedArrowWidth : 76, 18, 320);
+  const arrowHalf = clampNumber(Number.isFinite(requestedArrowHeight) && requestedArrowHeight > 0 ? requestedArrowHeight / 2 : 22, 4, 120);
   const shapeHalf = clampNumber(weight * 1.35, 8, 22);
 
   const startArrow = el.querySelector('.line-start-arrow');
   const endArrow = el.querySelector('.line-end-arrow');
+  const startArrow2 = el.querySelector('.line-start-arrow2');
+  const endArrow2 = el.querySelector('.line-end-arrow2');
   const startCircle = el.querySelector('.line-start-circle');
   const endCircle = el.querySelector('.line-end-circle');
   const startSquare = el.querySelector('.line-start-square');
@@ -6282,6 +6457,12 @@ function updateLineEndpointGeometry(el, start, end, weight) {
   }
   if (endArrow) {
     endArrow.setAttribute('points', `${endX},${centerY} ${endX - arrowLength},${centerY - arrowHalf} ${endX - arrowLength},${centerY + arrowHalf}`);
+  }
+  if (startArrow2) {
+    startArrow2.setAttribute('points', `${startX + arrowLength},${centerY - arrowHalf} ${startX},${centerY} ${startX + arrowLength},${centerY + arrowHalf}`);
+  }
+  if (endArrow2) {
+    endArrow2.setAttribute('points', `${endX - arrowLength},${centerY - arrowHalf} ${endX},${centerY} ${endX - arrowLength},${centerY + arrowHalf}`);
   }
   if (startCircle) {
     startCircle.setAttribute('cx', String(startX));
@@ -6312,8 +6493,8 @@ function updateLineEndpointGeometry(el, start, end, weight) {
     endDiamond.setAttribute('points', `${endX},${centerY - shapeHalf} ${endX + shapeHalf},${centerY} ${endX},${centerY + shapeHalf} ${endX - shapeHalf},${centerY}`);
   }
 
-  const startInset = start === 'none' ? startX : start === 'arrow' ? startX + arrowLength - Math.max(weight * 0.9, 4) : startX + shapeHalf;
-  const endInset = end === 'none' ? endX : end === 'arrow' ? endX - arrowLength + Math.max(weight * 0.9, 4) : endX - shapeHalf;
+  const startInset = start === 'none' ? startX : (start === 'arrow' || start === 'arrow2') ? startX + arrowLength - Math.max(weight * 0.9, 4) : startX + shapeHalf;
+  const endInset = end === 'none' ? endX : (end === 'arrow' || end === 'arrow2') ? endX - arrowLength + Math.max(weight * 0.9, 4) : endX - shapeHalf;
 
   return { startInset, endInset };
 }
@@ -6331,12 +6512,92 @@ function applyLineArrowPreset(preset) {
   } else if (mode === 'both') {
     setValue('lineStart', 'arrow');
     setValue('lineEnd', 'arrow');
+  } else if (mode === 'left2') {
+    setValue('lineStart', 'arrow2');
+    setValue('lineEnd', 'none');
+  } else if (mode === 'right2') {
+    setValue('lineStart', 'none');
+    setValue('lineEnd', 'arrow2');
+  } else if (mode === 'both2') {
+    setValue('lineStart', 'arrow2');
+    setValue('lineEnd', 'arrow2');
   } else {
     setValue('lineStart', 'none');
     setValue('lineEnd', 'none');
   }
 
   applyLineStyleFromPanel();
+}
+
+
+function ensureLineGradientStroke(el, svg, fallbackColor) {
+  if (!el || !svg || el.dataset.lineGradientEnabled !== 'true') return fallbackColor;
+
+  const safeId = String(el.dataset.id || 'default').replace(/[^a-zA-Z0-9_-]/g, '-') || 'default';
+  const gradientId = 'line-gradient-' + safeId;
+  let defs = svg.querySelector('defs.line-gradient-defs');
+  if (!defs) {
+    defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    defs.classList.add('line-gradient-defs');
+    svg.insertBefore(defs, svg.firstChild);
+  }
+
+  Array.from(defs.querySelectorAll('[data-line-gradient-node="true"]')).forEach(node => node.remove());
+
+  const mode = el.dataset.lineGradientMode || 'left-right';
+  const startColor = normalizeHexColor(el.dataset.lineGradientStartColor || fallbackColor || '#212529', fallbackColor || '#212529');
+  const endColor = normalizeHexColor(el.dataset.lineGradientEndColor || fallbackColor || '#212529', fallbackColor || '#212529');
+  const startOpacity = clampPercent(el.dataset.lineGradientStartOpacity === undefined ? 100 : el.dataset.lineGradientStartOpacity, 100) / 100;
+  const endOpacity = clampPercent(el.dataset.lineGradientEndOpacity === undefined ? 100 : el.dataset.lineGradientEndOpacity, 100) / 100;
+  const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+  gradient.setAttribute('id', gradientId);
+  gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
+  gradient.setAttribute('data-line-gradient-node', 'true');
+
+  const line = svg.querySelector('.line-main');
+  const lineX1 = parseFloat(line?.getAttribute('x1') || '24');
+  const lineX2 = parseFloat(line?.getAttribute('x2') || '976');
+  const centerY = parseFloat(line?.getAttribute('y1') || '50');
+  const minX = Math.min(lineX1, lineX2);
+  const maxX = Math.max(lineX1, lineX2);
+  const minY = 0;
+  const maxY = 100;
+
+  // userSpaceOnUse 可避免 SVG <line> 使用 objectBoundingBox 時高度為 0，
+  // 導致開啟漸層後部分瀏覽器把線條判定成透明或不可見。
+  if (mode === 'right-left') {
+    gradient.setAttribute('x1', String(maxX)); gradient.setAttribute('y1', String(centerY));
+    gradient.setAttribute('x2', String(minX)); gradient.setAttribute('y2', String(centerY));
+  } else if (mode === 'top-bottom') {
+    gradient.setAttribute('x1', String(minX)); gradient.setAttribute('y1', String(minY));
+    gradient.setAttribute('x2', String(minX)); gradient.setAttribute('y2', String(maxY));
+  } else if (mode === 'bottom-top') {
+    gradient.setAttribute('x1', String(minX)); gradient.setAttribute('y1', String(maxY));
+    gradient.setAttribute('x2', String(minX)); gradient.setAttribute('y2', String(minY));
+  } else {
+    gradient.setAttribute('x1', String(minX)); gradient.setAttribute('y1', String(centerY));
+    gradient.setAttribute('x2', String(maxX)); gradient.setAttribute('y2', String(centerY));
+  }
+
+  const addStop = (offset, color, stopOpacity) => {
+    const stop = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    stop.setAttribute('offset', offset);
+    stop.setAttribute('stop-color', color);
+    stop.setAttribute('stop-opacity', String(clampNumber(stopOpacity, 0, 1)));
+    gradient.appendChild(stop);
+  };
+
+  if (mode === 'inside-out') {
+    addStop('0%', endColor, endOpacity);
+    addStop('50%', startColor, startOpacity);
+    addStop('100%', endColor, endOpacity);
+  } else {
+    addStop('0%', startColor, startOpacity);
+    addStop('100%', endColor, endOpacity);
+  }
+
+  defs.appendChild(gradient);
+  return `url(#${gradientId})`;
 }
 
 function applyLineStyleToElement(el = selectedElement) {
@@ -6349,18 +6610,22 @@ function applyLineStyleToElement(el = selectedElement) {
   const cap = el.dataset.lineCap || 'round';
   const start = el.dataset.lineStart || 'none';
   const end = el.dataset.lineEnd || 'none';
+  const arrowWidth = clampNumber(parseFloat(el.dataset.lineArrowWidth || '') || 76, 18, 320);
+  const arrowHeight = clampNumber(parseFloat(el.dataset.lineArrowHeight || '') || 44, 8, 240);
 
   const svg = el.querySelector('svg.editable-line');
   const line = el.querySelector('.line-main');
   if (!svg || !line) return;
 
-  const geometry = updateLineEndpointGeometry(el, start, end, weight);
+  const geometry = updateLineEndpointGeometry(el, start, end, weight, arrowWidth, arrowHeight);
   line.setAttribute('x1', String(geometry.startInset));
   line.setAttribute('x2', String(geometry.endInset));
   el.style.setProperty('--line-weight', weight + 'px');
-  line.setAttribute('stroke', color);
+  const strokePaint = ensureLineGradientStroke(el, svg, color);
+  const endpointPaint = color;
+  line.setAttribute('stroke', strokePaint);
   line.setAttribute('stroke-width', String(weight));
-  line.style.stroke = color;
+  line.style.stroke = strokePaint;
   line.style.strokeWidth = weight + 'px';
   line.setAttribute('stroke-linecap', style === 'dotted' ? 'round' : cap);
   line.style.strokeLinecap = style === 'dotted' ? 'round' : cap;
@@ -6379,11 +6644,11 @@ function applyLineStyleToElement(el = selectedElement) {
   svg.style.overflow = 'visible';
 
   el.querySelectorAll('.line-endpoint').forEach(endpoint => {
-    const isArrow = endpoint.classList.contains('line-start-arrow') || endpoint.classList.contains('line-end-arrow');
-    endpoint.setAttribute('fill', isArrow ? 'none' : color);
-    endpoint.setAttribute('stroke', color);
-    endpoint.style.fill = isArrow ? 'none' : color;
-    endpoint.style.stroke = color;
+    const isArrow = endpoint.classList.contains('line-start-arrow') || endpoint.classList.contains('line-end-arrow') || endpoint.classList.contains('line-start-arrow2') || endpoint.classList.contains('line-end-arrow2');
+    endpoint.setAttribute('fill', isArrow ? 'none' : endpointPaint);
+    endpoint.setAttribute('stroke', endpointPaint);
+    endpoint.style.fill = isArrow ? 'none' : endpointPaint;
+    endpoint.style.stroke = endpointPaint;
     endpoint.setAttribute('stroke-width', String(Math.max(weight * 0.92, 2)));
     endpoint.style.strokeWidth = Math.max(weight * 0.92, 2) + 'px';
     endpoint.setAttribute('stroke-linecap', 'round');
@@ -6407,7 +6672,10 @@ function applyLineStyleFromPanel() {
   const color = lineSettingValue('lineColor', '#212529') || '#212529';
   const weight = clampNumber(parseFloat(lineSettingValue('lineWeight', 6)) || 6, 1, 80);
   const opacity = clampNumber(parseFloat(lineSettingValue('lineOpacity', 100)) || 100, 0, 100);
+  const arrowWidth = clampNumber(parseFloat(lineSettingValue('lineArrowWidth', 76)) || 76, 18, 320);
+  const arrowHeight = clampNumber(parseFloat(lineSettingValue('lineArrowHeight', 44)) || 44, 8, 240);
   const angle = ((parseInt(lineSettingValue('lineAngle', 0), 10) || 0) % 360 + 360) % 360;
+  const gradientEnabled = !!document.getElementById('lineGradientEnabled')?.checked;
 
   selectedElement.dataset.lineColor = color;
   selectedElement.dataset.lineWeight = String(weight);
@@ -6416,13 +6684,25 @@ function applyLineStyleFromPanel() {
   selectedElement.dataset.lineCap = lineSettingValue('lineCap', 'round') || 'round';
   selectedElement.dataset.lineStart = lineSettingValue('lineStart', 'none') || 'none';
   selectedElement.dataset.lineEnd = lineSettingValue('lineEnd', 'none') || 'none';
+  selectedElement.dataset.lineArrowWidth = String(arrowWidth);
+  selectedElement.dataset.lineArrowHeight = String(arrowHeight);
+  selectedElement.dataset.lineGradientEnabled = gradientEnabled ? 'true' : 'false';
+  selectedElement.dataset.lineGradientMode = lineSettingValue('lineGradientMode', 'left-right') || 'left-right';
+  selectedElement.dataset.lineGradientStartColor = lineSettingValue('lineGradientStartColor', color) || color;
+  selectedElement.dataset.lineGradientEndColor = lineSettingValue('lineGradientEndColor', color) || color;
+  selectedElement.dataset.lineGradientStartOpacity = String(clampPercent(lineSettingValue('lineGradientStartOpacity', 100), 100));
+  selectedElement.dataset.lineGradientEndOpacity = String(clampPercent(lineSettingValue('lineGradientEndOpacity', 100), 100));
   selectedElement.dataset.rotateDeg = String(angle);
 
   setValue('lineWeightInput', weight);
   setValue('lineOpacityInput', opacity);
+  setValue('lineArrowWidthInput', arrowWidth);
+  setValue('lineArrowHeightInput', arrowHeight);
   setValue('lineAngleInput', angle);
   setValue('lineWeight', weight);
   setValue('lineOpacity', opacity);
+  setValue('lineArrowWidth', arrowWidth);
+  setValue('lineArrowHeight', arrowHeight);
   setValue('lineAngle', angle);
 
   applyLineStyleToElement(selectedElement);
@@ -6439,6 +6719,14 @@ function syncLineStylePanel() {
   if (!selectedElement.dataset.lineCap) selectedElement.dataset.lineCap = 'round';
   if (!selectedElement.dataset.lineStart) selectedElement.dataset.lineStart = 'none';
   if (!selectedElement.dataset.lineEnd) selectedElement.dataset.lineEnd = 'none';
+  if (!selectedElement.dataset.lineArrowWidth) selectedElement.dataset.lineArrowWidth = '76';
+  if (!selectedElement.dataset.lineArrowHeight) selectedElement.dataset.lineArrowHeight = '44';
+  if (!selectedElement.dataset.lineGradientEnabled) selectedElement.dataset.lineGradientEnabled = 'false';
+  if (!selectedElement.dataset.lineGradientMode) selectedElement.dataset.lineGradientMode = 'left-right';
+  if (!selectedElement.dataset.lineGradientStartColor) selectedElement.dataset.lineGradientStartColor = selectedElement.dataset.lineColor || '#212529';
+  if (!selectedElement.dataset.lineGradientEndColor) selectedElement.dataset.lineGradientEndColor = selectedElement.dataset.lineColor || '#212529';
+  if (!selectedElement.dataset.lineGradientStartOpacity) selectedElement.dataset.lineGradientStartOpacity = '100';
+  if (!selectedElement.dataset.lineGradientEndOpacity) selectedElement.dataset.lineGradientEndOpacity = '100';
 
   const angle = ((parseInt(selectedElement.dataset.rotateDeg || '0', 10) || 0) % 360 + 360) % 360;
 
@@ -6447,6 +6735,18 @@ function syncLineStylePanel() {
   setValue('lineWeightInput', selectedElement.dataset.lineWeight);
   setValue('lineOpacity', selectedElement.dataset.lineOpacity);
   setValue('lineOpacityInput', selectedElement.dataset.lineOpacity);
+  setValue('lineArrowWidth', selectedElement.dataset.lineArrowWidth);
+  setValue('lineArrowWidthInput', selectedElement.dataset.lineArrowWidth);
+  setValue('lineArrowHeight', selectedElement.dataset.lineArrowHeight);
+  setValue('lineArrowHeightInput', selectedElement.dataset.lineArrowHeight);
+  setChecked('lineGradientEnabled', selectedElement.dataset.lineGradientEnabled === 'true');
+  setValue('lineGradientMode', selectedElement.dataset.lineGradientMode);
+  setValue('lineGradientStartColor', selectedElement.dataset.lineGradientStartColor);
+  setValue('lineGradientEndColor', selectedElement.dataset.lineGradientEndColor);
+  setValue('lineGradientStartOpacity', selectedElement.dataset.lineGradientStartOpacity);
+  setValue('lineGradientStartOpacityInput', selectedElement.dataset.lineGradientStartOpacity);
+  setValue('lineGradientEndOpacity', selectedElement.dataset.lineGradientEndOpacity);
+  setValue('lineGradientEndOpacityInput', selectedElement.dataset.lineGradientEndOpacity);
   setValue('lineStyle', selectedElement.dataset.lineStyle);
   setValue('lineCap', selectedElement.dataset.lineCap);
   setValue('lineStart', selectedElement.dataset.lineStart);
@@ -7263,6 +7563,12 @@ function cleanPageCloneForExport(clone) {
   });
 
   clone.querySelectorAll('.html-zone').forEach(zone => {
+    const hasVisibleBlock = !!zone.querySelector(':scope > .html-block');
+    if (!hasVisibleBlock) {
+      zone.remove();
+      return;
+    }
+
     const zoneName = zone.dataset.zone;
 
     if (zoneName === 'header') {
@@ -7389,10 +7695,9 @@ function scrollToExportTarget(targetId) {
 
     if (!target) return false;
 
-    target.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
+    var rect = target.getBoundingClientRect();
+    var top = Math.max(0, window.scrollY + rect.bottom - window.innerHeight);
+    window.scrollTo({ top: top, behavior: 'smooth' });
   });
 
   return true;
@@ -8988,10 +9293,7 @@ function handleSelectOptionAction(select) {
       setTimeout(() => {
         const target = document.getElementById(data.scrollTarget);
         if (target) {
-          target.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-          });
+          scrollTargetToBlockBottom(target);
         }
       }, data.pageEnabled ? 80 : 0);
     }
@@ -9001,10 +9303,7 @@ function handleSelectOptionAction(select) {
     if (data.linkUrl.startsWith('#')) {
       const target = document.querySelector(data.linkUrl);
       if (target) {
-        target.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
+        scrollTargetToBlockBottom(target);
       }
     } else {
       window.location.href = data.linkUrl;
@@ -9161,18 +9460,19 @@ function syncFormElementPanel() {
 
   const isInput = selectedElement.dataset.type === 'input';
   const isSelect = selectedElement.dataset.type === 'select';
+  const isSelectSwitcherControl = selectedElement.dataset.type === 'select-switcher-control';
   const isNavDropdown = selectedElement.dataset.type === 'nav-dropdown';
 
   document.getElementById('inputSettingPanel').classList.toggle('d-none', !isInput);
-  document.getElementById('selectSettingPanel').classList.toggle('d-none', !(isSelect || isNavDropdown));
-  document.getElementById('selectSettingPanel').classList.remove('select-switcher-control-name-mode');
+  document.getElementById('selectSettingPanel').classList.toggle('d-none', !(isSelect || isNavDropdown || isSelectSwitcherControl));
+  document.getElementById('selectSettingPanel').classList.toggle('select-switcher-control-name-mode', isSelectSwitcherControl);
 
   const switcherHint = document.getElementById('selectSwitcherControlHint');
-  if (switcherHint) switcherHint.classList.add('d-none');
+  if (switcherHint) switcherHint.classList.toggle('d-none', !isSelectSwitcherControl);
 
   const selectOptionsLabel = document.getElementById('selectOptionsLabel');
   if (selectOptionsLabel) {
-    selectOptionsLabel.textContent = isNavDropdown ? '導覽下拉選項' : '下拉選項';
+    selectOptionsLabel.textContent = isNavDropdown ? '導覽下拉選項' : (isSelectSwitcherControl ? '下拉換組選項名稱' : '下拉選項');
   }
 
   if (isInput) {
@@ -9180,7 +9480,7 @@ function syncFormElementPanel() {
     setValue('inputPlaceholderInput', input ? (input.getAttribute('placeholder') || '') : '');
   }
 
-  if (isSelect || isNavDropdown) {
+  if (isSelect || isNavDropdown || isSelectSwitcherControl) {
     const host = getSelectedOptionHost();
     const options = getOptionLabelsFromHost(host).join('\n');
 
@@ -9231,6 +9531,19 @@ function applySelectOptions() {
 
   if (selectedElement.dataset.type === 'nav-dropdown') {
     rebuildNavDropdownOptions(selectedElement, lines);
+  }
+
+  if (selectedElement.dataset.type === 'select-switcher-control') {
+    const block = selectedElement.closest('.js-css-select-switcher');
+    if (block) {
+      while (getSelectSwitcherGroups(block).length < lines.length) addSelectSwitcherGroup(block);
+      getSelectSwitcherGroups(block).forEach((group, index) => {
+        group.dataset.switcherLabel = lines[index] || `選項 ${index + 1}`;
+      });
+      updateSelectSwitcherOptions(block);
+      syncSelectSwitcherSettingPanel?.();
+      syncSelectSwitcherTopOptionNamePanel?.();
+    }
   }
 
   refreshSelectOptionActionOptions();
@@ -10473,6 +10786,15 @@ document.getElementById('imageSwapUploadInput')?.addEventListener('change', even
 
 // v82：下拉樣式模式
 document.getElementById('dropdownStyleModeSelect')?.addEventListener('change', applyDropdownStyleModeFromPanel);
+document.getElementById('dropdownIconStyleSelect')?.addEventListener('change', applyDropdownIconStyleFromPanel);
+document.getElementById('dropdownIconColor')?.addEventListener('input', applyDropdownIconStyleFromPanel);
+document.getElementById('dropdownIconSize')?.addEventListener('input', e => { setValue('dropdownIconSizeInput', e.target.value); applyDropdownIconStyleFromPanel(); });
+bindNumberInput('dropdownIconSizeInput', () => {
+  const value = clampNumber(numberValue('dropdownIconSizeInput', 18), 8, 80);
+  setValue('dropdownIconSize', value);
+  setValue('dropdownIconSizeInput', value);
+  applyDropdownIconStyleFromPanel();
+});
 
 // v82：多選平均分配間距
 document.getElementById('distributeHorizontalBtn')?.addEventListener('click', () => distributeSelectedElements('horizontal'));
@@ -10713,6 +11035,16 @@ document.getElementById('lineOpacity')?.addEventListener('input', e => {
   applyLineStyleFromPanel();
 });
 
+document.getElementById('lineArrowWidth')?.addEventListener('input', e => {
+  setValue('lineArrowWidthInput', e.target.value);
+  applyLineStyleFromPanel();
+});
+
+document.getElementById('lineArrowHeight')?.addEventListener('input', e => {
+  setValue('lineArrowHeightInput', e.target.value);
+  applyLineStyleFromPanel();
+});
+
 document.getElementById('lineAngle')?.addEventListener('input', e => {
   setValue('lineAngleInput', e.target.value);
   applyLineStyleFromPanel();
@@ -10720,7 +11052,20 @@ document.getElementById('lineAngle')?.addEventListener('input', e => {
 
 bindNumberInput('lineWeightInput', () => applyLineNumberInput('lineWeightInput', 'lineWeight', 1, 80));
 bindNumberInput('lineOpacityInput', () => applyLineNumberInput('lineOpacityInput', 'lineOpacity', 0, 100));
+bindNumberInput('lineArrowWidthInput', () => applyLineNumberInput('lineArrowWidthInput', 'lineArrowWidth', 18, 320));
+bindNumberInput('lineArrowHeightInput', () => applyLineNumberInput('lineArrowHeightInput', 'lineArrowHeight', 8, 240));
 bindNumberInput('lineAngleInput', () => applyLineNumberInput('lineAngleInput', 'lineAngle', 0, 359));
+bindNumberInput('lineGradientStartOpacityInput', () => applyLineNumberInput('lineGradientStartOpacityInput', 'lineGradientStartOpacity', 0, 100));
+bindNumberInput('lineGradientEndOpacityInput', () => applyLineNumberInput('lineGradientEndOpacityInput', 'lineGradientEndOpacity', 0, 100));
+
+['lineGradientEnabled', 'lineGradientMode', 'lineGradientStartColor', 'lineGradientEndColor', 'lineGradientStartOpacity', 'lineGradientEndOpacity'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', e => {
+    if (id === 'lineGradientStartOpacity') setValue('lineGradientStartOpacityInput', e.target.value);
+    if (id === 'lineGradientEndOpacity') setValue('lineGradientEndOpacityInput', e.target.value);
+    applyLineStyleFromPanel();
+  });
+  document.getElementById(id)?.addEventListener('change', applyLineStyleFromPanel);
+});
 
 document.querySelectorAll('[data-line-angle-preset]').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -11076,6 +11421,16 @@ bindNumberInput('accordionBodyBgOpacityInput', () => {
 document.getElementById('accordionHoverOpenToggle')?.addEventListener('change', applyAccordionDropdownStyleFromPanel);
 document.getElementById('accordionIconVisibleToggle')?.addEventListener('change', applyAccordionDropdownStyleFromPanel);
 document.getElementById('applyAccordionDropdownStyleBtn')?.addEventListener('click', applyAccordionDropdownStyleFromPanel);
+document.getElementById('accordionIconStyleSelect')?.addEventListener('change', applyAccordionDropdownStyleFromPanel);
+document.getElementById('accordionIconVisibleToggle')?.addEventListener('change', applyAccordionDropdownStyleFromPanel);
+document.getElementById('accordionIconColor')?.addEventListener('input', applyAccordionDropdownStyleFromPanel);
+document.getElementById('accordionIconSize')?.addEventListener('input', e => { setValue('accordionIconSizeInput', e.target.value); applyAccordionDropdownStyleFromPanel(); });
+bindNumberInput('accordionIconSizeInput', () => {
+  const value = clampNumber(numberValue('accordionIconSizeInput', 18), 8, 80);
+  setValue('accordionIconSize', value);
+  setValue('accordionIconSizeInput', value);
+  applyAccordionDropdownStyleFromPanel();
+});
 
 sitePage.addEventListener('mouseover', event => {
   const head = event.target.closest('[data-accordion-toggle], .accordion-item-head');
@@ -11195,26 +11550,20 @@ document.getElementById('applySelectOptionActionBtn').addEventListener('click', 
 
 
 
-// v20：從 YouTube 連結產生官方 iframe HTML 並套用
-document.getElementById('applyYoutubeBtn').addEventListener('click', () => {
+// v102：只儲存 YouTube 影片網址，前台一律由網址產生 YouTube embed iframe。
+document.getElementById('applyYoutubeBtn')?.addEventListener('click', () => {
   if (!selectedElement || selectedElement.dataset.type !== 'youtube') return;
 
   const url = document.getElementById('youtubeUrlInput').value.trim();
 
   if (!applyYoutubeEmbedToElement(url)) {
-    alert('請貼上有效的 YouTube 連結');
+    alert('請貼上有效的 YouTube 影片網址。影片 ID 必須是 11 碼；此欄位只接受 YouTube 網址，不接受 iframe HTML、影片檔案或 VM 檔案路徑。');
   }
 });
 
-// v20：套用使用者可自由修改的 iframe HTML
-document.getElementById('applyYoutubeHtmlBtn').addEventListener('click', () => {
-  if (!selectedElement || selectedElement.dataset.type !== 'youtube') return;
-
-  const html = document.getElementById('youtubeEmbedHtmlInput').value.trim();
-
-  if (!applyYoutubeIframeHtmlToElement(html, document.getElementById('youtubeUrlInput').value.trim())) {
-    alert('請貼上有效的 YouTube iframe HTML 程式碼');
-  }
+// v102：停用 iframe HTML 手動套用入口，避免後台儲存非網址資料。
+document.getElementById('applyYoutubeHtmlBtn')?.addEventListener('click', () => {
+  alert('此版本只允許儲存 YouTube 影片網址，不開放直接貼 iframe HTML。');
 });
 
 // v21：影片等比例寬度調整與播放環境檢查
@@ -11292,6 +11641,8 @@ document.getElementById('previewBtn').addEventListener('click', () => {
       iframe.style.pointerEvents = 'auto';
       iframe.setAttribute('allowfullscreen', '');
       iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+      iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+      iframe.setAttribute('loading', 'lazy');
       if (placeholder) placeholder.classList.add('d-none');
 
       // 重新指定一次 src，避免從編輯模式切到預覽時 iframe 還停在不可互動狀態
@@ -11300,11 +11651,23 @@ document.getElementById('previewBtn').addEventListener('click', () => {
     }
   });
 
+  document.querySelectorAll('.html-zone').forEach(zone => {
+    const hasVisibleBlock = !!zone.querySelector(':scope > .html-block');
+    zone.classList.toggle('preview-empty-zone', !hasVisibleBlock);
+  });
+
+  const canvas = document.querySelector('.canvas-area');
+  if (canvas) {
+    canvas.style.removeProperty('--preview-bottom-extra-v95');
+    canvas.style.removeProperty('min-height');
+  }
+
   document.body.classList.add('preview-mode');
 });
 
 document.getElementById('exitPreviewBtn').addEventListener('click', () => {
   document.body.classList.remove('preview-mode');
+  document.querySelectorAll('.html-zone.preview-empty-zone').forEach(zone => zone.classList.remove('preview-empty-zone'));
   clearCarouselAutoTimers();
   initSelectSwitchers(sitePage);
 
@@ -12457,26 +12820,31 @@ html.preview-scroll-fix-v95,
 html.preview-scroll-fix-v95 body.preview-mode,
 body.preview-mode {
   height: auto !important;
-  min-height: 100vh !important;
+  min-height: 0 !important;
   overflow-y: auto !important;
 }
 
 body.preview-mode .editor-layout {
   height: auto !important;
-  min-height: 100vh !important;
+  min-height: 0 !important;
   overflow: visible !important;
 }
 
 body.preview-mode .canvas-area {
   height: auto !important;
-  min-height: calc(100vh + 120px) !important;
+  min-height: 0 !important;
   overflow: visible !important;
-  padding-bottom: 120px !important;
+  padding-bottom: 0 !important;
   box-sizing: border-box !important;
 }
 
 body.preview-mode .site-page {
-  margin-bottom: 120px !important;
+  min-height: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+body.preview-mode .html-zone.preview-empty-zone {
+  display: none !important;
 }
 
 body.preview-mode #floatingExitPreviewBtn,
@@ -12500,19 +12868,13 @@ body.preview-mode #exitPreviewBtn {
     const canvas = document.querySelector('.canvas-area');
     if (!canvas) return;
 
-    if (!active) {
-      canvas.style.removeProperty('--preview-bottom-extra-v95');
-      canvas.style.removeProperty('min-height');
-      return;
-    }
+    canvas.style.removeProperty('--preview-bottom-extra-v95');
+    canvas.style.removeProperty('min-height');
 
-    const sitePageEl = document.getElementById('sitePage');
-    const bottomExtra = 120;
-    if (sitePageEl) {
-      const pageHeight = Math.ceil(sitePageEl.getBoundingClientRect().height || sitePageEl.scrollHeight || window.innerHeight);
-      const targetMinHeight = Math.max(window.innerHeight + bottomExtra, pageHeight + bottomExtra);
-      canvas.style.minHeight = targetMinHeight + 'px';
-    }
+    document.querySelectorAll('.html-zone').forEach(zone => {
+      const hasVisibleBlock = !!zone.querySelector(':scope > .html-block');
+      zone.classList.toggle('preview-empty-zone', active && !hasVisibleBlock);
+    });
   }
 
   document.getElementById('previewBtn')?.addEventListener('click', () => {
@@ -13164,4 +13526,2536 @@ body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"]
   buildExportJS = function(exportPagesJSON, currentPageIdJSON) {
     return originalBuildExportJSV101(exportPagesJSON, currentPageIdJSON) + '\n' + exportColorHoverRuntimeV101;
   };
+})();
+
+
+/* v102：YouTube 影片物件儲存規範：只允許網址，不允許 iframe / 本機影片檔 */
+(function initYoutubeUrlOnlyV102() {
+  const input = document.getElementById('youtubeUrlInput');
+  if (!input || input.dataset.youtubeUrlOnlyV102 === 'true') return;
+  input.dataset.youtubeUrlOnlyV102 = 'true';
+
+  function cleanYoutubeInputValue(value) {
+    const raw = (value || '').trim();
+    if (!raw) return '';
+
+    // 使用者若誤貼 iframe，嘗試取出 src，但仍只把網址寫回欄位。
+    const srcMatch = raw.match(/src=["']([^"']+)["']/i);
+    if (srcMatch && srcMatch[1]) {
+      return srcMatch[1].trim();
+    }
+
+    return raw;
+  }
+
+  input.addEventListener('paste', () => {
+    window.setTimeout(() => {
+      input.value = cleanYoutubeInputValue(input.value);
+    }, 0);
+  });
+
+  input.addEventListener('blur', () => {
+    input.value = cleanYoutubeInputValue(input.value);
+  });
+})();
+
+
+/* v103：新增思源宋體 TW SemiBold 可選字體，不打包字體檔 */
+const sourceHanSerifFontCSSV103 = `
+@font-face {
+  font-family: "SourceHanSerifTW-SemiBold-Local";
+  src:
+    local("Source Han Serif TW SemiBold"),
+    local("Source Han Serif TW"),
+    local("Noto Serif CJK TC SemiBold"),
+    local("Noto Serif TC SemiBold"),
+    url("./fonts/SourceHanSerifTW-SemiBold.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+`;
+
+(function initSourceHanSerifFontV103() {
+  if (!document.getElementById('sourceHanSerifFontCSSV103')) {
+    const style = document.createElement('style');
+    style.id = 'sourceHanSerifFontCSSV103';
+    style.textContent = sourceHanSerifFontCSSV103;
+    document.head.appendChild(style);
+  }
+
+  const select = document.getElementById('elementFontFamily');
+  if (select && !Array.from(select.options).some(option => option.value.includes('SourceHanSerifTW-SemiBold-Local'))) {
+    const option = document.createElement('option');
+    option.value = "'SourceHanSerifTW-SemiBold-Local', 'Noto Serif TC', 'Noto Serif CJK TC', serif";
+    option.textContent = '思源宋體 TW SemiBold';
+    const noto = Array.from(select.options).find(option => option.value.includes('Noto Sans TC'));
+    if (noto && noto.nextSibling) select.insertBefore(option, noto.nextSibling);
+    else select.appendChild(option);
+  }
+
+  const originalBuildExportCSSV103 = buildExportCSS;
+  buildExportCSS = function() {
+    return sourceHanSerifFontCSSV103 + '\n' + originalBuildExportCSSV103();
+  };
+})();
+
+
+/* v104：YouTube 播放修正：嚴格驗證 11 碼影片 ID，補上 referrerpolicy / origin，避免錯誤 153 常見情境 */
+(function initYoutubePlaybackFixV104() {
+  function refreshYoutubeIframeV104(el) {
+    if (!el || el.dataset?.type !== 'youtube') return;
+    const url = el.dataset.youtubeUrl || '';
+    const id = extractYoutubeId(url);
+    const iframe = el.querySelector('iframe.editable-youtube');
+    const placeholder = el.querySelector('.youtube-placeholder');
+
+    if (!id || !iframe) return;
+
+    const embed = youtubeEmbedUrl(url);
+    if (!embed) return;
+
+    iframe.setAttribute('src', embed);
+    normalizeYoutubeIframe(iframe);
+    el.dataset.youtubeId = id;
+    el.dataset.youtubeWatchUrl = youtubeWatchUrl(url);
+    if (placeholder) placeholder.classList.add('d-none');
+  }
+
+  window.refreshYoutubeEmbedsV104 = function(scope = document) {
+    scope.querySelectorAll('.free-element[data-type="youtube"]').forEach(refreshYoutubeIframeV104);
+  };
+
+  document.getElementById('applyYoutubeBtn')?.addEventListener('click', () => {
+    window.setTimeout(() => window.refreshYoutubeEmbedsV104?.(sitePage || document), 0);
+  });
+
+  document.getElementById('previewBtn')?.addEventListener('click', () => {
+    window.refreshYoutubeEmbedsV104?.(sitePage || document);
+  });
+
+  window.refreshYoutubeEmbedsV104(sitePage || document);
+})();
+
+
+
+/* v105：下拉 ICON 樣式匯出與編輯器執行 */
+const dropdownIconCSSV105 = `
+/* v105：下拉類型元件 ICON 樣式 */
+.accordion-dropdown-template[data-accordion-icon-style="plus-x"] .accordion-item-head::after {
+  content: "+" !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 1.35em;
+  height: 1.35em;
+  line-height: 1;
+  font-size: 1.25em;
+  font-weight: 700;
+  transform: none !important;
+}
+
+.accordion-dropdown-template[data-accordion-icon-style="plus-x"] .accordion-item-template.open .accordion-item-head::after {
+  content: "×" !important;
+  transform: none !important;
+}
+
+.accordion-dropdown-template[data-accordion-icon-style="triangle-line"] .accordion-item-head::after {
+  content: "" !important;
+  display: inline-block !important;
+  width: 0;
+  height: 0;
+  border-left: .45em solid transparent;
+  border-right: .45em solid transparent;
+  border-top: .55em solid currentColor;
+  background: transparent !important;
+  transform: none !important;
+}
+
+.accordion-dropdown-template[data-accordion-icon-style="triangle-line"] .accordion-item-template.open .accordion-item-head::after {
+  content: "" !important;
+  width: 1.1em;
+  height: .14em;
+  border: 0 !important;
+  border-radius: 999px;
+  background: currentColor !important;
+  transform: none !important;
+}
+
+.nav-dropdown[data-dropdown-icon-style="plus-x"] .nav-dropdown-title::after {
+  content: "+" !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 1.35em;
+  height: 1.35em;
+  line-height: 1;
+  font-size: 1.25em;
+  font-weight: 700;
+  transform: none !important;
+}
+
+.nav-dropdown[data-dropdown-icon-style="plus-x"]:hover .nav-dropdown-title::after,
+.nav-dropdown[data-dropdown-icon-style="plus-x"].dropdown-open .nav-dropdown-title::after {
+  content: "×" !important;
+  transform: none !important;
+}
+
+.nav-dropdown[data-dropdown-icon-style="triangle-line"] .nav-dropdown-title::after {
+  content: "" !important;
+  display: inline-block !important;
+  width: 0;
+  height: 0;
+  border-left: .45em solid transparent;
+  border-right: .45em solid transparent;
+  border-top: .55em solid currentColor;
+  background: transparent !important;
+  transform: none !important;
+}
+
+.nav-dropdown[data-dropdown-icon-style="triangle-line"]:hover .nav-dropdown-title::after,
+.nav-dropdown[data-dropdown-icon-style="triangle-line"].dropdown-open .nav-dropdown-title::after {
+  content: "" !important;
+  width: 1.1em;
+  height: .14em;
+  border: 0 !important;
+  border-radius: 999px;
+  background: currentColor !important;
+  transform: none !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"],
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="plus-x"],
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"],
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="triangle-line"] {
+  overflow: visible;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"] .editable-select,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="plus-x"] .select-switcher-control,
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"] .editable-select,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="triangle-line"] .select-switcher-control {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2.25em !important;
+  background-image: none !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"]::after,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="plus-x"]::after {
+  content: "+";
+  position: absolute;
+  right: .75em;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  pointer-events: none;
+  font-size: 1.15em;
+  font-weight: 700;
+  line-height: 1;
+  color: currentColor;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"].dropdown-open::after,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="plus-x"].dropdown-open::after {
+  content: "×";
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"]::after,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="triangle-line"]::after {
+  content: "";
+  position: absolute;
+  right: .85em;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+  border-left: .42em solid transparent;
+  border-right: .42em solid transparent;
+  border-top: .5em solid currentColor;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"].dropdown-open::after,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="triangle-line"].dropdown-open::after {
+  width: 1em;
+  height: .13em;
+  border: 0 !important;
+  border-radius: 999px;
+  background: currentColor;
+}
+`;
+
+(function initDropdownIconStyleV105() {
+  if (!document.getElementById('dropdownIconCSSV105')) {
+    const style = document.createElement('style');
+    style.id = 'dropdownIconCSSV105';
+    style.textContent = dropdownIconCSSV105;
+    document.head.appendChild(style);
+  }
+
+
+/* v105：原生 select 下拉開關狀態，用來切換 +/× 或 倒三角/橫線 ICON */
+(function initDropdownIconRuntimeV105() {
+  if (document.documentElement.dataset.dropdownIconRuntimeV105 === 'true') return;
+  document.documentElement.dataset.dropdownIconRuntimeV105 = 'true';
+
+  function getNativeDropdownWrapper(target) {
+    const el = target?.closest?.('.free-element[data-type="select"], .free-element[data-type="select-switcher-control"]');
+    if (!el) return null;
+    const style = el.dataset.dropdownIconStyle || 'default';
+    return style === 'plus-x' || style === 'triangle-line' ? el : null;
+  }
+
+  function closeOthers(except = null) {
+    document.querySelectorAll('.free-element.dropdown-open').forEach(el => {
+      if (el !== except) el.classList.remove('dropdown-open');
+    });
+  }
+
+  document.addEventListener('pointerdown', event => {
+    const wrapper = getNativeDropdownWrapper(event.target);
+    if (!wrapper) {
+      closeOthers();
+      return;
+    }
+
+    const willOpen = !wrapper.classList.contains('dropdown-open');
+    closeOthers(wrapper);
+    wrapper.classList.toggle('dropdown-open', willOpen);
+  }, true);
+
+  document.addEventListener('change', event => {
+    const wrapper = getNativeDropdownWrapper(event.target);
+    if (wrapper) window.setTimeout(() => wrapper.classList.remove('dropdown-open'), 80);
+  }, true);
+
+  document.addEventListener('blur', event => {
+    const wrapper = getNativeDropdownWrapper(event.target);
+    if (wrapper) window.setTimeout(() => wrapper.classList.remove('dropdown-open'), 80);
+  }, true);
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeOthers();
+  }, true);
+})();
+
+
+  const originalBuildExportCSSV105 = buildExportCSS;
+  buildExportCSS = function() {
+    return originalBuildExportCSSV105() + dropdownIconCSSV105;
+  };
+
+  const originalBuildExportJSV105 = buildExportJS;
+  buildExportJS = function(exportPagesJSON, currentPageIdJSON) {
+    return originalBuildExportJSV105(exportPagesJSON, currentPageIdJSON) + `\n
+/* v105：原生 select 下拉開關狀態，用來切換 +/× 或 倒三角/橫線 ICON */
+(function initDropdownIconRuntimeV105() {
+  if (document.documentElement.dataset.dropdownIconRuntimeV105 === 'true') return;
+  document.documentElement.dataset.dropdownIconRuntimeV105 = 'true';
+
+  function getNativeDropdownWrapper(target) {
+    const el = target?.closest?.('.free-element[data-type="select"], .free-element[data-type="select-switcher-control"]');
+    if (!el) return null;
+    const style = el.dataset.dropdownIconStyle || 'default';
+    return style === 'plus-x' || style === 'triangle-line' ? el : null;
+  }
+
+  function closeOthers(except = null) {
+    document.querySelectorAll('.free-element.dropdown-open').forEach(el => {
+      if (el !== except) el.classList.remove('dropdown-open');
+    });
+  }
+
+  document.addEventListener('pointerdown', event => {
+    const wrapper = getNativeDropdownWrapper(event.target);
+    if (!wrapper) {
+      closeOthers();
+      return;
+    }
+
+    const willOpen = !wrapper.classList.contains('dropdown-open');
+    closeOthers(wrapper);
+    wrapper.classList.toggle('dropdown-open', willOpen);
+  }, true);
+
+  document.addEventListener('change', event => {
+    const wrapper = getNativeDropdownWrapper(event.target);
+    if (wrapper) window.setTimeout(() => wrapper.classList.remove('dropdown-open'), 80);
+  }, true);
+
+  document.addEventListener('blur', event => {
+    const wrapper = getNativeDropdownWrapper(event.target);
+    if (wrapper) window.setTimeout(() => wrapper.classList.remove('dropdown-open'), 80);
+  }, true);
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeOthers();
+  }, true);
+})();
+`;
+  };
+})();
+
+
+/* v106：下拉 ICON 顏色 / 大小與下拉換組元件支援 */
+const dropdownIconCSSV106 = `
+
+/* v106：下拉 ICON 顏色 / 大小與下拉換組元件支援 */
+.free-element[data-type="select"],
+.free-element[data-type="select-switcher-control"],
+.nav-dropdown,
+.accordion-dropdown-template {
+  --dropdown-icon-color: currentColor;
+  --dropdown-icon-size: 18px;
+}
+
+.accordion-dropdown-template .accordion-item-head::after,
+.nav-dropdown .nav-dropdown-title::after,
+.free-element[data-type="select"]::after,
+.free-element[data-type="select-switcher-control"]::after {
+  color: var(--dropdown-icon-color, currentColor) !important;
+}
+
+.accordion-dropdown-template[data-accordion-icon-style="plus-x"] .accordion-item-head::after,
+.nav-dropdown[data-dropdown-icon-style="plus-x"] .nav-dropdown-title::after,
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"]::after,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="plus-x"]::after {
+  font-size: var(--dropdown-icon-size, 18px) !important;
+}
+
+.accordion-dropdown-template[data-accordion-icon-style="triangle-line"] .accordion-item-head::after,
+.nav-dropdown[data-dropdown-icon-style="triangle-line"] .nav-dropdown-title::after,
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"]::after,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="triangle-line"]::after {
+  border-left-width: calc(var(--dropdown-icon-size, 18px) * .42) !important;
+  border-right-width: calc(var(--dropdown-icon-size, 18px) * .42) !important;
+  border-top-width: calc(var(--dropdown-icon-size, 18px) * .5) !important;
+  border-top-color: var(--dropdown-icon-color, currentColor) !important;
+}
+
+.accordion-dropdown-template[data-accordion-icon-style="triangle-line"] .accordion-item-template.open .accordion-item-head::after,
+.nav-dropdown[data-dropdown-icon-style="triangle-line"]:hover .nav-dropdown-title::after,
+.nav-dropdown[data-dropdown-icon-style="triangle-line"].dropdown-open .nav-dropdown-title::after,
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"].dropdown-open::after,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="triangle-line"].dropdown-open::after {
+  width: calc(var(--dropdown-icon-size, 18px) * 1.05) !important;
+  height: calc(var(--dropdown-icon-size, 18px) * .12) !important;
+  min-height: 2px;
+  background: var(--dropdown-icon-color, currentColor) !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"] .editable-select,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="plus-x"] .select-switcher-control,
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"] .editable-select,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="triangle-line"] .select-switcher-control {
+  padding-right: calc(var(--dropdown-icon-size, 18px) + 1.6em) !important;
+}
+`;
+(function initDropdownIconColorSizeV106() {
+  if (!document.getElementById('dropdownIconCSSV106')) {
+    const style = document.createElement('style');
+    style.id = 'dropdownIconCSSV106';
+    style.textContent = dropdownIconCSSV106;
+    document.head.appendChild(style);
+  }
+
+  document.querySelectorAll('.free-element[data-type="select"], .free-element[data-type="select-switcher-control"], .nav-dropdown, .accordion-dropdown-template').forEach(el => {
+    const color = el.dataset.dropdownIconColor || el.dataset.accordionIconColor;
+    const size = el.dataset.dropdownIconSize || el.dataset.accordionIconSize;
+    if (color) el.style.setProperty('--dropdown-icon-color', color);
+    if (size) el.style.setProperty('--dropdown-icon-size', `${size}px`);
+  });
+
+  const originalBuildExportCSSV106 = buildExportCSS;
+  buildExportCSS = function() {
+    return originalBuildExportCSSV106() + dropdownIconCSSV106;
+  };
+})();
+
+
+/* v107：導覽列標題型下拉選單樣式，可自由切換顏色與每個選項功能 */
+const navDropdownStyleCSSV107 = `
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] {
+  overflow: visible !important;
+  padding-bottom: 0 !important;
+}
+
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-inner {
+  overflow: visible !important;
+}
+
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-title {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: .45em !important;
+  padding: 0 18px !important;
+  border: 0 !important;
+  border-radius: inherit !important;
+  background: var(--nav-title-bg, #0b3557) !important;
+  color: var(--nav-title-text, #ffffff) !important;
+  font-weight: 800 !important;
+  letter-spacing: .04em !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  box-shadow: inset 0 0 22px rgba(255,255,255,.08), inset 0 -18px 30px rgba(0,0,0,.22) !important;
+}
+
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-title::after {
+  color: var(--dropdown-icon-color, currentColor) !important;
+  flex: 0 0 auto !important;
+}
+
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-menu {
+  position: absolute !important;
+  left: 0 !important;
+  top: 100% !important;
+  min-width: 100% !important;
+  width: max-content !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  border: 0 !important;
+  border-radius: 0 0 4px 4px !important;
+  background: var(--nav-menu-bg, #ffffff) !important;
+  box-shadow: 0 12px 26px rgba(15,23,42,.18) !important;
+  overflow: visible !important;
+  z-index: 2147482000 !important;
+}
+
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-option {
+  min-width: 160px !important;
+  width: 100% !important;
+  display: block !important;
+  padding: 14px 22px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--nav-option-text, #333333) !important;
+  text-align: center !important;
+  font-size: inherit !important;
+  line-height: 1.35 !important;
+  letter-spacing: .06em !important;
+  white-space: nowrap !important;
+}
+
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-option:hover,
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-option:focus {
+  background: var(--nav-option-hover-bg, #edf6ff) !important;
+  color: var(--nav-option-hover-text, #0b3557) !important;
+  filter: none !important;
+}
+
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-option span {
+  color: inherit !important;
+}
+
+body.preview-mode .nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-menu,
+body.exported-site .nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-menu {
+  pointer-events: none;
+}
+
+body.preview-mode .nav-dropdown[data-nav-dropdown-style="navbar-hover"]:hover .nav-dropdown-menu,
+body.exported-site .nav-dropdown[data-nav-dropdown-style="navbar-hover"]:hover .nav-dropdown-menu,
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"]:hover .nav-dropdown-menu,
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"]:focus-within .nav-dropdown-menu,
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"].dropdown-open .nav-dropdown-menu,
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"].menu-open .nav-dropdown-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+`;
+
+function applyNavDropdownStyleV107(el) {
+  if (!el || el.dataset?.type !== 'nav-dropdown') return;
+
+  const defaults = {
+    navTitleBgColor: '#0b3557',
+    navTitleTextColor: '#ffffff',
+    navMenuBgColor: '#ffffff',
+    navOptionTextColor: '#333333',
+    navOptionHoverBgColor: '#edf6ff',
+    navOptionHoverTextColor: '#0b3557'
+  };
+
+  Object.entries(defaults).forEach(([key, value]) => {
+    if (!el.dataset[key]) el.dataset[key] = value;
+  });
+
+  el.dataset.navDropdownStyle = 'navbar-hover';
+  el.dataset.dropdownStyleMode = 'hover-title';
+  el.dataset.navStyleMode = 'hover-title';
+
+  el.style.setProperty('--nav-title-bg', el.dataset.navTitleBgColor);
+  el.style.setProperty('--nav-title-text', el.dataset.navTitleTextColor);
+  el.style.setProperty('--nav-menu-bg', el.dataset.navMenuBgColor);
+  el.style.setProperty('--nav-option-text', el.dataset.navOptionTextColor);
+  el.style.setProperty('--nav-option-hover-bg', el.dataset.navOptionHoverBgColor);
+  el.style.setProperty('--nav-option-hover-text', el.dataset.navOptionHoverTextColor);
+
+  const title = el.querySelector('.nav-dropdown-title');
+  if (title) {
+    title.style.backgroundColor = el.dataset.navTitleBgColor;
+    title.style.color = el.dataset.navTitleTextColor;
+  }
+
+  const menu = el.querySelector('.nav-dropdown-menu');
+  if (menu) menu.style.backgroundColor = el.dataset.navMenuBgColor;
+
+  el.querySelectorAll('.nav-dropdown-option').forEach(option => {
+    option.style.color = el.dataset.navOptionTextColor;
+  });
+}
+
+function syncNavDropdownStylePanelV107() {
+  const panel = document.getElementById('navDropdownStylePanelV107');
+  if (!panel) return;
+
+  const isNav = !!(selectedElement && selectedElement.dataset?.type === 'nav-dropdown');
+  panel.classList.toggle('d-none', !isNav);
+  if (!isNav) return;
+
+  applyNavDropdownStyleV107(selectedElement);
+  setValue('navDropdownTitleBgColor', selectedElement.dataset.navTitleBgColor || '#0b3557');
+  setValue('navDropdownTitleTextColor', selectedElement.dataset.navTitleTextColor || '#ffffff');
+  setValue('navDropdownMenuBgColor', selectedElement.dataset.navMenuBgColor || '#ffffff');
+  setValue('navDropdownOptionTextColor', selectedElement.dataset.navOptionTextColor || '#333333');
+  setValue('navDropdownOptionHoverBgColor', selectedElement.dataset.navOptionHoverBgColor || '#edf6ff');
+  setValue('navDropdownOptionHoverTextColor', selectedElement.dataset.navOptionHoverTextColor || '#0b3557');
+}
+
+function applyNavDropdownStyleFromPanelV107() {
+  if (!selectedElement || selectedElement.dataset?.type !== 'nav-dropdown') return;
+
+  selectedElement.dataset.navTitleBgColor = document.getElementById('navDropdownTitleBgColor')?.value || '#0b3557';
+  selectedElement.dataset.navTitleTextColor = document.getElementById('navDropdownTitleTextColor')?.value || '#ffffff';
+  selectedElement.dataset.navMenuBgColor = document.getElementById('navDropdownMenuBgColor')?.value || '#ffffff';
+  selectedElement.dataset.navOptionTextColor = document.getElementById('navDropdownOptionTextColor')?.value || '#333333';
+  selectedElement.dataset.navOptionHoverBgColor = document.getElementById('navDropdownOptionHoverBgColor')?.value || '#edf6ff';
+  selectedElement.dataset.navOptionHoverTextColor = document.getElementById('navDropdownOptionHoverTextColor')?.value || '#0b3557';
+
+  applyNavDropdownStyleV107(selectedElement);
+  scheduleAutoSave?.();
+}
+
+(function initNavDropdownStyleV107() {
+  if (!document.getElementById('navDropdownStyleCSSV107')) {
+    const style = document.createElement('style');
+    style.id = 'navDropdownStyleCSSV107';
+    style.textContent = navDropdownStyleCSSV107;
+    document.head.appendChild(style);
+  }
+
+  document.querySelectorAll('.nav-dropdown').forEach(applyNavDropdownStyleV107);
+
+  ['navDropdownTitleBgColor', 'navDropdownTitleTextColor', 'navDropdownMenuBgColor', 'navDropdownOptionTextColor', 'navDropdownOptionHoverBgColor', 'navDropdownOptionHoverTextColor'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', applyNavDropdownStyleFromPanelV107);
+    document.getElementById(id)?.addEventListener('change', applyNavDropdownStyleFromPanelV107);
+  });
+
+  if (typeof syncFormElementPanel === 'function' && !window.__navDropdownStylePanelWrappedV107) {
+    window.__navDropdownStylePanelWrappedV107 = true;
+    const originalSyncFormElementPanelV107 = syncFormElementPanel;
+    syncFormElementPanel = function() {
+      originalSyncFormElementPanelV107();
+      syncNavDropdownStylePanelV107();
+    };
+  }
+
+  if (typeof addNavDropdownTemplate === 'function' && !window.__addNavDropdownWrappedV107) {
+    window.__addNavDropdownWrappedV107 = true;
+    const originalAddNavDropdownTemplateV107 = addNavDropdownTemplate;
+    addNavDropdownTemplate = function() {
+      originalAddNavDropdownTemplateV107();
+      if (selectedElement?.dataset?.type === 'nav-dropdown') {
+        applyNavDropdownStyleV107(selectedElement);
+        syncNavDropdownStylePanelV107();
+      }
+    };
+  }
+
+  if (typeof rebuildNavDropdownOptions === 'function' && !window.__rebuildNavDropdownWrappedV107) {
+    window.__rebuildNavDropdownWrappedV107 = true;
+    const originalRebuildNavDropdownOptionsV107 = rebuildNavDropdownOptions;
+    rebuildNavDropdownOptions = function(root, labels) {
+      originalRebuildNavDropdownOptionsV107(root, labels);
+      applyNavDropdownStyleV107(root);
+    };
+  }
+
+  if (typeof buildExportCSS === 'function' && !window.__navDropdownExportCSSWrappedV107) {
+    window.__navDropdownExportCSSWrappedV107 = true;
+    const originalBuildExportCSSV107 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV107() + navDropdownStyleCSSV107;
+    };
+  }
+})();
+
+
+/* v108：下拉式選項 / 導覽列下拉外觀對齊「下拉自動收合」設定，其他選項功能邏輯不變 */
+const dropdownAccordionStyleCSSV108 = `
+/* v108 exported/runtime dropdown accordion-like styles */
+.free-element[data-type="select"] { overflow: visible !important; --dropdown-icon-color: currentColor; --dropdown-icon-size: 18px; }
+.editable-select-combo { position: relative; width: 100%; height: 100%; min-height: 40px; overflow: visible !important; color: inherit; font: inherit; }
+.editable-select-native, .editable-select-combo > .editable-select { position: absolute !important; left: 0 !important; top: 0 !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important; z-index: -1 !important; }
+.editable-select-title { width: 100%; height: 100%; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: .45em; padding: 10px 2.25em 10px 14px; border: 1px solid rgba(222,226,230,1); border-radius: inherit; background: var(--select-title-bg, #ffffff); color: inherit; font: inherit; font-weight: 700; letter-spacing: .02em; cursor: pointer; white-space: nowrap; transition: background-color .18s ease, color .18s ease, filter .18s ease; }
+.editable-select-title span, .editable-select-option span { color: inherit !important; font: inherit; pointer-events: none; }
+.editable-select-title::after { content: "⌄"; position: absolute; right: .85em; top: 50%; transform: translateY(-50%); color: var(--dropdown-icon-color, currentColor) !important; font-size: var(--dropdown-icon-size, 18px) !important; line-height: 1; pointer-events: none; }
+.free-element[data-dropdown-icon-visible="false"] .editable-select-title::after, .free-element[data-dropdown-icon-style="none"] .editable-select-title::after { display: none !important; content: "" !important; }
+.free-element[data-dropdown-icon-visible="false"] .editable-select-title, .free-element[data-dropdown-icon-style="none"] .editable-select-title { padding-right: 14px !important; }
+.free-element[data-dropdown-icon-style="plus-x"] .editable-select-title::after { content: "+" !important; font-weight: 800; transform: translateY(-50%) !important; }
+.free-element[data-dropdown-icon-style="plus-x"].dropdown-open .editable-select-title::after, .free-element[data-dropdown-icon-style="plus-x"]:hover .editable-select-title::after { content: "×" !important; }
+.free-element[data-dropdown-icon-style="triangle-line"] .editable-select-title::after { content: "" !important; width: 0; height: 0; border-left: calc(var(--dropdown-icon-size, 18px) * .42) solid transparent; border-right: calc(var(--dropdown-icon-size, 18px) * .42) solid transparent; border-top: calc(var(--dropdown-icon-size, 18px) * .5) solid var(--dropdown-icon-color, currentColor); background: transparent !important; }
+.free-element[data-dropdown-icon-style="triangle-line"].dropdown-open .editable-select-title::after, .free-element[data-dropdown-icon-style="triangle-line"]:hover .editable-select-title::after { width: calc(var(--dropdown-icon-size, 18px) * 1.05) !important; height: calc(var(--dropdown-icon-size, 18px) * .12) !important; min-height: 2px; border: 0 !important; border-radius: 999px; background: var(--dropdown-icon-color, currentColor) !important; }
+.editable-select-menu { position: absolute; left: 0; top: 100%; min-width: 100%; width: max-content; display: flex; flex-direction: column; gap: 0; padding: 0; border: 0; border-radius: 0 0 10px 10px; background: var(--select-menu-bg, #ffffff); box-shadow: 0 12px 26px rgba(15,23,42,.18); opacity: 0; visibility: hidden; transform: translateY(-6px); pointer-events: none; transition: opacity .18s ease, transform .18s ease, visibility .18s ease; z-index: 2147482000; overflow: visible; }
+.free-element[data-dropdown-style-mode="hover-title"]:hover .editable-select-menu, .free-element[data-dropdown-style-mode="hover-title"].dropdown-open .editable-select-menu, .free-element[data-dropdown-style-mode="v78"].dropdown-open .editable-select-menu, .free-element[data-dropdown-style-mode="v78"]:focus-within .editable-select-menu { opacity: 1 !important; visibility: visible !important; transform: translateY(0) !important; pointer-events: auto !important; }
+.free-element[data-dropdown-style-mode="vertical-list"] .editable-select-menu { position: relative !important; top: 8px !important; width: 100% !important; opacity: 1 !important; visibility: visible !important; transform: none !important; pointer-events: auto !important; }
+.editable-select-option { min-width: 160px; width: 100%; display: block; padding: 12px 18px; border: 0; border-radius: 0; background: var(--select-option-bg, transparent); color: inherit; text-align: center; font: inherit; line-height: 1.35; letter-spacing: .04em; white-space: nowrap; cursor: pointer; }
+.editable-select-option:hover, .editable-select-option.is-active { filter: brightness(.96); }
+.nav-dropdown[data-dropdown-icon-visible="false"] .nav-dropdown-title::after, .nav-dropdown[data-dropdown-icon-style="none"] .nav-dropdown-title::after { display: none !important; content: "" !important; }
+.nav-dropdown[data-dropdown-icon-style="none"] .nav-dropdown-title, .nav-dropdown[data-dropdown-icon-visible="false"] .nav-dropdown-title { padding-right: 18px !important; }
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-title { background: var(--nav-title-bg, #0b3557) !important; }
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-menu { background: var(--nav-menu-bg, #ffffff) !important; }
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-option { background: var(--nav-option-bg, transparent) !important; color: var(--nav-option-text, #333333) !important; }
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-option:hover, .nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-option:focus { background: var(--nav-option-hover-bg, #edf6ff) !important; color: var(--nav-option-hover-text, #0b3557) !important; }
+`;
+
+function optionStyleMaterialBackground(baseColor, material = 'none') {
+  if (material === 'dark-matte') {
+    return `linear-gradient(135deg, rgba(24,27,31,.88), rgba(84,88,96,.62)), ${baseColor}`;
+  }
+
+  if (material === 'glass') {
+    return `linear-gradient(135deg, rgba(255,255,255,.46), rgba(255,255,255,.12)), ${baseColor}`;
+  }
+
+  if (material === 'frosted') {
+    return `linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,.08)), ${baseColor}`;
+  }
+
+  return baseColor;
+}
+
+function applyOptionMaterialToNode(node, material = 'none', baseColor = '#ffffff') {
+  if (!node) return;
+
+  node.dataset.optionMaterial = material || 'none';
+  node.style.background = optionStyleMaterialBackground(baseColor, material);
+  node.style.backgroundColor = baseColor;
+
+  if (material === 'frosted') {
+    node.style.backdropFilter = 'blur(12px) saturate(130%)';
+    node.style.webkitBackdropFilter = 'blur(12px) saturate(130%)';
+    node.style.boxShadow = node.style.boxShadow || 'inset 0 1px 0 rgba(255,255,255,.38), 0 12px 28px rgba(15,23,42,.10)';
+  } else if (material === 'glass') {
+    node.style.backdropFilter = 'blur(8px) saturate(155%)';
+    node.style.webkitBackdropFilter = 'blur(8px) saturate(155%)';
+    node.style.boxShadow = node.style.boxShadow || 'inset 0 1px 0 rgba(255,255,255,.55), 0 16px 34px rgba(15,23,42,.14)';
+  } else if (material === 'dark-matte') {
+    node.style.backdropFilter = 'blur(6px) saturate(125%)';
+    node.style.webkitBackdropFilter = 'blur(6px) saturate(125%)';
+    node.style.boxShadow = node.style.boxShadow || 'inset 0 0 22px rgba(255,255,255,.06), inset 0 -18px 30px rgba(0,0,0,.22)';
+  } else {
+    node.style.backdropFilter = '';
+    node.style.webkitBackdropFilter = '';
+  }
+}
+
+function defaultOptionStyle(index = 0) {
+  return {
+    headBg: '#ffffff',
+    headOpacity: 100,
+    headMaterial: 'none',
+    bodyBg: '#ffffff',
+    bodyOpacity: 100,
+    bodyMaterial: 'none',
+    borderColor: '#dee2e6',
+    borderOpacity: 100,
+    borderWidth: 1,
+    borderTop: true,
+    borderRight: true,
+    borderBottom: true,
+    borderLeft: true
+  };
+}
+
+function ensureEditableSelectCombo(select) {
+  if (!select || !select.matches?.('.editable-select')) return null;
+
+  const freeElement = select.closest('.free-element[data-type="select"]');
+  let combo = select.closest('.editable-select-combo');
+
+  if (!combo) {
+    combo = document.createElement('div');
+    combo.className = 'inner editable-select-combo';
+    combo.setAttribute('data-select-combo', 'true');
+    select.classList.remove('inner');
+    select.classList.add('editable-select-native');
+    select.parentNode.insertBefore(combo, select);
+    combo.appendChild(select);
+  } else {
+    combo.classList.add('inner', 'editable-select-combo');
+    select.classList.add('editable-select-native');
+  }
+
+  if (freeElement) {
+    freeElement.dataset.dropdownStyleMode = freeElement.dataset.dropdownStyleMode || select.dataset.dropdownStyleMode || 'v78';
+    freeElement.dataset.dropdownIconVisible = freeElement.dataset.dropdownIconVisible === 'false' ? 'false' : 'true';
+    freeElement.dataset.dropdownIconStyle = freeElement.dataset.dropdownIconStyle || select.dataset.dropdownIconStyle || 'default';
+    freeElement.dataset.dropdownIconColor = freeElement.dataset.dropdownIconColor || select.dataset.dropdownIconColor || '#6c757d';
+    freeElement.dataset.dropdownIconSize = freeElement.dataset.dropdownIconSize || select.dataset.dropdownIconSize || '18';
+    freeElement.style.setProperty('--dropdown-icon-color', freeElement.dataset.dropdownIconColor);
+    freeElement.style.setProperty('--dropdown-icon-size', `${freeElement.dataset.dropdownIconSize}px`);
+  }
+
+  rebuildEditableSelectCombo(select);
+  return combo;
+}
+
+function rebuildEditableSelectCombo(select) {
+  if (!select || !select.matches?.('.editable-select')) return;
+
+  const combo = select.closest('.editable-select-combo');
+  if (!combo) return;
+
+  let title = combo.querySelector(':scope > .editable-select-title');
+  if (!title) {
+    title = document.createElement('button');
+    title.type = 'button';
+    title.className = 'editable-select-title';
+    title.setAttribute('data-select-combo-title', 'true');
+    title.innerHTML = '<span></span>';
+    combo.insertBefore(title, select);
+  }
+
+  let menu = combo.querySelector(':scope > .editable-select-menu');
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.className = 'editable-select-menu';
+    menu.setAttribute('data-select-combo-menu', 'true');
+    combo.insertBefore(menu, select.nextSibling);
+  }
+
+  const labels = Array.from(select.options).map((option, index) => {
+    const text = option.textContent || `選項 ${index + 1}`;
+    return `<button type="button" class="editable-select-option" data-option-index="${index}"><span>${escapeHTML(text)}</span></button>`;
+  }).join('');
+
+  menu.innerHTML = labels;
+  syncEditableSelectComboTitle(select);
+}
+
+function syncEditableSelectComboTitle(select) {
+  if (!select || !select.matches?.('.editable-select')) return;
+
+  const combo = select.closest('.editable-select-combo');
+  if (!combo) return;
+
+  const titleSpan = combo.querySelector('.editable-select-title span');
+  const selectedOption = select.options[select.selectedIndex] || select.options[0];
+  if (titleSpan) titleSpan.textContent = selectedOption ? (selectedOption.textContent || '') : '';
+
+  combo.querySelectorAll('.editable-select-option').forEach(option => {
+    option.classList.toggle('is-active', String(option.dataset.optionIndex) === String(select.selectedIndex || 0));
+  });
+}
+
+function applyOptionBorderToNodeImportant(node, data) {
+  if (!node) return;
+
+  const border = optionBorderCss(data);
+  node.style.setProperty('border-top', border.top ? `${border.width} solid ${border.color}` : '0', 'important');
+  node.style.setProperty('border-right', border.right ? `${border.width} solid ${border.color}` : '0', 'important');
+  node.style.setProperty('border-bottom', border.bottom ? `${border.width} solid ${border.color}` : '0', 'important');
+  node.style.setProperty('border-left', border.left ? `${border.width} solid ${border.color}` : '0', 'important');
+}
+
+function applyOptionStylesToHost(host) {
+  if (!host) return;
+
+  const styles = getOptionStyleData(host);
+
+  if (host.classList?.contains('editable-select') || host.tagName === 'SELECT') {
+    const combo = ensureEditableSelectCombo(host);
+
+    Array.from(host.options).forEach((option, index) => {
+      const data = Object.assign(defaultOptionStyle(index), styles[String(index)] || {});
+      const bodyColor = rgbaFromOptionStyle(data.bodyBg, data.bodyOpacity);
+      option.dataset.headBg = data.headBg;
+      option.dataset.headOpacity = data.headOpacity;
+      option.dataset.headMaterial = data.headMaterial || 'none';
+      option.dataset.bodyBg = data.bodyBg;
+      option.dataset.bodyOpacity = data.bodyOpacity;
+      option.dataset.bodyMaterial = data.bodyMaterial || 'none';
+      option.style.backgroundColor = bodyColor;
+
+      const optionButton = combo?.querySelector(`.editable-select-option[data-option-index="${index}"]`);
+      if (optionButton) {
+        const optionColor = rgbaFromOptionStyle(data.headBg, data.headOpacity);
+        optionButton.style.setProperty('--select-option-bg', optionColor);
+        applyOptionMaterialToNode(optionButton, data.headMaterial || 'none', optionColor);
+        applyOptionBorderToNodeImportant(optionButton, data);
+      }
+    });
+
+    const current = getOptionStyleAt(host, host.selectedIndex || 0);
+    const titleColor = rgbaFromOptionStyle(current.headBg, current.headOpacity);
+    const bodyColor = rgbaFromOptionStyle(current.bodyBg, current.bodyOpacity);
+    host.style.backgroundColor = titleColor;
+    applyOptionBorderToNode(host, current);
+
+    if (combo) {
+      const title = combo.querySelector('.editable-select-title');
+      const menu = combo.querySelector('.editable-select-menu');
+      combo.style.setProperty('--select-title-bg', titleColor);
+      combo.style.setProperty('--select-menu-bg', bodyColor);
+      if (title) {
+        applyOptionMaterialToNode(title, current.headMaterial || 'none', titleColor);
+        applyOptionBorderToNodeImportant(title, current);
+      }
+      if (menu) applyOptionMaterialToNode(menu, current.bodyMaterial || 'none', bodyColor);
+      syncEditableSelectComboTitle(host);
+    }
+    return;
+  }
+
+  if (host.dataset && host.dataset.type === 'nav-dropdown') {
+    applyNavDropdownStyleV108(host);
+
+    Array.from(host.querySelectorAll('.nav-dropdown-option')).forEach((option, index) => {
+      const data = Object.assign(defaultOptionStyle(index), styles[String(index)] || {});
+      const optionColor = rgbaFromOptionStyle(data.headBg, data.headOpacity);
+      option.style.setProperty('--nav-option-bg', optionColor);
+      applyOptionMaterialToNode(option, data.headMaterial || 'none', optionColor);
+      applyOptionBorderToNodeImportant(option, data);
+    });
+  }
+}
+
+function syncSelectedOptionStylePanelV108() {
+  const host = getSelectedOptionHost?.();
+  const actionSelect = document.getElementById('selectOptionActionSelect');
+  const panel = document.getElementById('selectOptionStylePanel');
+
+  if (!panel || !actionSelect) return;
+  const hasOption = !!actionSelect.value;
+  panel.classList.toggle('d-none', !hasOption);
+  if (!host || !hasOption) return;
+
+  const data = getOptionStyleAt(host, actionSelect.value);
+  setValue('selectOptionHeadBgColor', data.headBg || '#ffffff');
+  setValue('selectOptionHeadBgOpacity', data.headOpacity ?? 100);
+  setValue('selectOptionHeadBgOpacityInput', data.headOpacity ?? 100);
+  setValue('selectOptionHeadMaterial', data.headMaterial || 'none');
+  setValue('selectOptionBodyBgColor', data.bodyBg || '#ffffff');
+  setValue('selectOptionBodyBgOpacity', data.bodyOpacity ?? 100);
+  setValue('selectOptionBodyBgOpacityInput', data.bodyOpacity ?? 100);
+  setValue('selectOptionBodyMaterial', data.bodyMaterial || 'none');
+  setValue('selectOptionBorderColor', data.borderColor || '#dee2e6');
+  setValue('selectOptionBorderOpacity', data.borderOpacity ?? 100);
+  setValue('selectOptionBorderOpacityInput', data.borderOpacity ?? 100);
+  setValue('selectOptionBorderWidth', data.borderWidth ?? 1);
+  setValue('selectOptionBorderWidthInput', data.borderWidth ?? 1);
+
+  const top = document.getElementById('selectOptionBorderTop');
+  const right = document.getElementById('selectOptionBorderRight');
+  const bottom = document.getElementById('selectOptionBorderBottom');
+  const left = document.getElementById('selectOptionBorderLeft');
+
+  if (top) top.checked = data.borderTop !== false;
+  if (right) right.checked = data.borderRight !== false;
+  if (bottom) bottom.checked = data.borderBottom !== false;
+  if (left) left.checked = data.borderLeft !== false;
+}
+
+function applySelectedOptionStyleFromPanelV108() {
+  const host = getSelectedOptionHost?.();
+  const actionSelect = document.getElementById('selectOptionActionSelect');
+  if (!host || !actionSelect || actionSelect.value === '') return;
+
+  const styles = getOptionStyleData(host);
+  const index = String(actionSelect.value);
+
+  styles[index] = {
+    headBg: document.getElementById('selectOptionHeadBgColor')?.value || '#ffffff',
+    headOpacity: clampNumber(numberValue('selectOptionHeadBgOpacity', 100), 0, 100),
+    headMaterial: document.getElementById('selectOptionHeadMaterial')?.value || 'none',
+    bodyBg: document.getElementById('selectOptionBodyBgColor')?.value || '#ffffff',
+    bodyOpacity: clampNumber(numberValue('selectOptionBodyBgOpacity', 100), 0, 100),
+    bodyMaterial: document.getElementById('selectOptionBodyMaterial')?.value || 'none',
+    borderColor: document.getElementById('selectOptionBorderColor')?.value || '#dee2e6',
+    borderOpacity: clampNumber(numberValue('selectOptionBorderOpacity', 100), 0, 100),
+    borderWidth: clampNumber(numberValue('selectOptionBorderWidth', 1), 0, 12),
+    borderTop: document.getElementById('selectOptionBorderTop')?.checked !== false,
+    borderRight: document.getElementById('selectOptionBorderRight')?.checked !== false,
+    borderBottom: document.getElementById('selectOptionBorderBottom')?.checked !== false,
+    borderLeft: document.getElementById('selectOptionBorderLeft')?.checked !== false
+  };
+
+  setOptionStyleData(host, styles);
+  setValue('selectOptionHeadBgOpacityInput', styles[index].headOpacity);
+  setValue('selectOptionBodyBgOpacityInput', styles[index].bodyOpacity);
+  setValue('selectOptionBorderOpacityInput', styles[index].borderOpacity);
+  setValue('selectOptionBorderWidthInput', styles[index].borderWidth);
+  applyOptionStylesToHost(host);
+  scheduleAutoSave?.();
+}
+
+function syncDropdownIconStylePanelV108() {
+  const host = getSelectedOptionHost?.();
+  const visibleToggle = document.getElementById('dropdownIconVisibleToggle');
+  const select = document.getElementById('dropdownIconStyleSelect');
+  if (!select) return;
+
+  if (!host) {
+    if (visibleToggle) visibleToggle.checked = true;
+    select.value = 'default';
+    setValue('dropdownIconColor', '#6c757d');
+    setValue('dropdownIconSize', '18');
+    setValue('dropdownIconSizeInput', '18');
+    return;
+  }
+
+  const wrapper = getDropdownIconWrapperFromHost(host);
+  const style = wrapper?.dataset.dropdownIconStyle || host.dataset.dropdownIconStyle || 'default';
+  if (visibleToggle) visibleToggle.checked = (wrapper?.dataset.dropdownIconVisible || host.dataset.dropdownIconVisible || 'true') !== 'false' && style !== 'none';
+  select.value = style;
+  setValue('dropdownIconColor', wrapper?.dataset.dropdownIconColor || host.dataset.dropdownIconColor || '#6c757d');
+  const size = wrapper?.dataset.dropdownIconSize || host.dataset.dropdownIconSize || '18';
+  setValue('dropdownIconSize', size);
+  setValue('dropdownIconSizeInput', size);
+}
+
+function applyDropdownIconStyleFromPanelV108() {
+  const host = getSelectedOptionHost?.();
+  if (!host) return;
+
+  const visible = document.getElementById('dropdownIconVisibleToggle')?.checked !== false;
+  const rawStyle = document.getElementById('dropdownIconStyleSelect')?.value || 'default';
+  const style = visible ? rawStyle : 'none';
+  const color = document.getElementById('dropdownIconColor')?.value || '#6c757d';
+  const size = clampNumber(numberValue('dropdownIconSize', 18), 8, 80);
+  const wrapper = getDropdownIconWrapperFromHost(host);
+
+  if (wrapper) {
+    wrapper.dataset.dropdownIconVisible = visible && rawStyle !== 'none' ? 'true' : 'false';
+    wrapper.dataset.dropdownIconStyle = style;
+    wrapper.dataset.dropdownIconColor = color;
+    wrapper.dataset.dropdownIconSize = String(size);
+    wrapper.style.setProperty('--dropdown-icon-color', color);
+    wrapper.style.setProperty('--dropdown-icon-size', `${size}px`);
+  }
+
+  host.dataset.dropdownIconVisible = visible && rawStyle !== 'none' ? 'true' : 'false';
+  host.dataset.dropdownIconStyle = style;
+  host.dataset.dropdownIconColor = color;
+  host.dataset.dropdownIconSize = String(size);
+  host.style?.setProperty?.('--dropdown-icon-color', color);
+  host.style?.setProperty?.('--dropdown-icon-size', `${size}px`);
+  setValue('dropdownIconSizeInput', size);
+  scheduleAutoSave?.();
+}
+
+function applyDropdownStyleMode(host) {
+  if (!host) return;
+  const wrapper = host.classList?.contains('editable-select') ? host.closest('.free-element') : host;
+  const mode = wrapper?.dataset.dropdownStyleMode || host.dataset.dropdownStyleMode || 'v78';
+
+  if (wrapper) wrapper.dataset.dropdownStyleMode = mode;
+  host.dataset.dropdownStyleMode = mode;
+
+  if (host.matches?.('.editable-select')) {
+    const combo = ensureEditableSelectCombo(host);
+    host.classList.toggle('dropdown-style-hover-title', mode === 'hover-title');
+    host.classList.toggle('dropdown-style-vertical-list', mode === 'vertical-list');
+    combo?.classList.toggle('dropdown-style-hover-title', mode === 'hover-title');
+    combo?.classList.toggle('dropdown-style-vertical-list', mode === 'vertical-list');
+  }
+
+  if (host.dataset?.type === 'nav-dropdown') {
+    host.dataset.navStyleMode = mode;
+  }
+}
+
+function navDropdownColorWithOpacity(el, colorKey, opacityKey, fallback) {
+  return colorWithOpacity(el.dataset[colorKey] || fallback, clampNumber(parseFloat(el.dataset[opacityKey] ?? 100), 0, 100));
+}
+
+function applyNavDropdownStyleV108(el) {
+  if (!el || el.dataset?.type !== 'nav-dropdown') return;
+
+  const defaults = {
+    navTitleBgColor: '#0b3557',
+    navTitleBgOpacity: '100',
+    navTitleMaterial: 'none',
+    navTitleTextColor: '#ffffff',
+    navMenuBgColor: '#ffffff',
+    navMenuBgOpacity: '100',
+    navMenuMaterial: 'none',
+    navOptionTextColor: '#333333',
+    navOptionHoverBgColor: '#edf6ff',
+    navOptionHoverBgOpacity: '100',
+    navOptionHoverTextColor: '#0b3557'
+  };
+
+  Object.entries(defaults).forEach(([key, value]) => {
+    if (el.dataset[key] === undefined || el.dataset[key] === '') el.dataset[key] = value;
+  });
+
+  el.dataset.navDropdownStyle = 'navbar-hover';
+  el.dataset.dropdownStyleMode = el.dataset.dropdownStyleMode || 'hover-title';
+  el.dataset.navStyleMode = el.dataset.navStyleMode || el.dataset.dropdownStyleMode || 'hover-title';
+
+  const titleBg = navDropdownColorWithOpacity(el, 'navTitleBgColor', 'navTitleBgOpacity', '#0b3557');
+  const menuBg = navDropdownColorWithOpacity(el, 'navMenuBgColor', 'navMenuBgOpacity', '#ffffff');
+  const hoverBg = navDropdownColorWithOpacity(el, 'navOptionHoverBgColor', 'navOptionHoverBgOpacity', '#edf6ff');
+
+  el.style.setProperty('--nav-title-bg', titleBg);
+  el.style.setProperty('--nav-title-text', el.dataset.navTitleTextColor);
+  el.style.setProperty('--nav-menu-bg', menuBg);
+  el.style.setProperty('--nav-option-text', el.dataset.navOptionTextColor);
+  el.style.setProperty('--nav-option-hover-bg', hoverBg);
+  el.style.setProperty('--nav-option-hover-text', el.dataset.navOptionHoverTextColor);
+
+  const title = el.querySelector('.nav-dropdown-title');
+  if (title) {
+    title.style.color = el.dataset.navTitleTextColor;
+    applyOptionMaterialToNode(title, el.dataset.navTitleMaterial || 'none', titleBg);
+  }
+
+  const menu = el.querySelector('.nav-dropdown-menu');
+  if (menu) applyOptionMaterialToNode(menu, el.dataset.navMenuMaterial || 'none', menuBg);
+
+  el.querySelectorAll('.nav-dropdown-option').forEach(option => {
+    option.style.setProperty('--nav-option-text', el.dataset.navOptionTextColor);
+    option.style.setProperty('--nav-option-hover-bg', hoverBg);
+    option.style.setProperty('--nav-option-hover-text', el.dataset.navOptionHoverTextColor);
+  });
+}
+
+function syncNavDropdownStylePanelV108() {
+  const panel = document.getElementById('navDropdownStylePanelV107');
+  if (!panel) return;
+
+  const isNav = !!(selectedElement && selectedElement.dataset?.type === 'nav-dropdown');
+  panel.classList.toggle('d-none', !isNav);
+  if (!isNav) return;
+
+  applyNavDropdownStyleV108(selectedElement);
+  setValue('navDropdownTitleBgColor', selectedElement.dataset.navTitleBgColor || '#0b3557');
+  setValue('navDropdownTitleBgOpacity', selectedElement.dataset.navTitleBgOpacity || '100');
+  setValue('navDropdownTitleBgOpacityInput', selectedElement.dataset.navTitleBgOpacity || '100');
+  setValue('navDropdownTitleMaterial', selectedElement.dataset.navTitleMaterial || 'none');
+  setValue('navDropdownTitleTextColor', selectedElement.dataset.navTitleTextColor || '#ffffff');
+  setValue('navDropdownMenuBgColor', selectedElement.dataset.navMenuBgColor || '#ffffff');
+  setValue('navDropdownMenuBgOpacity', selectedElement.dataset.navMenuBgOpacity || '100');
+  setValue('navDropdownMenuBgOpacityInput', selectedElement.dataset.navMenuBgOpacity || '100');
+  setValue('navDropdownMenuMaterial', selectedElement.dataset.navMenuMaterial || 'none');
+  setValue('navDropdownOptionTextColor', selectedElement.dataset.navOptionTextColor || '#333333');
+  setValue('navDropdownOptionHoverBgColor', selectedElement.dataset.navOptionHoverBgColor || '#edf6ff');
+  setValue('navDropdownOptionHoverBgOpacity', selectedElement.dataset.navOptionHoverBgOpacity || '100');
+  setValue('navDropdownOptionHoverBgOpacityInput', selectedElement.dataset.navOptionHoverBgOpacity || '100');
+  setValue('navDropdownOptionHoverTextColor', selectedElement.dataset.navOptionHoverTextColor || '#0b3557');
+}
+
+function applyNavDropdownStyleFromPanelV108() {
+  if (!selectedElement || selectedElement.dataset?.type !== 'nav-dropdown') return;
+
+  selectedElement.dataset.navTitleBgColor = document.getElementById('navDropdownTitleBgColor')?.value || '#0b3557';
+  selectedElement.dataset.navTitleBgOpacity = String(clampNumber(numberValue('navDropdownTitleBgOpacity', 100), 0, 100));
+  selectedElement.dataset.navTitleMaterial = document.getElementById('navDropdownTitleMaterial')?.value || 'none';
+  selectedElement.dataset.navTitleTextColor = document.getElementById('navDropdownTitleTextColor')?.value || '#ffffff';
+  selectedElement.dataset.navMenuBgColor = document.getElementById('navDropdownMenuBgColor')?.value || '#ffffff';
+  selectedElement.dataset.navMenuBgOpacity = String(clampNumber(numberValue('navDropdownMenuBgOpacity', 100), 0, 100));
+  selectedElement.dataset.navMenuMaterial = document.getElementById('navDropdownMenuMaterial')?.value || 'none';
+  selectedElement.dataset.navOptionTextColor = document.getElementById('navDropdownOptionTextColor')?.value || '#333333';
+  selectedElement.dataset.navOptionHoverBgColor = document.getElementById('navDropdownOptionHoverBgColor')?.value || '#edf6ff';
+  selectedElement.dataset.navOptionHoverBgOpacity = String(clampNumber(numberValue('navDropdownOptionHoverBgOpacity', 100), 0, 100));
+  selectedElement.dataset.navOptionHoverTextColor = document.getElementById('navDropdownOptionHoverTextColor')?.value || '#0b3557';
+
+  setValue('navDropdownTitleBgOpacityInput', selectedElement.dataset.navTitleBgOpacity);
+  setValue('navDropdownMenuBgOpacityInput', selectedElement.dataset.navMenuBgOpacity);
+  setValue('navDropdownOptionHoverBgOpacityInput', selectedElement.dataset.navOptionHoverBgOpacity);
+  applyNavDropdownStyleV108(selectedElement);
+  applyOptionStylesToHost(selectedElement);
+  scheduleAutoSave?.();
+}
+
+(function initDropdownAccordionStyleV108() {
+  if (!document.getElementById('dropdownAccordionStyleCSSV108')) {
+    const style = document.createElement('style');
+    style.id = 'dropdownAccordionStyleCSSV108';
+    style.textContent = dropdownAccordionStyleCSSV108;
+    document.head.appendChild(style);
+  }
+
+  document.querySelectorAll('.editable-select').forEach(select => {
+    ensureEditableSelectCombo(select);
+    applyDropdownStyleMode(select);
+    applyDropdownIconStyle(select);
+    applyOptionStylesToHost(select);
+  });
+
+  document.querySelectorAll('.nav-dropdown').forEach(el => {
+    applyDropdownIconStyle(el);
+    applyNavDropdownStyleV108(el);
+    applyOptionStylesToHost(el);
+  });
+
+  sitePage.addEventListener('click', event => {
+    const title = event.target.closest('.editable-select-title');
+    if (title && sitePage.contains(title)) {
+      const el = title.closest('.free-element[data-type="select"]');
+      if (!el) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!document.body.classList.contains('preview-mode')) selectElement(el);
+      if ((el.dataset.dropdownStyleMode || 'v78') !== 'hover-title') {
+        el.classList.toggle('dropdown-open');
+      }
+      return;
+    }
+
+    const option = event.target.closest('.editable-select-option');
+    if (option && sitePage.contains(option)) {
+      const el = option.closest('.free-element[data-type="select"]');
+      const select = el?.querySelector('.editable-select');
+      if (!el || !select) return;
+      event.preventDefault();
+      event.stopPropagation();
+
+      const index = parseInt(option.dataset.optionIndex || '0', 10) || 0;
+      select.selectedIndex = index;
+      syncEditableSelectComboTitle(select);
+      applyOptionStylesToHost(select);
+      el.classList.remove('dropdown-open');
+
+      if (document.body.classList.contains('preview-mode')) {
+        handleSelectOptionAction(select);
+      } else {
+        selectElement(el);
+      }
+      scheduleAutoSave?.();
+      return;
+    }
+
+    if (!event.target.closest('.free-element[data-type="select"]')) {
+      sitePage.querySelectorAll('.free-element[data-type="select"].dropdown-open').forEach(el => el.classList.remove('dropdown-open'));
+    }
+  }, true);
+
+  sitePage.addEventListener('change', event => {
+    const select = event.target.closest('.editable-select');
+    if (!select) return;
+    syncEditableSelectComboTitle(select);
+    applyOptionStylesToHost(select);
+  }, true);
+
+  ['selectOptionHeadBgColor', 'selectOptionHeadBgOpacity', 'selectOptionHeadMaterial', 'selectOptionBodyBgColor', 'selectOptionBodyBgOpacity', 'selectOptionBodyMaterial', 'selectOptionBorderColor', 'selectOptionBorderOpacity', 'selectOptionBorderWidth', 'selectOptionBorderTop', 'selectOptionBorderRight', 'selectOptionBorderBottom', 'selectOptionBorderLeft'].forEach(id => {
+    const el = document.getElementById(id);
+    el?.addEventListener('input', applySelectedOptionStyleFromPanelV108);
+    el?.addEventListener('change', applySelectedOptionStyleFromPanelV108);
+  });
+
+  document.getElementById('selectOptionActionSelect')?.addEventListener('change', syncSelectedOptionStylePanelV108);
+  document.getElementById('applySelectOptionStyleBtn')?.addEventListener('click', applySelectedOptionStyleFromPanelV108);
+  bindNumberInput?.('selectOptionHeadBgOpacityInput', () => {
+    const value = clampNumber(numberValue('selectOptionHeadBgOpacityInput', 100), 0, 100);
+    setValue('selectOptionHeadBgOpacity', value);
+    setValue('selectOptionHeadBgOpacityInput', value);
+    applySelectedOptionStyleFromPanelV108();
+  });
+  bindNumberInput?.('selectOptionBodyBgOpacityInput', () => {
+    const value = clampNumber(numberValue('selectOptionBodyBgOpacityInput', 100), 0, 100);
+    setValue('selectOptionBodyBgOpacity', value);
+    setValue('selectOptionBodyBgOpacityInput', value);
+    applySelectedOptionStyleFromPanelV108();
+  });
+  bindNumberInput?.('selectOptionBorderOpacityInput', () => {
+    const value = clampNumber(numberValue('selectOptionBorderOpacityInput', 100), 0, 100);
+    setValue('selectOptionBorderOpacity', value);
+    setValue('selectOptionBorderOpacityInput', value);
+    applySelectedOptionStyleFromPanelV108();
+  });
+  bindNumberInput?.('selectOptionBorderWidthInput', () => {
+    const value = clampNumber(numberValue('selectOptionBorderWidthInput', 1), 0, 12);
+    setValue('selectOptionBorderWidth', value);
+    setValue('selectOptionBorderWidthInput', value);
+    applySelectedOptionStyleFromPanelV108();
+  });
+  document.getElementById('dropdownIconVisibleToggle')?.addEventListener('change', applyDropdownIconStyleFromPanelV108);
+  ['dropdownIconStyleSelect', 'dropdownIconColor', 'dropdownIconSize'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', applyDropdownIconStyleFromPanelV108);
+    document.getElementById(id)?.addEventListener('change', applyDropdownIconStyleFromPanelV108);
+  });
+
+  ['navDropdownTitleBgColor', 'navDropdownTitleBgOpacity', 'navDropdownTitleMaterial', 'navDropdownTitleTextColor', 'navDropdownMenuBgColor', 'navDropdownMenuBgOpacity', 'navDropdownMenuMaterial', 'navDropdownOptionTextColor', 'navDropdownOptionHoverBgColor', 'navDropdownOptionHoverBgOpacity', 'navDropdownOptionHoverTextColor'].forEach(id => {
+    const el = document.getElementById(id);
+    el?.addEventListener('input', applyNavDropdownStyleFromPanelV108);
+    el?.addEventListener('change', applyNavDropdownStyleFromPanelV108);
+  });
+
+  bindNumberInput?.('navDropdownTitleBgOpacityInput', () => {
+    const value = clampNumber(numberValue('navDropdownTitleBgOpacityInput', 100), 0, 100);
+    setValue('navDropdownTitleBgOpacity', value);
+    setValue('navDropdownTitleBgOpacityInput', value);
+    applyNavDropdownStyleFromPanelV108();
+  });
+
+  bindNumberInput?.('navDropdownMenuBgOpacityInput', () => {
+    const value = clampNumber(numberValue('navDropdownMenuBgOpacityInput', 100), 0, 100);
+    setValue('navDropdownMenuBgOpacity', value);
+    setValue('navDropdownMenuBgOpacityInput', value);
+    applyNavDropdownStyleFromPanelV108();
+  });
+
+  bindNumberInput?.('navDropdownOptionHoverBgOpacityInput', () => {
+    const value = clampNumber(numberValue('navDropdownOptionHoverBgOpacityInput', 100), 0, 100);
+    setValue('navDropdownOptionHoverBgOpacity', value);
+    setValue('navDropdownOptionHoverBgOpacityInput', value);
+    applyNavDropdownStyleFromPanelV108();
+  });
+
+  if (typeof syncFormElementPanel === 'function' && !window.__dropdownAccordionPanelWrappedV108) {
+    window.__dropdownAccordionPanelWrappedV108 = true;
+    const originalSyncFormElementPanelV108 = syncFormElementPanel;
+    syncFormElementPanel = function() {
+      originalSyncFormElementPanelV108();
+      const host = getSelectedOptionHost?.();
+      if (host) {
+        if (host.matches?.('.editable-select')) ensureEditableSelectCombo(host);
+        applyDropdownStyleMode(host);
+        syncDropdownIconStylePanelV108();
+        syncSelectedOptionStylePanelV108();
+        applyOptionStylesToHost(host);
+      }
+      syncNavDropdownStylePanelV108();
+    };
+  }
+
+  if (typeof applySelectOptions === 'function' && !window.__applySelectOptionsWrappedV108) {
+    window.__applySelectOptionsWrappedV108 = true;
+    const originalApplySelectOptionsV108 = applySelectOptions;
+    applySelectOptions = function() {
+      originalApplySelectOptionsV108();
+      const host = getSelectedOptionHost?.();
+      if (host) {
+        if (host.matches?.('.editable-select')) ensureEditableSelectCombo(host);
+        applyOptionStylesToHost(host);
+      }
+    };
+  }
+
+  if (typeof buildExportCSS === 'function' && !window.__dropdownAccordionExportCSSWrappedV108) {
+    window.__dropdownAccordionExportCSSWrappedV108 = true;
+    const originalBuildExportCSSV108 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV108() + dropdownAccordionStyleCSSV108;
+    };
+  }
+
+  if (typeof buildExportJS === 'function' && !window.__dropdownAccordionExportJSWrappedV108) {
+    window.__dropdownAccordionExportJSWrappedV108 = true;
+    const originalBuildExportJSV108 = buildExportJS;
+    buildExportJS = function(exportPagesJSON, currentPageIdJSON) {
+      return originalBuildExportJSV108(exportPagesJSON, currentPageIdJSON) + `
+(function(){
+  function qsa2(selector, root){ return Array.prototype.slice.call((root || document).querySelectorAll(selector)); }
+  function rgba2(hex, opacity){
+    if (!hex || hex.indexOf('#') !== 0) return hex || '';
+    var value = hex.replace('#','');
+    if (value.length === 3) value = value.split('').map(function(c){ return c + c; }).join('');
+    var r = parseInt(value.slice(0,2),16), g = parseInt(value.slice(2,4),16), b = parseInt(value.slice(4,6),16);
+    var a = Math.max(0, Math.min(100, parseFloat(opacity == null ? 100 : opacity) || 0)) / 100;
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  }
+  function matBg(base, material){
+    if (material === 'dark-matte') return 'linear-gradient(135deg, rgba(24,27,31,.88), rgba(84,88,96,.62)), ' + base;
+    if (material === 'glass') return 'linear-gradient(135deg, rgba(255,255,255,.46), rgba(255,255,255,.12)), ' + base;
+    if (material === 'frosted') return 'linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,.08)), ' + base;
+    return base;
+  }
+  function applyMat(node, material, base){
+    if (!node) return;
+    node.style.background = matBg(base, material || 'none');
+    node.style.backgroundColor = base;
+    if (material === 'frosted') { node.style.backdropFilter = 'blur(12px) saturate(130%)'; node.style.webkitBackdropFilter = 'blur(12px) saturate(130%)'; }
+    else if (material === 'glass') { node.style.backdropFilter = 'blur(8px) saturate(155%)'; node.style.webkitBackdropFilter = 'blur(8px) saturate(155%)'; }
+    else if (material === 'dark-matte') { node.style.backdropFilter = 'blur(6px) saturate(125%)'; node.style.webkitBackdropFilter = 'blur(6px) saturate(125%)'; }
+  }
+  function applyBorder2(node, data){
+    if (!node) return;
+    var color = rgba2(data.borderColor || '#dee2e6', data.borderOpacity == null ? 100 : data.borderOpacity);
+    var width = Math.max(0, Math.min(12, parseFloat(data.borderWidth == null ? 1 : data.borderWidth) || 0)) + 'px';
+    node.style.setProperty('border-top', data.borderTop === false ? '0' : width + ' solid ' + color, 'important');
+    node.style.setProperty('border-right', data.borderRight === false ? '0' : width + ' solid ' + color, 'important');
+    node.style.setProperty('border-bottom', data.borderBottom === false ? '0' : width + ' solid ' + color, 'important');
+    node.style.setProperty('border-left', data.borderLeft === false ? '0' : width + ' solid ' + color, 'important');
+  }
+  function defaultData(data){
+    data = data || {};
+    return {
+      headBg: data.headBg || '#ffffff', headOpacity: data.headOpacity == null ? 100 : data.headOpacity, headMaterial: data.headMaterial || 'none',
+      bodyBg: data.bodyBg || '#ffffff', bodyOpacity: data.bodyOpacity == null ? 100 : data.bodyOpacity, bodyMaterial: data.bodyMaterial || 'none',
+      borderColor: data.borderColor || '#dee2e6', borderOpacity: data.borderOpacity == null ? 100 : data.borderOpacity, borderWidth: data.borderWidth == null ? 1 : data.borderWidth,
+      borderTop: data.borderTop !== false, borderRight: data.borderRight !== false, borderBottom: data.borderBottom !== false, borderLeft: data.borderLeft !== false
+    };
+  }
+  function ensureCombo(select){
+    if (!select || !select.matches('.editable-select')) return null;
+    var combo = select.closest('.editable-select-combo');
+    if (!combo) {
+      combo = document.createElement('div'); combo.className = 'inner editable-select-combo'; combo.setAttribute('data-select-combo','true');
+      select.classList.remove('inner'); select.classList.add('editable-select-native'); select.parentNode.insertBefore(combo, select); combo.appendChild(select);
+    }
+    if (!combo.querySelector('.editable-select-title')) {
+      var title = document.createElement('button'); title.type = 'button'; title.className = 'editable-select-title'; title.innerHTML = '<span></span>'; combo.insertBefore(title, select);
+    }
+    var menu = combo.querySelector('.editable-select-menu');
+    if (!menu) { menu = document.createElement('div'); menu.className = 'editable-select-menu'; combo.insertBefore(menu, select.nextSibling); }
+    menu.innerHTML = Array.prototype.slice.call(select.options).map(function(option, index){ return '<button type="button" class="editable-select-option" data-option-index="' + index + '"><span>' + (option.textContent || '') + '</span></button>'; }).join('');
+    syncCombo(select);
+    return combo;
+  }
+  function syncCombo(select){
+    var combo = select.closest('.editable-select-combo'); if (!combo) return;
+    var span = combo.querySelector('.editable-select-title span');
+    var selected = select.options[select.selectedIndex] || select.options[0];
+    if (span) span.textContent = selected ? selected.textContent : '';
+    qsa2('.editable-select-option', combo).forEach(function(option){ option.classList.toggle('is-active', String(option.getAttribute('data-option-index')) === String(select.selectedIndex || 0)); });
+  }
+  function applyStyles(host){
+    var styles = {}; try { styles = JSON.parse(host.getAttribute('data-option-styles') || '{}') || {}; } catch(e) {}
+    if (host.matches && host.matches('.editable-select')) {
+      var combo = ensureCombo(host);
+      qsa2('option', host).forEach(function(option, index){ var d = defaultData(styles[String(index)]); option.style.backgroundColor = rgba2(d.bodyBg, d.bodyOpacity); var btn = combo && combo.querySelector('.editable-select-option[data-option-index="' + index + '"]'); if (btn) { var c = rgba2(d.headBg, d.headOpacity); btn.style.setProperty('--select-option-bg', c); applyMat(btn, d.headMaterial, c); applyBorder2(btn, d); } });
+      var current = defaultData(styles[String(host.selectedIndex || 0)]); var titleColor = rgba2(current.headBg, current.headOpacity); var bodyColor = rgba2(current.bodyBg, current.bodyOpacity);
+      if (combo) { combo.style.setProperty('--select-title-bg', titleColor); combo.style.setProperty('--select-menu-bg', bodyColor); applyMat(combo.querySelector('.editable-select-title'), current.headMaterial, titleColor); applyMat(combo.querySelector('.editable-select-menu'), current.bodyMaterial, bodyColor); applyBorder2(combo.querySelector('.editable-select-title'), current); syncCombo(host); }
+      return;
+    }
+    if (host.matches && host.matches('.nav-dropdown')) {
+      var titleBg = rgba2(host.getAttribute('data-nav-title-bg-color') || '#0b3557', host.getAttribute('data-nav-title-bg-opacity') || '100');
+      var menuBg = rgba2(host.getAttribute('data-nav-menu-bg-color') || '#ffffff', host.getAttribute('data-nav-menu-bg-opacity') || '100');
+      var hoverBg = rgba2(host.getAttribute('data-nav-option-hover-bg-color') || '#edf6ff', host.getAttribute('data-nav-option-hover-bg-opacity') || '100');
+      host.style.setProperty('--nav-title-bg', titleBg); host.style.setProperty('--nav-menu-bg', menuBg); host.style.setProperty('--nav-option-hover-bg', hoverBg);
+      host.style.setProperty('--nav-title-text', host.getAttribute('data-nav-title-text-color') || '#ffffff'); host.style.setProperty('--nav-option-text', host.getAttribute('data-nav-option-text-color') || '#333333'); host.style.setProperty('--nav-option-hover-text', host.getAttribute('data-nav-option-hover-text-color') || '#0b3557');
+      applyMat(host.querySelector('.nav-dropdown-title'), host.getAttribute('data-nav-title-material') || 'none', titleBg); applyMat(host.querySelector('.nav-dropdown-menu'), host.getAttribute('data-nav-menu-material') || 'none', menuBg);
+      qsa2('.nav-dropdown-option', host).forEach(function(option, index){ var d = defaultData(styles[String(index)]); var c = rgba2(d.headBg, d.headOpacity); option.style.setProperty('--nav-option-bg', c); applyMat(option, d.headMaterial, c); applyBorder2(option, d); });
+    }
+  }
+  function init(){ qsa2('.editable-select').forEach(applyStyles); qsa2('.nav-dropdown').forEach(applyStyles); }
+  document.addEventListener('click', function(event){
+    var title = event.target.closest && event.target.closest('.editable-select-title');
+    if (title) { var el = title.closest('.free-element[data-type="select"]'); if (el) { event.preventDefault(); el.classList.toggle('dropdown-open'); } return; }
+    var option = event.target.closest && event.target.closest('.editable-select-option');
+    if (option) { var root = option.closest('.free-element[data-type="select"]'); var select = root && root.querySelector('.editable-select'); if (!select) return; event.preventDefault(); event.stopPropagation(); select.selectedIndex = parseInt(option.getAttribute('data-option-index') || '0', 10) || 0; syncCombo(select); applyStyles(select); root.classList.remove('dropdown-open'); var evt = new Event('change', { bubbles: true }); select.dispatchEvent(evt); return; }
+    qsa2('.free-element[data-type="select"].dropdown-open').forEach(function(el){ if (!el.contains(event.target)) el.classList.remove('dropdown-open'); });
+  }, true);
+  document.addEventListener('change', function(event){ var select = event.target.closest && event.target.closest('.editable-select'); if (!select) return; syncCombo(select); applyStyles(select); }, true);
+  init();
+})();`;
+    };
+  }
+})();
+
+
+/* v109：修正設定卡片回右側，預覽不保留底部空白 */
+const layoutPreviewTrimCSSV109 = `
+@media (max-width: 992px) {
+  .editor-sidebar,
+  .editor-inspector {
+    position: fixed !important;
+    top: var(--topbar-height) !important;
+    bottom: 0 !important;
+    width: var(--sidebar-width) !important;
+    z-index: 900 !important;
+  }
+
+  .editor-sidebar {
+    left: 0 !important;
+    right: auto !important;
+    border-right: 1px solid var(--editor-border) !important;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, .08) !important;
+  }
+
+  .editor-inspector {
+    right: 0 !important;
+    left: auto !important;
+    width: var(--inspector-width) !important;
+    border-left: 1px solid var(--editor-border) !important;
+    box-shadow: -8px 0 24px rgba(0, 0, 0, .08) !important;
+  }
+
+  .canvas-area {
+    height: calc(100vh - var(--topbar-height)) !important;
+    min-height: 0 !important;
+  }
+}
+
+body.preview-mode,
+html.preview-scroll-fix-v95 body.preview-mode {
+  min-height: 0 !important;
+}
+
+body.preview-mode .editor-layout,
+body.preview-mode .canvas-area,
+body.preview-mode .site-page {
+  min-height: 0 !important;
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+body.preview-mode .canvas-area {
+  height: auto !important;
+}
+
+body.preview-mode .html-zone.preview-empty-zone {
+  display: none !important;
+}
+`;
+
+(function initLayoutPreviewTrimV109() {
+  if (!document.getElementById('layoutPreviewTrimCSSV109')) {
+    const style = document.createElement('style');
+    style.id = 'layoutPreviewTrimCSSV109';
+    style.textContent = layoutPreviewTrimCSSV109;
+    document.head.appendChild(style);
+  }
+
+  function syncPreviewEmptyZonesV109() {
+    const active = document.body.classList.contains('preview-mode');
+    document.querySelectorAll('.html-zone').forEach(zone => {
+      const hasVisibleBlock = !!zone.querySelector(':scope > .html-block');
+      zone.classList.toggle('preview-empty-zone', active && !hasVisibleBlock);
+    });
+
+    const canvas = document.querySelector('.canvas-area');
+    if (canvas) {
+      canvas.style.removeProperty('--preview-bottom-extra-v95');
+      canvas.style.removeProperty('min-height');
+      canvas.style.removeProperty('padding-bottom');
+    }
+
+    const sitePageEl = document.getElementById('sitePage');
+    if (sitePageEl) {
+      sitePageEl.style.removeProperty('margin-bottom');
+      sitePageEl.style.removeProperty('min-height');
+    }
+  }
+
+  document.getElementById('previewBtn')?.addEventListener('click', () => {
+    window.requestAnimationFrame(() => {
+      syncPreviewEmptyZonesV109();
+      window.setTimeout(syncPreviewEmptyZonesV109, 90);
+      window.setTimeout(syncPreviewEmptyZonesV109, 380);
+    });
+  });
+
+  document.getElementById('exitPreviewBtn')?.addEventListener('click', () => {
+    document.querySelectorAll('.html-zone.preview-empty-zone').forEach(zone => zone.classList.remove('preview-empty-zone'));
+    window.setTimeout(syncPreviewEmptyZonesV109, 0);
+  });
+
+  document.getElementById('floatingExitPreviewBtn')?.addEventListener('click', () => {
+    document.querySelectorAll('.html-zone.preview-empty-zone').forEach(zone => zone.classList.remove('preview-empty-zone'));
+    window.setTimeout(syncPreviewEmptyZonesV109, 0);
+  });
+
+  window.addEventListener('resize', syncPreviewEmptyZonesV109);
+
+  const originalBuildExportCSSV109 = buildExportCSS;
+  buildExportCSS = function() {
+    return originalBuildExportCSSV109() + layoutPreviewTrimCSSV109;
+  };
+})();
+
+
+/* v110：下拉式選項樣式補齊，預覽/匯出關閉圖片/文字編輯設定 */
+const dropdownPreviewLockCSSV110 = `
+.nav-dropdown[data-nav-style-mode="v78"] .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="v78"] .nav-dropdown-menu {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-6px) !important;
+  pointer-events: none !important;
+}
+
+.nav-dropdown[data-nav-style-mode="v78"]:hover .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="v78"]:hover .nav-dropdown-menu,
+.nav-dropdown[data-nav-style-mode="v78"].menu-open .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="v78"].menu-open .nav-dropdown-menu {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-6px) !important;
+  pointer-events: none !important;
+}
+
+.nav-dropdown[data-nav-style-mode="v78"].dropdown-open .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="v78"].dropdown-open .nav-dropdown-menu,
+.nav-dropdown[data-nav-style-mode="v78"]:focus-within .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="v78"]:focus-within .nav-dropdown-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+
+.nav-dropdown[data-nav-style-mode="vertical-list"],
+.nav-dropdown[data-dropdown-style-mode="vertical-list"] {
+  height: auto !important;
+}
+
+.nav-dropdown[data-nav-style-mode="vertical-list"] .nav-dropdown-inner,
+.nav-dropdown[data-dropdown-style-mode="vertical-list"] .nav-dropdown-inner {
+  height: auto !important;
+}
+
+.nav-dropdown[data-nav-style-mode="vertical-list"] .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="vertical-list"] .nav-dropdown-menu {
+  position: relative !important;
+  top: 8px !important;
+  left: 0 !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+
+.nav-dropdown[data-nav-style-mode="hover-title"] .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="hover-title"] .nav-dropdown-menu {
+  position: absolute !important;
+}
+
+body.preview-mode .setting-card,
+body.preview-mode .editor-inspector,
+body.preview-mode #imageSettingCard,
+body.preview-mode #imageHoverZoomSettingCard,
+body.exported-site .setting-card,
+body.exported-site .editor-inspector,
+body.exported-site #imageSettingCard,
+body.exported-site #imageHoverZoomSettingCard {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.preview-mode [data-editable-text],
+body.preview-mode [data-editable-text] *,
+body.preview-mode [contenteditable],
+body.preview-mode [contenteditable] *,
+body.exported-site [data-editable-text],
+body.exported-site [data-editable-text] *,
+body.exported-site [contenteditable],
+body.exported-site [contenteditable] * {
+  cursor: default !important;
+  caret-color: transparent !important;
+  -webkit-user-modify: read-only !important;
+  user-select: auto !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+body.preview-mode .free-element.is-editing,
+body.preview-mode .free-element.selected,
+body.preview-mode .free-element.multi-selected,
+body.preview-mode .free-element.has-selected-child,
+body.exported-site .free-element.is-editing,
+body.exported-site .free-element.selected,
+body.exported-site .free-element.multi-selected,
+body.exported-site .free-element.has-selected-child {
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+body.preview-mode,
+body.preview-mode .canvas-area,
+body.preview-mode .site-page,
+body.exported-site,
+body.exported-site .site-page {
+  overflow-x: hidden !important;
+}
+`;
+
+(function initDropdownPreviewLockV110() {
+  if (!document.getElementById('dropdownPreviewLockCSSV110')) {
+    const style = document.createElement('style');
+    style.id = 'dropdownPreviewLockCSSV110';
+    style.textContent = dropdownPreviewLockCSSV110;
+    document.head.appendChild(style);
+  }
+
+  function lockPreviewTextEditingV110(scope = sitePage || document) {
+    try {
+      const active = document.activeElement;
+      if (active && active.closest && active.closest('[data-editable-text], .free-element')) active.blur();
+      const sel = window.getSelection && window.getSelection();
+      if (sel) sel.removeAllRanges();
+    } catch (error) {}
+
+    scope.querySelectorAll('.is-editing, .selected, .multi-selected, .has-selected-child').forEach(el => {
+      el.classList.remove('is-editing', 'selected', 'multi-selected', 'has-selected-child');
+    });
+
+    scope.querySelectorAll('[data-editable-text], [contenteditable]').forEach(el => {
+      el.setAttribute('contenteditable', 'false');
+      el.setAttribute('aria-readonly', 'true');
+      el.style.caretColor = 'transparent';
+    });
+
+    selectedBlock = null;
+    selectedElement = null;
+    selectedElements = [];
+  }
+
+  const originalEnableTextEditingV110 = typeof enableTextEditing === 'function' ? enableTextEditing : null;
+  if (originalEnableTextEditingV110 && !window.__enableTextEditingWrappedV110) {
+    window.__enableTextEditingWrappedV110 = true;
+    enableTextEditing = function(textEl) {
+      if (document.body.classList.contains('preview-mode') || document.body.classList.contains('exported-site')) return;
+      return originalEnableTextEditingV110(textEl);
+    };
+  }
+
+  const originalApplyDropdownStyleModeFromPanelV110 = typeof applyDropdownStyleModeFromPanel === 'function' ? applyDropdownStyleModeFromPanel : null;
+  if (originalApplyDropdownStyleModeFromPanelV110 && !window.__dropdownStyleModePanelWrappedV110) {
+    window.__dropdownStyleModePanelWrappedV110 = true;
+    applyDropdownStyleModeFromPanel = function() {
+      originalApplyDropdownStyleModeFromPanelV110();
+      const host = getSelectedOptionHost?.();
+      if (!host) return;
+      const mode = document.getElementById('dropdownStyleModeSelect')?.value || 'v78';
+      const wrapper = host.classList?.contains('editable-select') ? host.closest('.free-element') : host;
+      if (wrapper) {
+        wrapper.dataset.dropdownStyleMode = mode;
+        wrapper.dataset.navStyleMode = mode;
+        wrapper.classList.remove('dropdown-open', 'menu-open');
+      }
+      host.dataset.dropdownStyleMode = mode;
+      if (host.dataset?.type === 'nav-dropdown') {
+        host.dataset.navStyleMode = mode;
+        applyNavDropdownStyleV108?.(host);
+        applyOptionStylesToHost?.(host);
+      }
+      scheduleAutoSave?.();
+    };
+  }
+
+  const styleModeSelect = document.getElementById('dropdownStyleModeSelect');
+  if (styleModeSelect && !styleModeSelect.dataset.v110Bound) {
+    styleModeSelect.dataset.v110Bound = 'true';
+    styleModeSelect.addEventListener('input', () => applyDropdownStyleModeFromPanel?.());
+    styleModeSelect.addEventListener('change', () => applyDropdownStyleModeFromPanel?.());
+  }
+
+  document.querySelectorAll('.nav-dropdown').forEach(el => {
+    const mode = el.dataset.navStyleMode || el.dataset.dropdownStyleMode || 'hover-title';
+    el.dataset.navStyleMode = mode;
+    el.dataset.dropdownStyleMode = mode;
+  });
+
+  sitePage?.addEventListener('click', event => {
+    const title = event.target.closest('.nav-dropdown-title');
+    if (!title || !sitePage.contains(title)) return;
+    const root = title.closest('.nav-dropdown');
+    if (!root) return;
+
+    const mode = root.dataset.navStyleMode || root.dataset.dropdownStyleMode || 'hover-title';
+    if (!document.body.classList.contains('preview-mode')) selectElement(root);
+
+    if (mode !== 'hover-title') {
+      event.preventDefault();
+      event.stopPropagation();
+      root.classList.toggle('dropdown-open');
+      root.classList.remove('menu-open');
+    }
+  }, true);
+
+  document.getElementById('previewBtn')?.addEventListener('click', () => {
+    window.requestAnimationFrame(() => {
+      lockPreviewTextEditingV110(sitePage || document);
+      window.setTimeout(() => lockPreviewTextEditingV110(sitePage || document), 80);
+      window.setTimeout(() => lockPreviewTextEditingV110(sitePage || document), 320);
+    });
+  });
+
+  document.getElementById('exitPreviewBtn')?.addEventListener('click', () => {
+    (sitePage || document).querySelectorAll('[data-editable-text]').forEach(el => {
+      el.setAttribute('contenteditable', 'false');
+      el.style.caretColor = '';
+      el.removeAttribute('aria-readonly');
+    });
+  });
+
+  document.getElementById('floatingExitPreviewBtn')?.addEventListener('click', () => {
+    (sitePage || document).querySelectorAll('[data-editable-text]').forEach(el => {
+      el.setAttribute('contenteditable', 'false');
+      el.style.caretColor = '';
+      el.removeAttribute('aria-readonly');
+    });
+  });
+
+  if (typeof cleanPageCloneForExport === 'function' && !window.__cleanExportWrappedV110) {
+    window.__cleanExportWrappedV110 = true;
+    const originalCleanPageCloneForExportV110 = cleanPageCloneForExport;
+    cleanPageCloneForExport = function(clone) {
+      clone.querySelectorAll('[data-editable-text], [contenteditable]').forEach(el => {
+        el.setAttribute('contenteditable', 'false');
+        el.style.caretColor = 'transparent';
+      });
+      clone.querySelectorAll('.is-editing, .selected, .multi-selected, .has-selected-child').forEach(el => {
+        el.classList.remove('is-editing', 'selected', 'multi-selected', 'has-selected-child');
+      });
+      clone.querySelectorAll('#imageSettingCard, #imageHoverZoomSettingCard, .setting-card, .editor-inspector').forEach(el => el.remove());
+      return originalCleanPageCloneForExportV110(clone)
+        .replace(/\scontenteditable=("true"|'true'|"false"|'false')/gi, '')
+        .replace(/\saria-readonly=("true"|'true')/gi, '');
+    };
+  }
+
+  if (typeof buildExportCSS === 'function' && !window.__dropdownPreviewLockExportCSSWrappedV110) {
+    window.__dropdownPreviewLockExportCSSWrappedV110 = true;
+    const originalBuildExportCSSV110 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV110() + dropdownPreviewLockCSSV110;
+    };
+  }
+})();
+
+/* v110b：提高選擇器權重，避免預覽/匯出仍出現文字打字游標 */
+const textCursorLockCSSV110B = `
+body.preview-mode .free-element [data-editable-text],
+body.preview-mode .free-element [data-editable-text][contenteditable],
+body.preview-mode .free-element [data-editable-text][contenteditable="false"],
+body.preview-mode .free-element [data-editable-text][contenteditable="true"],
+body.exported-site .free-element [data-editable-text],
+body.exported-site .free-element [data-editable-text][contenteditable],
+body.exported-site .free-element [data-editable-text][contenteditable="false"],
+body.exported-site .free-element [data-editable-text][contenteditable="true"] {
+  cursor: default !important;
+  caret-color: transparent !important;
+  -webkit-user-modify: read-only !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+`;
+(function initTextCursorLockCSSV110B() {
+  if (!document.getElementById('textCursorLockCSSV110B')) {
+    const style = document.createElement('style');
+    style.id = 'textCursorLockCSSV110B';
+    style.textContent = textCursorLockCSSV110B;
+    document.head.appendChild(style);
+  }
+
+  if (typeof buildExportCSS === 'function' && !window.__textCursorLockExportCSSWrappedV110B) {
+    window.__textCursorLockExportCSSWrappedV110B = true;
+    const originalBuildExportCSSV110B = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV110B() + textCursorLockCSSV110B;
+    };
+  }
+})();
+
+/* v111：下拉式選項 ICON 開合狀態互斥顯示
+   - 收合：只顯示下拉前 ICON
+   - 展開：只顯示下拉後 ICON，並隱藏下拉前 ICON
+   - 同時關閉舊版包在 free-element 上的 ::after，避免雙 ICON 疊在一起 */
+const selectDropdownIconToggleCSSV111 = `
+.free-element[data-type="select"]::after {
+  display: none !important;
+  content: "" !important;
+}
+
+.free-element[data-type="select"] .editable-select-title {
+  position: relative !important;
+}
+
+.free-element[data-type="select"] .editable-select-title::before,
+.free-element[data-type="select"] .editable-select-title::after {
+  position: absolute !important;
+  right: .85em !important;
+  top: 50% !important;
+  z-index: 2 !important;
+  pointer-events: none !important;
+  color: var(--dropdown-icon-color, currentColor) !important;
+  font-size: var(--dropdown-icon-size, 18px) !important;
+  line-height: 1 !important;
+  transition: opacity .16s ease, visibility .16s ease, transform .16s ease !important;
+}
+
+/* 預設：下拉前倒三角；下拉後上三角 */
+.free-element[data-type="select"] .editable-select-title::before,
+.free-element[data-type="select"][data-dropdown-icon-style="default"] .editable-select-title::before {
+  content: "⌄" !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1em !important;
+  height: 1em !important;
+  border: 0 !important;
+  background: transparent !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(-50%) scale(1) !important;
+}
+
+.free-element[data-type="select"] .editable-select-title::after,
+.free-element[data-type="select"][data-dropdown-icon-style="default"] .editable-select-title::after {
+  content: "⌃" !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1em !important;
+  height: 1em !important;
+  border: 0 !important;
+  background: transparent !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-50%) scale(.7) !important;
+}
+
+/* + / ×：收合只顯示 +，展開只顯示 × */
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"] .editable-select-title::before {
+  content: "+" !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1.2em !important;
+  height: 1.2em !important;
+  border: 0 !important;
+  background: transparent !important;
+  font-weight: 800 !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"] .editable-select-title::after {
+  content: "×" !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1.2em !important;
+  height: 1.2em !important;
+  border: 0 !important;
+  background: transparent !important;
+  font-weight: 800 !important;
+}
+
+/* 倒三角 / 橫線：收合只顯示倒三角，展開只顯示橫線 */
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"] .editable-select-title::before {
+  content: "" !important;
+  display: inline-block !important;
+  width: 0 !important;
+  height: 0 !important;
+  border-left: calc(var(--dropdown-icon-size, 18px) * .42) solid transparent !important;
+  border-right: calc(var(--dropdown-icon-size, 18px) * .42) solid transparent !important;
+  border-top: calc(var(--dropdown-icon-size, 18px) * .5) solid var(--dropdown-icon-color, currentColor) !important;
+  background: transparent !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"] .editable-select-title::after {
+  content: "" !important;
+  display: inline-block !important;
+  width: calc(var(--dropdown-icon-size, 18px) * 1.05) !important;
+  height: calc(var(--dropdown-icon-size, 18px) * .12) !important;
+  min-height: 2px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: var(--dropdown-icon-color, currentColor) !important;
+}
+
+/* 展開狀態：隱藏下拉前 ICON，顯示下拉後 ICON */
+.free-element[data-type="select"].dropdown-open .editable-select-title::before,
+.free-element[data-type="select"][data-dropdown-style-mode="hover-title"]:hover .editable-select-title::before,
+.free-element[data-type="select"][data-dropdown-style-mode="vertical-list"] .editable-select-title::before {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-50%) scale(.7) !important;
+}
+
+.free-element[data-type="select"].dropdown-open .editable-select-title::after,
+.free-element[data-type="select"][data-dropdown-style-mode="hover-title"]:hover .editable-select-title::after,
+.free-element[data-type="select"][data-dropdown-style-mode="vertical-list"] .editable-select-title::after {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(-50%) scale(1) !important;
+}
+
+/* 取消 ICON */
+.free-element[data-type="select"][data-dropdown-icon-visible="false"] .editable-select-title::before,
+.free-element[data-type="select"][data-dropdown-icon-visible="false"] .editable-select-title::after,
+.free-element[data-type="select"][data-dropdown-icon-style="none"] .editable-select-title::before,
+.free-element[data-type="select"][data-dropdown-icon-style="none"] .editable-select-title::after {
+  display: none !important;
+  content: "" !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+`;
+
+(function initSelectDropdownIconToggleV111() {
+  if (!document.getElementById('selectDropdownIconToggleCSSV111')) {
+    const style = document.createElement('style');
+    style.id = 'selectDropdownIconToggleCSSV111';
+    style.textContent = selectDropdownIconToggleCSSV111;
+    document.head.appendChild(style);
+  }
+
+  if (typeof buildExportCSS === 'function' && !window.__selectDropdownIconToggleExportCSSWrappedV111) {
+    window.__selectDropdownIconToggleExportCSSWrappedV111 = true;
+    const originalBuildExportCSSV111 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV111() + selectDropdownIconToggleCSSV111;
+    };
+  }
+})();
+
+/* v112：下拉式選項收合方式對齊導覽列下拉（包含 ICON 開合狀態） */
+const selectDropdownSameAsNavCSSV112 = `
+/* v112：下拉式選項與導覽列下拉使用同一套開合狀態：hover-title / v78 點擊 / vertical-list */
+.free-element[data-type="select"] {
+  overflow: visible !important;
+}
+
+.free-element[data-type="select"]::after {
+  display: none !important;
+  content: "" !important;
+}
+
+.free-element[data-type="select"] .editable-select-combo,
+.free-element[data-type="select"] .editable-select-title {
+  overflow: visible !important;
+}
+
+.free-element[data-type="select"] .editable-select-menu {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-6px) !important;
+  pointer-events: none !important;
+}
+
+.free-element[data-type="select"][data-dropdown-style-mode="hover-title"]:hover .editable-select-menu,
+.free-element[data-type="select"][data-dropdown-style-mode="hover-title"]:focus-within .editable-select-menu,
+.free-element[data-type="select"][data-dropdown-style-mode="hover-title"].dropdown-open .editable-select-menu,
+.free-element[data-type="select"][data-dropdown-style-mode="hover-title"].menu-open .editable-select-menu,
+.free-element[data-type="select"][data-dropdown-style-mode="v78"].dropdown-open .editable-select-menu,
+.free-element[data-type="select"][data-dropdown-style-mode="v78"]:focus-within .editable-select-menu,
+.free-element[data-type="select"][data-dropdown-style-mode="v78"].menu-open .editable-select-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+
+.free-element[data-type="select"][data-dropdown-style-mode="vertical-list"] {
+  height: auto !important;
+}
+
+.free-element[data-type="select"][data-dropdown-style-mode="vertical-list"] .editable-select-combo {
+  height: auto !important;
+}
+
+.free-element[data-type="select"][data-dropdown-style-mode="vertical-list"] .editable-select-menu {
+  position: relative !important;
+  top: 8px !important;
+  left: 0 !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+
+.free-element[data-type="select"] .editable-select-title {
+  position: relative !important;
+}
+
+.free-element[data-type="select"] .editable-select-title::before,
+.free-element[data-type="select"] .editable-select-title::after {
+  position: absolute !important;
+  right: .85em !important;
+  top: 50% !important;
+  z-index: 2 !important;
+  pointer-events: none !important;
+  color: var(--dropdown-icon-color, currentColor) !important;
+  font-size: var(--dropdown-icon-size, 18px) !important;
+  line-height: 1 !important;
+  transition: opacity .16s ease, visibility .16s ease, transform .16s ease !important;
+}
+
+/* 收合狀態：只顯示下拉前 ICON */
+.free-element[data-type="select"] .editable-select-title::before,
+.free-element[data-type="select"][data-dropdown-icon-style="default"] .editable-select-title::before {
+  content: "⌄" !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1em !important;
+  height: 1em !important;
+  border: 0 !important;
+  background: transparent !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(-50%) scale(1) !important;
+}
+
+.free-element[data-type="select"] .editable-select-title::after,
+.free-element[data-type="select"][data-dropdown-icon-style="default"] .editable-select-title::after {
+  content: "⌃" !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1em !important;
+  height: 1em !important;
+  border: 0 !important;
+  background: transparent !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-50%) scale(.7) !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"] .editable-select-title::before {
+  content: "+" !important;
+  font-weight: 800 !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"] .editable-select-title::after {
+  content: "×" !important;
+  font-weight: 800 !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"] .editable-select-title::before {
+  content: "" !important;
+  display: inline-block !important;
+  width: 0 !important;
+  height: 0 !important;
+  border-left: calc(var(--dropdown-icon-size, 18px) * .42) solid transparent !important;
+  border-right: calc(var(--dropdown-icon-size, 18px) * .42) solid transparent !important;
+  border-top: calc(var(--dropdown-icon-size, 18px) * .5) solid var(--dropdown-icon-color, currentColor) !important;
+  background: transparent !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"] .editable-select-title::after {
+  content: "" !important;
+  display: inline-block !important;
+  width: calc(var(--dropdown-icon-size, 18px) * 1.05) !important;
+  height: calc(var(--dropdown-icon-size, 18px) * .12) !important;
+  min-height: 2px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: var(--dropdown-icon-color, currentColor) !important;
+}
+
+/* 展開狀態：跟導覽列下拉一樣，用 hover / focus / dropdown-open / menu-open 判斷 */
+.free-element[data-type="select"].dropdown-open .editable-select-title::before,
+.free-element[data-type="select"].menu-open .editable-select-title::before,
+.free-element[data-type="select"]:focus-within .editable-select-title::before,
+.free-element[data-type="select"][data-dropdown-style-mode="hover-title"]:hover .editable-select-title::before {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-50%) scale(.7) !important;
+}
+
+.free-element[data-type="select"].dropdown-open .editable-select-title::after,
+.free-element[data-type="select"].menu-open .editable-select-title::after,
+.free-element[data-type="select"]:focus-within .editable-select-title::after,
+.free-element[data-type="select"][data-dropdown-style-mode="hover-title"]:hover .editable-select-title::after {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(-50%) scale(1) !important;
+}
+
+/* vertical-list 是直接展開排列；不額外強制切換成展開後 ICON，與導覽列下拉一致由 hover / focus / click 狀態控制 */
+.free-element[data-type="select"][data-dropdown-style-mode="vertical-list"]:not(.dropdown-open):not(.menu-open):not(:hover):not(:focus-within) .editable-select-title::before {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(-50%) scale(1) !important;
+}
+
+.free-element[data-type="select"][data-dropdown-style-mode="vertical-list"]:not(.dropdown-open):not(.menu-open):not(:hover):not(:focus-within) .editable-select-title::after {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-50%) scale(.7) !important;
+}
+
+/* 取消 ICON */
+.free-element[data-type="select"][data-dropdown-icon-visible="false"] .editable-select-title::before,
+.free-element[data-type="select"][data-dropdown-icon-visible="false"] .editable-select-title::after,
+.free-element[data-type="select"][data-dropdown-icon-style="none"] .editable-select-title::before,
+.free-element[data-type="select"][data-dropdown-icon-style="none"] .editable-select-title::after {
+  display: none !important;
+  content: "" !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+`;
+
+function initSelectDropdownSameAsNavRuntimeV112() {
+  if (document.documentElement.dataset.selectDropdownSameAsNavRuntimeV112 === 'true') return;
+  document.documentElement.dataset.selectDropdownSameAsNavRuntimeV112 = 'true';
+
+  function getRoot(target) {
+    return target && target.closest ? target.closest('.free-element[data-type="select"]') : null;
+  }
+
+  function getMode(root) {
+    return root?.dataset?.dropdownStyleMode || root?.querySelector?.('.editable-select')?.dataset?.dropdownStyleMode || 'v78';
+  }
+
+  function getIconStyle(root) {
+    return root?.dataset?.dropdownIconStyle || root?.querySelector?.('.editable-select')?.dataset?.dropdownIconStyle || 'default';
+  }
+
+  function closeSelectDropdowns(except) {
+    document.querySelectorAll('.free-element[data-type="select"].dropdown-open, .free-element[data-type="select"].menu-open').forEach(function(el) {
+      if (el !== except) el.classList.remove('dropdown-open', 'menu-open');
+    });
+  }
+
+  function syncComboTitle(select) {
+    if (!select) return;
+    if (typeof window.syncEditableSelectComboTitle === 'function') {
+      window.syncEditableSelectComboTitle(select);
+      return;
+    }
+    var combo = select.closest && select.closest('.editable-select-combo');
+    if (!combo) return;
+    var span = combo.querySelector('.editable-select-title span');
+    var selected = select.options[select.selectedIndex] || select.options[0];
+    if (span) span.textContent = selected ? (selected.textContent || '') : '';
+    Array.prototype.slice.call(combo.querySelectorAll('.editable-select-option')).forEach(function(option) {
+      option.classList.toggle('is-active', String(option.getAttribute('data-option-index') || '0') === String(select.selectedIndex || 0));
+    });
+  }
+
+  function refreshSelect(select) {
+    if (!select) return;
+    if (typeof window.applyOptionStylesToHost === 'function') window.applyOptionStylesToHost(select);
+    else syncComboTitle(select);
+  }
+
+  function inPreviewLike() {
+    return document.body.classList.contains('preview-mode') || document.body.classList.contains('exported-site');
+  }
+
+  function runOptionAction(select) {
+    if (typeof window.handleSelectOptionAction === 'function') {
+      return window.handleSelectOptionAction(select);
+    }
+    var event = new Event('change', { bubbles: true });
+    select.dispatchEvent(event);
+    return true;
+  }
+
+  document.addEventListener('pointerdown', function(event) {
+    var root = getRoot(event.target);
+    if (!root) return;
+    var iconStyle = getIconStyle(root);
+    root.dataset.v112PointerHandledByOldNativeIcon = (iconStyle === 'plus-x' || iconStyle === 'triangle-line') ? 'true' : 'false';
+  }, true);
+
+  document.addEventListener('click', function(event) {
+    var title = event.target.closest && event.target.closest('.editable-select-title');
+    if (title) {
+      var root = getRoot(title);
+      if (!root) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      closeSelectDropdowns(root);
+
+      if (!inPreviewLike() && typeof window.selectElement === 'function') {
+        window.selectElement(root);
+      }
+
+      var mode = getMode(root);
+      var iconStyle = getIconStyle(root);
+      var oldNativeIconAlreadyToggled = root.dataset.v112PointerHandledByOldNativeIcon === 'true' && (iconStyle === 'plus-x' || iconStyle === 'triangle-line');
+      delete root.dataset.v112PointerHandledByOldNativeIcon;
+
+      if (mode === 'hover-title') {
+        root.classList.remove('dropdown-open', 'menu-open');
+        return;
+      }
+
+      if (!oldNativeIconAlreadyToggled) {
+        root.classList.toggle('dropdown-open');
+      }
+      root.classList.remove('menu-open');
+      return;
+    }
+
+    var option = event.target.closest && event.target.closest('.editable-select-option');
+    if (option) {
+      var optionRoot = getRoot(option);
+      var select = optionRoot && optionRoot.querySelector('.editable-select');
+      if (!optionRoot || !select) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      var index = parseInt(option.getAttribute('data-option-index') || '0', 10) || 0;
+      select.selectedIndex = index;
+      syncComboTitle(select);
+      refreshSelect(select);
+      optionRoot.classList.remove('dropdown-open', 'menu-open');
+      delete optionRoot.dataset.v112PointerHandledByOldNativeIcon;
+
+      if (inPreviewLike()) {
+        runOptionAction(select);
+      } else {
+        if (typeof window.selectElement === 'function') window.selectElement(optionRoot);
+        var changeEvent = new Event('change', { bubbles: true });
+        select.dispatchEvent(changeEvent);
+      }
+
+      if (typeof window.scheduleAutoSave === 'function') window.scheduleAutoSave();
+      return;
+    }
+
+    if (!getRoot(event.target)) closeSelectDropdowns(null);
+  }, true);
+
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') closeSelectDropdowns(null);
+  }, true);
+}
+
+(function initSelectDropdownSameAsNavV112() {
+  if (!document.getElementById('selectDropdownSameAsNavCSSV112')) {
+    const style = document.createElement('style');
+    style.id = 'selectDropdownSameAsNavCSSV112';
+    style.textContent = selectDropdownSameAsNavCSSV112;
+    document.head.appendChild(style);
+  }
+
+  initSelectDropdownSameAsNavRuntimeV112();
+
+  document.querySelectorAll('.editable-select').forEach(select => {
+    if (typeof ensureEditableSelectCombo === 'function') ensureEditableSelectCombo(select);
+    if (typeof applyDropdownStyleMode === 'function') applyDropdownStyleMode(select);
+    if (typeof applyDropdownIconStyle === 'function') applyDropdownIconStyle(select);
+    if (typeof applyOptionStylesToHost === 'function') applyOptionStylesToHost(select);
+  });
+
+  if (typeof buildExportCSS === 'function' && !window.__selectDropdownSameAsNavExportCSSWrappedV112) {
+    window.__selectDropdownSameAsNavExportCSSWrappedV112 = true;
+    const originalBuildExportCSSV112 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV112() + selectDropdownSameAsNavCSSV112;
+    };
+  }
+
+  if (typeof buildExportJS === 'function' && !window.__selectDropdownSameAsNavExportJSWrappedV112) {
+    window.__selectDropdownSameAsNavExportJSWrappedV112 = true;
+    const originalBuildExportJSV112 = buildExportJS;
+    buildExportJS = function(exportPagesJSON, currentPageIdJSON) {
+      return originalBuildExportJSV112(exportPagesJSON, currentPageIdJSON) + '\n(' + initSelectDropdownSameAsNavRuntimeV112.toString() + ')();\n';
+    };
+  }
+})();
+
+
+/* v113：線條箭頭 2 + 箭頭寬度 + 指定 ID 底部對齊 */
+(function initLineArrow2AndBottomScrollV113() {
+  const css = `
+.free-element[data-type="line"] .line-start-arrow2,
+.free-element[data-type="line"] .line-end-arrow2 {
+  fill: none !important;
+  stroke-linecap: square !important;
+  stroke-linejoin: miter !important;
+}
+`;
+  if (!document.getElementById('lineArrow2CSSV113')) {
+    const style = document.createElement('style');
+    style.id = 'lineArrow2CSSV113';
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
+
+  document.querySelectorAll('.free-element[data-type="line"]').forEach(el => {
+    const svg = el.querySelector('svg.editable-line');
+    if (!svg) return;
+    if (!svg.querySelector('.line-start-arrow2')) {
+      const node = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      node.setAttribute('class', 'line-endpoint line-start-arrow2');
+      node.setAttribute('points', '76,28 24,50 76,72');
+      svg.insertBefore(node, svg.querySelector('.line-start-circle'));
+    }
+    if (!svg.querySelector('.line-end-arrow2')) {
+      const node = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      node.setAttribute('class', 'line-endpoint line-end-arrow2');
+      node.setAttribute('points', '924,28 976,50 924,72');
+      svg.insertBefore(node, svg.querySelector('.line-start-circle'));
+    }
+    if (typeof applyLineStyleToElement === 'function') applyLineStyleToElement(el);
+  });
+
+  if (typeof buildExportCSS === 'function' && !window.__lineArrow2ExportCSSV113) {
+    window.__lineArrow2ExportCSSV113 = true;
+    const originalBuildExportCSSV113 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV113() + '\n' + css;
+    };
+  }
+})();
+
+
+/* v114：線條箭頭高度、線條漸層、下拉式選項無邊框 */
+const lineAndSelectPolishCSSV114 = `
+.free-element[data-type="select"] .editable-select-title,
+.free-element[data-type="select"] .editable-select-menu,
+.free-element[data-type="select"] .editable-select-option,
+.free-element[data-type="select"] .editable-select-combo,
+.free-element[data-type="select"] .editable-select,
+.free-element[data-type="select"] select {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+.free-element[data-type="select"] .editable-select-title {
+  border-color: transparent !important;
+}
+
+.free-element[data-type="line"] .line-gradient-defs {
+  pointer-events: none;
+}
+`;
+
+(function initLineAndSelectPolishV114() {
+  if (!document.getElementById('lineAndSelectPolishCSSV114')) {
+    const style = document.createElement('style');
+    style.id = 'lineAndSelectPolishCSSV114';
+    style.textContent = lineAndSelectPolishCSSV114;
+    document.head.appendChild(style);
+  }
+
+  document.querySelectorAll('.free-element[data-type="line"]').forEach(el => {
+    if (!el.dataset.lineArrowHeight) el.dataset.lineArrowHeight = '44';
+    if (!el.dataset.lineGradientEnabled) el.dataset.lineGradientEnabled = 'false';
+    if (!el.dataset.lineGradientMode) el.dataset.lineGradientMode = 'left-right';
+    if (!el.dataset.lineGradientStartColor) el.dataset.lineGradientStartColor = el.dataset.lineColor || '#212529';
+    if (!el.dataset.lineGradientEndColor) el.dataset.lineGradientEndColor = el.dataset.lineColor || '#212529';
+    if (!el.dataset.lineGradientStartOpacity) el.dataset.lineGradientStartOpacity = '100';
+    if (!el.dataset.lineGradientEndOpacity) el.dataset.lineGradientEndOpacity = '100';
+    if (typeof applyLineStyleToElement === 'function') applyLineStyleToElement(el);
+  });
+
+  if (typeof buildExportCSS === 'function' && !window.__lineAndSelectPolishExportCSSWrappedV114) {
+    window.__lineAndSelectPolishExportCSSWrappedV114 = true;
+    const originalBuildExportCSSV114 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV114() + lineAndSelectPolishCSSV114;
+    };
+  }
+})();
+
+/* v115：形狀由內到外漸層淡出、線條漸層只作用在線條本體 */
+const lineShapeGradientPolishCSSV115 = `
+.free-element[data-type="line"] .line-main {
+  vector-effect: non-scaling-stroke;
+}
+`;
+
+(function initLineShapeGradientPolishV115() {
+  if (!document.getElementById('lineShapeGradientPolishCSSV115')) {
+    const style = document.createElement('style');
+    style.id = 'lineShapeGradientPolishCSSV115';
+    style.textContent = lineShapeGradientPolishCSSV115;
+    document.head.appendChild(style);
+  }
+
+  document.querySelectorAll('.free-element[data-type="shape"]').forEach(el => {
+    const directions = String(el.dataset.shapeGradientDirections || '').split(',').filter(Boolean);
+    if (el.dataset.shapeGradientEnabled === 'true' && directions.includes('inside-out')) {
+      const color = normalizeHexColor(el.dataset.shapeColor || '#0d6efd', '#0d6efd');
+      const opacity = clampPercent(el.dataset.shapeOpacity || 100, 100);
+      const depth = clampPercent(el.dataset.shapeGradientDepth || 100, 100);
+      const gradientColors = typeof parseShapeGradientColors === 'function'
+        ? parseShapeGradientColors(el.dataset.shapeGradientColors)
+        : [];
+      if (typeof buildShapeBackground === 'function') {
+        const background = buildShapeBackground(color, opacity, true, directions, depth, gradientColors);
+        el.style.background = background;
+        const fill = el.querySelector('.shape-fill');
+        if (fill) fill.style.background = background;
+      }
+      el.style.backgroundColor = 'transparent';
+      const fill = el.querySelector('.shape-fill');
+      if (fill) fill.style.backgroundColor = 'transparent';
+    }
+  });
+
+  document.querySelectorAll('.free-element[data-type="line"]').forEach(el => {
+    if (!el.dataset.lineGradientStartOpacity) el.dataset.lineGradientStartOpacity = '100';
+    if (!el.dataset.lineGradientEndOpacity) el.dataset.lineGradientEndOpacity = '100';
+    if (typeof applyLineStyleToElement === 'function') applyLineStyleToElement(el);
+  });
+
+  if (typeof buildExportCSS === 'function' && !window.__lineShapeGradientPolishExportCSSWrappedV115) {
+    window.__lineShapeGradientPolishExportCSSWrappedV115 = true;
+    const originalBuildExportCSSV115 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV115() + lineShapeGradientPolishCSSV115;
+    };
+  }
+})();
+
+
+
+/* v116：修正線條漸層透明問題，形狀由內到外漸層先回復 v114 效果 */
+(function initGradientFixV116() {
+  const v115Style = document.getElementById('lineShapeGradientPolishCSSV115');
+  if (v115Style) {
+    v115Style.textContent = `
+.free-element[data-type="line"] .line-main {
+  vector-effect: non-scaling-stroke;
+}
+`;
+  }
+
+  document.querySelectorAll('.free-element[data-type="shape"]').forEach(el => {
+    const color = normalizeHexColor(el.dataset.shapeColor || '#0d6efd', '#0d6efd');
+    const opacity = clampPercent(el.dataset.shapeOpacity || 100, 100);
+    const radius = Math.max(0, parseFloat(el.dataset.shapeRadius || '0') || 0);
+    const directions = String(el.dataset.shapeGradientDirections || '').split(',').filter(Boolean);
+    const gradientEnabled = el.dataset.shapeGradientEnabled === 'true';
+    const depth = clampPercent(el.dataset.shapeGradientDepth || 100, 100);
+    const gradientColors = typeof parseShapeGradientColors === 'function'
+      ? parseShapeGradientColors(el.dataset.shapeGradientColors)
+      : [];
+    const background = typeof buildShapeBackground === 'function'
+      ? buildShapeBackground(color, opacity, gradientEnabled, directions, depth, gradientColors)
+      : colorWithOpacity(color, opacity);
+
+    el.style.background = background;
+    el.style.backgroundColor = colorWithOpacity(color, opacity);
+    el.style.borderRadius = radius + 'px';
+    const fill = el.querySelector('.shape-fill');
+    if (fill) {
+      fill.style.background = background;
+      fill.style.backgroundColor = colorWithOpacity(color, opacity);
+      fill.style.borderRadius = radius + 'px';
+    }
+  });
+
+  document.querySelectorAll('.free-element[data-type="line"]').forEach(el => {
+    if (!el.dataset.lineGradientStartOpacity) el.dataset.lineGradientStartOpacity = '100';
+    if (!el.dataset.lineGradientEndOpacity) el.dataset.lineGradientEndOpacity = '100';
+    if (!el.dataset.lineGradientStartColor) el.dataset.lineGradientStartColor = el.dataset.lineColor || '#212529';
+    if (!el.dataset.lineGradientEndColor || el.dataset.lineGradientEndColor === '#ffffff') {
+      el.dataset.lineGradientEndColor = el.dataset.lineColor || el.dataset.lineGradientStartColor || '#212529';
+    }
+    if (typeof applyLineStyleToElement === 'function') applyLineStyleToElement(el);
+  });
 })();
