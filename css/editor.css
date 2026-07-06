@@ -1,3 +1,18 @@
+
+/* v103：思源宋體 TW SemiBold 字體選項（不內嵌字體檔） */
+@font-face {
+  font-family: "SourceHanSerifTW-SemiBold-Local";
+  src:
+    local("Source Han Serif TW SemiBold"),
+    local("Source Han Serif TW"),
+    local("Noto Serif CJK TC SemiBold"),
+    local("Noto Serif TC SemiBold"),
+    url("../fonts/SourceHanSerifTW-SemiBold.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --topbar-height: 58px;
   --sidebar-width: 245px;
@@ -4808,3 +4823,594 @@ body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"]
   display: inline-flex !important;
 }
 
+
+
+
+/* v105：下拉類型元件 ICON 樣式 */
+.accordion-dropdown-template[data-accordion-icon-style="plus-x"] .accordion-item-head::after {
+  content: "+" !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 1.35em;
+  height: 1.35em;
+  line-height: 1;
+  font-size: 1.25em;
+  font-weight: 700;
+  transform: none !important;
+}
+
+.accordion-dropdown-template[data-accordion-icon-style="plus-x"] .accordion-item-template.open .accordion-item-head::after {
+  content: "×" !important;
+  transform: none !important;
+}
+
+.accordion-dropdown-template[data-accordion-icon-style="triangle-line"] .accordion-item-head::after {
+  content: "" !important;
+  display: inline-block !important;
+  width: 0;
+  height: 0;
+  border-left: .45em solid transparent;
+  border-right: .45em solid transparent;
+  border-top: .55em solid currentColor;
+  background: transparent !important;
+  transform: none !important;
+}
+
+.accordion-dropdown-template[data-accordion-icon-style="triangle-line"] .accordion-item-template.open .accordion-item-head::after {
+  content: "" !important;
+  width: 1.1em;
+  height: .14em;
+  border: 0 !important;
+  border-radius: 999px;
+  background: currentColor !important;
+  transform: none !important;
+}
+
+.nav-dropdown[data-dropdown-icon-style="plus-x"] .nav-dropdown-title::after {
+  content: "+" !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 1.35em;
+  height: 1.35em;
+  line-height: 1;
+  font-size: 1.25em;
+  font-weight: 700;
+  transform: none !important;
+}
+
+.nav-dropdown[data-dropdown-icon-style="plus-x"]:hover .nav-dropdown-title::after,
+.nav-dropdown[data-dropdown-icon-style="plus-x"].dropdown-open .nav-dropdown-title::after {
+  content: "×" !important;
+  transform: none !important;
+}
+
+.nav-dropdown[data-dropdown-icon-style="triangle-line"] .nav-dropdown-title::after {
+  content: "" !important;
+  display: inline-block !important;
+  width: 0;
+  height: 0;
+  border-left: .45em solid transparent;
+  border-right: .45em solid transparent;
+  border-top: .55em solid currentColor;
+  background: transparent !important;
+  transform: none !important;
+}
+
+.nav-dropdown[data-dropdown-icon-style="triangle-line"]:hover .nav-dropdown-title::after,
+.nav-dropdown[data-dropdown-icon-style="triangle-line"].dropdown-open .nav-dropdown-title::after {
+  content: "" !important;
+  width: 1.1em;
+  height: .14em;
+  border: 0 !important;
+  border-radius: 999px;
+  background: currentColor !important;
+  transform: none !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"],
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="plus-x"],
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"],
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="triangle-line"] {
+  overflow: visible;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"] .editable-select,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="plus-x"] .select-switcher-control,
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"] .editable-select,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="triangle-line"] .select-switcher-control {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2.25em !important;
+  background-image: none !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"]::after,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="plus-x"]::after {
+  content: "+";
+  position: absolute;
+  right: .75em;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  pointer-events: none;
+  font-size: 1.15em;
+  font-weight: 700;
+  line-height: 1;
+  color: currentColor;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"].dropdown-open::after,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="plus-x"].dropdown-open::after {
+  content: "×";
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"]::after,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="triangle-line"]::after {
+  content: "";
+  position: absolute;
+  right: .85em;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+  border-left: .42em solid transparent;
+  border-right: .42em solid transparent;
+  border-top: .5em solid currentColor;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"].dropdown-open::after,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="triangle-line"].dropdown-open::after {
+  width: 1em;
+  height: .13em;
+  border: 0 !important;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+
+/* v106：下拉 ICON 顏色 / 大小與下拉換組元件支援 */
+.free-element[data-type="select"],
+.free-element[data-type="select-switcher-control"],
+.nav-dropdown,
+.accordion-dropdown-template {
+  --dropdown-icon-color: currentColor;
+  --dropdown-icon-size: 18px;
+}
+
+.accordion-dropdown-template .accordion-item-head::after,
+.nav-dropdown .nav-dropdown-title::after,
+.free-element[data-type="select"]::after,
+.free-element[data-type="select-switcher-control"]::after {
+  color: var(--dropdown-icon-color, currentColor) !important;
+}
+
+.accordion-dropdown-template[data-accordion-icon-style="plus-x"] .accordion-item-head::after,
+.nav-dropdown[data-dropdown-icon-style="plus-x"] .nav-dropdown-title::after,
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"]::after,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="plus-x"]::after {
+  font-size: var(--dropdown-icon-size, 18px) !important;
+}
+
+.accordion-dropdown-template[data-accordion-icon-style="triangle-line"] .accordion-item-head::after,
+.nav-dropdown[data-dropdown-icon-style="triangle-line"] .nav-dropdown-title::after,
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"]::after,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="triangle-line"]::after {
+  border-left-width: calc(var(--dropdown-icon-size, 18px) * .42) !important;
+  border-right-width: calc(var(--dropdown-icon-size, 18px) * .42) !important;
+  border-top-width: calc(var(--dropdown-icon-size, 18px) * .5) !important;
+  border-top-color: var(--dropdown-icon-color, currentColor) !important;
+}
+
+.accordion-dropdown-template[data-accordion-icon-style="triangle-line"] .accordion-item-template.open .accordion-item-head::after,
+.nav-dropdown[data-dropdown-icon-style="triangle-line"]:hover .nav-dropdown-title::after,
+.nav-dropdown[data-dropdown-icon-style="triangle-line"].dropdown-open .nav-dropdown-title::after,
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"].dropdown-open::after,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="triangle-line"].dropdown-open::after {
+  width: calc(var(--dropdown-icon-size, 18px) * 1.05) !important;
+  height: calc(var(--dropdown-icon-size, 18px) * .12) !important;
+  min-height: 2px;
+  background: var(--dropdown-icon-color, currentColor) !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="plus-x"] .editable-select,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="plus-x"] .select-switcher-control,
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"] .editable-select,
+.free-element[data-type="select-switcher-control"][data-dropdown-icon-style="triangle-line"] .select-switcher-control {
+  padding-right: calc(var(--dropdown-icon-size, 18px) + 1.6em) !important;
+}
+
+
+/* v107：導覽列標題型下拉選單樣式 */
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] { overflow: visible !important; padding-bottom: 0 !important; }
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-title { background: var(--nav-title-bg, #0b3557) !important; color: var(--nav-title-text, #ffffff) !important; border: 0 !important; border-radius: inherit !important; font-weight: 800 !important; letter-spacing: .04em !important; box-shadow: inset 0 0 22px rgba(255,255,255,.08), inset 0 -18px 30px rgba(0,0,0,.22) !important; }
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-menu { top: 100% !important; padding: 0 !important; gap: 0 !important; border: 0 !important; border-radius: 0 0 4px 4px !important; background: var(--nav-menu-bg, #ffffff) !important; width: max-content !important; min-width: 100% !important; box-shadow: 0 12px 26px rgba(15,23,42,.18) !important; }
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-option { min-width: 160px !important; padding: 14px 22px !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; color: var(--nav-option-text, #333333) !important; text-align: center !important; letter-spacing: .06em !important; }
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-option:hover { background: var(--nav-option-hover-bg, #edf6ff) !important; color: var(--nav-option-hover-text, #0b3557) !important; filter: none !important; }
+
+
+/* v108：下拉式選項改為自動收合一致的自訂外觀；保留原本 select 邏輯 */
+.free-element[data-type="select"] {
+  overflow: visible !important;
+  --dropdown-icon-color: currentColor;
+  --dropdown-icon-size: 18px;
+}
+
+.editable-select-combo {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 40px;
+  overflow: visible !important;
+  color: inherit;
+  font: inherit;
+}
+
+.editable-select-native,
+.editable-select-combo > .editable-select {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: -1 !important;
+}
+
+.editable-select-title {
+  width: 100%;
+  height: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .45em;
+  padding: 10px 2.25em 10px 14px;
+  border: 1px solid rgba(222,226,230,1);
+  border-radius: inherit;
+  background: var(--select-title-bg, #ffffff);
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: .02em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color .18s ease, color .18s ease, filter .18s ease;
+}
+
+.editable-select-title span,
+.editable-select-option span {
+  color: inherit !important;
+  font: inherit;
+  pointer-events: none;
+}
+
+.editable-select-title::after {
+  content: "⌄";
+  position: absolute;
+  right: .85em;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--dropdown-icon-color, currentColor) !important;
+  font-size: var(--dropdown-icon-size, 18px) !important;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.free-element[data-dropdown-icon-visible="false"] .editable-select-title::after,
+.free-element[data-dropdown-icon-style="none"] .editable-select-title::after {
+  display: none !important;
+  content: "" !important;
+}
+
+.free-element[data-dropdown-icon-visible="false"] .editable-select-title,
+.free-element[data-dropdown-icon-style="none"] .editable-select-title {
+  padding-right: 14px !important;
+}
+
+.free-element[data-dropdown-icon-style="plus-x"] .editable-select-title::after {
+  content: "+" !important;
+  font-weight: 800;
+  transform: translateY(-50%) !important;
+}
+
+.free-element[data-dropdown-icon-style="plus-x"].dropdown-open .editable-select-title::after,
+.free-element[data-dropdown-icon-style="plus-x"]:hover .editable-select-title::after {
+  content: "×" !important;
+}
+
+.free-element[data-dropdown-icon-style="triangle-line"] .editable-select-title::after {
+  content: "" !important;
+  width: 0;
+  height: 0;
+  border-left: calc(var(--dropdown-icon-size, 18px) * .42) solid transparent;
+  border-right: calc(var(--dropdown-icon-size, 18px) * .42) solid transparent;
+  border-top: calc(var(--dropdown-icon-size, 18px) * .5) solid var(--dropdown-icon-color, currentColor);
+  background: transparent !important;
+}
+
+.free-element[data-dropdown-icon-style="triangle-line"].dropdown-open .editable-select-title::after,
+.free-element[data-dropdown-icon-style="triangle-line"]:hover .editable-select-title::after {
+  width: calc(var(--dropdown-icon-size, 18px) * 1.05) !important;
+  height: calc(var(--dropdown-icon-size, 18px) * .12) !important;
+  min-height: 2px;
+  border: 0 !important;
+  border-radius: 999px;
+  background: var(--dropdown-icon-color, currentColor) !important;
+}
+
+.editable-select-menu {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  min-width: 100%;
+  width: max-content;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0 0 10px 10px;
+  background: var(--select-menu-bg, #ffffff);
+  box-shadow: 0 12px 26px rgba(15,23,42,.18);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease, visibility .18s ease;
+  z-index: 2147482000;
+  overflow: visible;
+}
+
+.free-element[data-dropdown-style-mode="hover-title"]:hover .editable-select-menu,
+.free-element[data-dropdown-style-mode="hover-title"].dropdown-open .editable-select-menu,
+.free-element[data-dropdown-style-mode="v78"].dropdown-open .editable-select-menu,
+.free-element[data-dropdown-style-mode="v78"]:focus-within .editable-select-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+
+.free-element[data-dropdown-style-mode="vertical-list"] .editable-select-menu {
+  position: relative !important;
+  top: 8px !important;
+  width: 100% !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+
+.editable-select-option {
+  min-width: 160px;
+  width: 100%;
+  display: block;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 0;
+  background: var(--select-option-bg, transparent);
+  color: inherit;
+  text-align: center;
+  font: inherit;
+  line-height: 1.35;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.editable-select-option:hover,
+.editable-select-option.is-active {
+  filter: brightness(.96);
+}
+
+.nav-dropdown[data-dropdown-icon-visible="false"] .nav-dropdown-title::after,
+.nav-dropdown[data-dropdown-icon-style="none"] .nav-dropdown-title::after {
+  display: none !important;
+  content: "" !important;
+}
+
+.nav-dropdown[data-dropdown-icon-style="none"] .nav-dropdown-title,
+.nav-dropdown[data-dropdown-icon-visible="false"] .nav-dropdown-title {
+  padding-right: 18px !important;
+}
+
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-title {
+  background: var(--nav-title-bg, #0b3557) !important;
+}
+
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-menu {
+  background: var(--nav-menu-bg, #ffffff) !important;
+}
+
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-option {
+  background: var(--nav-option-bg, transparent) !important;
+  color: var(--nav-option-text, #333333) !important;
+}
+
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-option:hover,
+.nav-dropdown[data-nav-dropdown-style="navbar-hover"] .nav-dropdown-option:focus {
+  background: var(--nav-option-hover-bg, #edf6ff) !important;
+  color: var(--nav-option-hover-text, #0b3557) !important;
+}
+
+
+/* v109：右側設定頁固定；預覽不再保留底部空白，只顯示有放置區塊 */
+@media (max-width: 992px) {
+  .editor-sidebar,
+  .editor-inspector {
+    position: fixed !important;
+    top: var(--topbar-height) !important;
+    bottom: 0 !important;
+    width: var(--sidebar-width) !important;
+    z-index: 900 !important;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, .08) !important;
+  }
+
+  .editor-sidebar {
+    left: 0 !important;
+    right: auto !important;
+    border-right: 1px solid var(--editor-border) !important;
+  }
+
+  .editor-inspector {
+    right: 0 !important;
+    left: auto !important;
+    width: var(--inspector-width) !important;
+    border-left: 1px solid var(--editor-border) !important;
+    box-shadow: -8px 0 24px rgba(0, 0, 0, .08) !important;
+  }
+
+  .canvas-area {
+    height: calc(100vh - var(--topbar-height)) !important;
+    min-height: 0 !important;
+  }
+}
+
+body.preview-mode,
+html.preview-scroll-fix-v95 body.preview-mode {
+  min-height: 0 !important;
+}
+
+body.preview-mode .editor-layout,
+body.preview-mode .canvas-area,
+body.preview-mode .site-page {
+  min-height: 0 !important;
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+body.preview-mode .canvas-area {
+  height: auto !important;
+}
+
+body.preview-mode .html-zone.preview-empty-zone {
+  display: none !important;
+}
+
+/* v110：下拉式選項樣式補齊 + 預覽/匯出移除編輯狀態 */
+.nav-dropdown[data-nav-style-mode="v78"] .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="v78"] .nav-dropdown-menu {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-6px) !important;
+  pointer-events: none !important;
+}
+
+.nav-dropdown[data-nav-style-mode="v78"]:hover .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="v78"]:hover .nav-dropdown-menu,
+.nav-dropdown[data-nav-style-mode="v78"].menu-open .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="v78"].menu-open .nav-dropdown-menu {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-6px) !important;
+  pointer-events: none !important;
+}
+
+.nav-dropdown[data-nav-style-mode="v78"].dropdown-open .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="v78"].dropdown-open .nav-dropdown-menu,
+.nav-dropdown[data-nav-style-mode="v78"]:focus-within .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="v78"]:focus-within .nav-dropdown-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+
+.nav-dropdown[data-nav-style-mode="vertical-list"],
+.nav-dropdown[data-dropdown-style-mode="vertical-list"] {
+  height: auto !important;
+}
+
+.nav-dropdown[data-nav-style-mode="vertical-list"] .nav-dropdown-inner,
+.nav-dropdown[data-dropdown-style-mode="vertical-list"] .nav-dropdown-inner {
+  height: auto !important;
+}
+
+.nav-dropdown[data-nav-style-mode="vertical-list"] .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="vertical-list"] .nav-dropdown-menu {
+  position: relative !important;
+  top: 8px !important;
+  left: 0 !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+
+.nav-dropdown[data-nav-style-mode="hover-title"] .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="hover-title"] .nav-dropdown-menu {
+  position: absolute !important;
+}
+
+body.preview-mode .setting-card,
+body.preview-mode .editor-inspector,
+body.preview-mode #imageSettingCard,
+body.preview-mode #imageHoverZoomSettingCard,
+body.exported-site .setting-card,
+body.exported-site .editor-inspector,
+body.exported-site #imageSettingCard,
+body.exported-site #imageHoverZoomSettingCard {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.preview-mode [data-editable-text],
+body.preview-mode [data-editable-text] *,
+body.preview-mode [contenteditable],
+body.preview-mode [contenteditable] *,
+body.exported-site [data-editable-text],
+body.exported-site [data-editable-text] *,
+body.exported-site [contenteditable],
+body.exported-site [contenteditable] * {
+  cursor: default !important;
+  caret-color: transparent !important;
+  -webkit-user-modify: read-only !important;
+  user-select: auto !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+body.preview-mode .free-element.is-editing,
+body.preview-mode .free-element.selected,
+body.preview-mode .free-element.multi-selected,
+body.preview-mode .free-element.has-selected-child,
+body.exported-site .free-element.is-editing,
+body.exported-site .free-element.selected,
+body.exported-site .free-element.multi-selected,
+body.exported-site .free-element.has-selected-child {
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+body.preview-mode,
+body.preview-mode .canvas-area,
+body.preview-mode .site-page,
+body.exported-site,
+body.exported-site .site-page {
+  overflow-x: hidden !important;
+}
+
+/* v110b：預覽/匯出文字游標強制關閉 */
+body.preview-mode .free-element [data-editable-text],
+body.preview-mode .free-element [data-editable-text][contenteditable],
+body.preview-mode .free-element [data-editable-text][contenteditable="false"],
+body.preview-mode .free-element [data-editable-text][contenteditable="true"],
+body.exported-site .free-element [data-editable-text],
+body.exported-site .free-element [data-editable-text][contenteditable],
+body.exported-site .free-element [data-editable-text][contenteditable="false"],
+body.exported-site .free-element [data-editable-text][contenteditable="true"] {
+  cursor: default !important;
+  caret-color: transparent !important;
+  -webkit-user-modify: read-only !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
