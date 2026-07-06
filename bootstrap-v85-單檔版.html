@@ -1,3 +1,5829 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>自訂網站編輯器</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+:root {
+  --topbar-height: 58px;
+  --sidebar-width: 245px;
+  --inspector-width: 290px;
+  --editor-border: #d9dee7;
+  --editor-bg: #f3f5f8;
+  --primary: #0d6efd;
+  --green: #20c997;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--editor-bg);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Noto Sans TC", "Segoe UI", sans-serif;
+}
+
+.editor-topbar {
+  min-height: var(--topbar-height);
+  background: #fff;
+  border-bottom: 1px solid var(--editor-border);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.editor-title {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.editor-layout {
+  display: block;
+  height: calc(100vh - var(--topbar-height));
+}
+
+.editor-sidebar,
+.editor-inspector {
+  background: #fff;
+  overflow-y: auto;
+  padding: 16px;
+  position: fixed;
+  top: var(--topbar-height);
+  bottom: 0;
+  z-index: 900;
+}
+
+.editor-sidebar {
+  left: 0;
+  width: var(--sidebar-width);
+  border-right: 1px solid var(--editor-border);
+  box-shadow: 8px 0 24px rgba(0, 0, 0, .08);
+}
+
+.editor-inspector {
+  right: 0;
+  width: var(--inspector-width);
+  border-left: 1px solid var(--editor-border);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, .08);
+  background: #f8f9fb;
+}
+
+body.panels-hidden .editor-sidebar,
+body.panels-hidden .editor-inspector {
+  display: none;
+}
+
+.component-btn {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.component-btn i {
+  margin-right: 6px;
+}
+
+.helper-box {
+  border: 1px solid #e6eaf0;
+  background: #f8f9fb;
+  border-radius: 14px;
+  padding: 12px;
+  font-size: 13px;
+  color: #5d6673;
+}
+
+.canvas-area {
+  width: 100vw;
+  height: calc(100vh - var(--topbar-height));
+  overflow: auto;
+  padding: 0;
+  background:
+    linear-gradient(45deg, #eef1f5 25%, transparent 25%),
+    linear-gradient(-45deg, #eef1f5 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #eef1f5 75%),
+    linear-gradient(-45deg, transparent 75%, #eef1f5 75%);
+  background-size: 22px 22px;
+  background-position: 0 0, 0 11px, 11px -11px, -11px 0;
+}
+
+.canvas-hint {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(255,255,255,.94);
+  border-bottom: 1px solid var(--editor-border);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.site-page {
+  width: 100%;
+  min-height: 100vh;
+  background: #fff;
+  margin: 0;
+  box-shadow: 0 8px 28px rgba(0,0,0,.10);
+}
+
+.html-zone {
+  position: relative;
+  min-height: 120px;
+  border-bottom: 1px dashed #e3e8ef;
+  padding: 34px 18px 22px;
+}
+
+.zone-header {
+  min-height: 110px;
+}
+
+.zone-main {
+  min-height: 560px;
+}
+
+.zone-footer {
+  min-height: 150px;
+}
+
+.zone-label {
+  position: absolute;
+  top: 7px;
+  left: 10px;
+  font-size: 12px;
+  color: #6c757d;
+  background: #fff;
+  border: 1px solid #e6eaf0;
+  border-radius: 999px;
+  padding: 2px 8px;
+  z-index: 20;
+}
+
+.zone-empty {
+  border: 2px dashed #cbd3df;
+  border-radius: 14px;
+  min-height: 78px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #7a8492;
+  font-size: 14px;
+  background: #fafbfc;
+}
+
+.html-block {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 420px;
+  margin: 16px 0;
+  padding: 32px;
+  border: 1px solid #e1e7ef;
+  background: #ffffff;
+  border-radius: 0;
+}
+
+.html-block:hover {
+  outline: 1px dashed #8bbcff;
+}
+
+.html-block.selected {
+  outline: 2px solid var(--primary);
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, .12);
+  z-index: 5;
+}
+
+.block-label {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  font-size: 12px;
+  color: #6c757d;
+  background: #f8f9fb;
+  border: 1px solid #e6eaf0;
+  border-radius: 999px;
+  padding: 2px 8px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.block-canvas {
+  position: relative;
+  width: 100%;
+  min-height: 360px;
+  border: 1px dashed #d7dfea;
+  border-radius: 14px;
+  overflow: visible;
+  background-image:
+    linear-gradient(rgba(13, 110, 253, .06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(13, 110, 253, .06) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.block-empty {
+  position: absolute;
+  inset: 20px;
+  border: 1px dashed #cbd3df;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a93a1;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.free-element {
+  position: absolute;
+  min-width: 40px;
+  min-height: 24px;
+  border-radius: 8px;
+  outline: 1px dashed transparent;
+  cursor: default !important;
+}
+
+.free-element:hover {
+  outline: 1px dashed var(--green);
+}
+
+.free-element.selected {
+  outline: 2px solid var(--green);
+  box-shadow: 0 0 0 4px rgba(32, 201, 151, .12);
+}
+
+.free-element.is-editing {
+  cursor: text !important;
+}
+
+.free-element .inner {
+  width: 100%;
+  height: 100%;
+}
+
+.free-element .inner,
+.free-element .inner * {
+  cursor: default;
+}
+
+.free-element img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: default !important;
+  user-select: none;
+}
+
+.free-element [data-editable-text] {
+  outline: none;
+  cursor: text !important;
+  user-select: text;
+}
+
+.free-element [data-editable-text][contenteditable="false"] {
+  cursor: text !important;
+}
+
+.free-element [data-editable-text][contenteditable="true"] {
+  cursor: text !important;
+  user-select: text !important;
+  background: rgba(13, 110, 253, .08);
+  box-shadow: inset 0 0 0 2px rgba(13, 110, 253, .28);
+  border-radius: 6px;
+}
+
+.editor-actions {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  display: none;
+  gap: 6px;
+  z-index: 50;
+}
+
+.html-block:hover > .editor-actions,
+.html-block.selected > .editor-actions {
+  display: flex;
+}
+
+.move-handle {
+  position: absolute;
+  left: 50%;
+  top: -42px;
+  transform: translateX(-50%);
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--editor-border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #212529;
+  font-size: 12px;
+  display: none;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 8px 18px rgba(0,0,0,.14);
+  z-index: 10000;
+  cursor: move !important;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.free-element:hover > .move-handle,
+.free-element.selected > .move-handle {
+  display: inline-flex;
+}
+
+.element-toolbar {
+  position: absolute;
+  top: -42px;
+  left: calc(50% + 58px);
+  display: none;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--editor-border);
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 22px rgba(0,0,0,.14);
+  z-index: 9999;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.free-element:hover > .element-toolbar,
+.free-element.selected > .element-toolbar {
+  display: flex;
+}
+
+.free-element.is-editing > .move-handle,
+.free-element.is-editing .element-toolbar,
+.free-element.is-editing .resize-handle {
+  display: none !important;
+}
+
+.editor-actions .btn,
+.element-toolbar .btn {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.resize-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--primary);
+  border: 2px solid #fff;
+  border-radius: 999px;
+  z-index: 30;
+  display: none;
+}
+
+.free-element:hover > .resize-handle,
+.free-element.selected > .resize-handle {
+  display: block;
+}
+
+.resize-handle[data-resize="nw"] { left: -7px; top: -7px; cursor: nwse-resize; }
+.resize-handle[data-resize="n"] { left: 50%; top: -7px; transform: translateX(-50%); cursor: ns-resize; }
+.resize-handle[data-resize="ne"] { right: -7px; top: -7px; cursor: nesw-resize; }
+.resize-handle[data-resize="e"] { right: -7px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+.resize-handle[data-resize="se"] { right: -7px; bottom: -7px; cursor: nwse-resize; }
+.resize-handle[data-resize="s"] { left: 50%; bottom: -7px; transform: translateX(-50%); cursor: ns-resize; }
+.resize-handle[data-resize="sw"] { left: -7px; bottom: -7px; cursor: nesw-resize; }
+.resize-handle[data-resize="w"] { left: -7px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+
+.setting-card {
+  background: #fff;
+  border: 1px solid #e6eaf0;
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.setting-title {
+  font-size: 14px;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+.simple-label {
+  font-size: 13px;
+  color: #6c757d;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.form-control-color {
+  width: 100%;
+  height: 42px;
+  padding: 4px;
+}
+
+.exit-preview-btn {
+  display: none;
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 3000;
+  box-shadow: 0 10px 25px rgba(0,0,0,.20);
+}
+
+body.preview-mode {
+  background: #fff;
+}
+
+body.preview-mode .no-export,
+body.preview-mode .editor-topbar,
+body.preview-mode .editor-sidebar,
+body.preview-mode .editor-inspector,
+body.preview-mode .canvas-hint,
+body.preview-mode .editor-actions,
+body.preview-mode .move-handle,
+body.preview-mode .element-toolbar,
+body.preview-mode .resize-handle,
+body.preview-mode .zone-label,
+body.preview-mode .zone-empty,
+body.preview-mode .block-label,
+body.preview-mode .block-empty {
+  display: none !important;
+}
+
+body.preview-mode .editor-layout {
+  display: block;
+  height: auto;
+}
+
+body.preview-mode .canvas-area {
+  width: 100vw;
+  height: auto;
+  overflow: visible;
+  background: #fff;
+}
+
+body.preview-mode .site-page {
+  box-shadow: none;
+  min-height: 100vh;
+}
+
+body.preview-mode .html-zone {
+  border-bottom: 0;
+  padding: 0;
+  min-height: 0;
+}
+
+body.preview-mode .html-block,
+body.preview-mode .html-block:hover,
+body.preview-mode .html-block.selected,
+body.preview-mode .free-element,
+body.preview-mode .free-element:hover,
+body.preview-mode .free-element.selected {
+  outline: none;
+  box-shadow: none;
+}
+
+body.preview-mode .block-canvas {
+  border: 0;
+  background-image: none;
+}
+
+body.preview-mode .exit-preview-btn {
+  display: block !important;
+}
+
+@media (max-width: 992px) {
+  .editor-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .editor-sidebar,
+  .editor-inspector {
+    position: static;
+    width: 100%;
+    box-shadow: none;
+    border: 0;
+    border-bottom: 1px solid var(--editor-border);
+  }
+
+  .canvas-area {
+    height: auto;
+    min-height: calc(100vh - var(--topbar-height));
+  }
+}
+
+
+/* v12：位置 px 輸入與文字樣式按鈕 */
+.position-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.position-grid span {
+  display: block;
+  font-size: 12px;
+  color: #6c757d;
+  margin-bottom: 4px;
+}
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.quick-grid .btn.active {
+  background: #212529;
+  color: #fff;
+  border-color: #212529;
+}
+
+
+/* v13：Range Slider 下方手動輸入欄位 */
+.px-input-row {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 8px;
+  align-items: center;
+  margin-top: -4px;
+}
+
+.px-input-row span {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.px-input-row input {
+  text-align: right;
+}
+
+.position-grid {
+  display: none;
+}
+
+
+/* v14 BUGFIX：圖片元件可直接用滑鼠拖曳圖片本身移動 */
+.free-element[data-type="image"],
+.free-element[data-type="image"] .inner,
+.free-element[data-type="image"] img,
+.free-element[data-type="image"] .editable-image {
+  cursor: move !important;
+}
+
+/* v14 BUGFIX：文字對齊時，flex 文字元件也能靠左/置中/靠右 */
+.free-element [data-editable-text] {
+  width: 100%;
+}
+
+
+/* v15：圖片設定改為上傳，不顯示文字樣式設定 */
+#imageUploadInput {
+  cursor: pointer;
+}
+
+
+/* v16：圖片原圖百分比縮放 */
+#imageOriginalInfo {
+  line-height: 1.5;
+}
+
+#imageOriginalScaleRange:disabled,
+#imageOriginalScaleInput:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+
+/* v17：YouTube 影片元件 */
+.free-element[data-type="youtube"] iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  pointer-events: none;
+}
+
+body.preview-mode .free-element[data-type="youtube"] iframe {
+  pointer-events: auto;
+}
+
+/* v17：圖片 Shift 等比例縮放提示 */
+.free-element[data-type="image"] .resize-handle[data-resize="nw"],
+.free-element[data-type="image"] .resize-handle[data-resize="ne"],
+.free-element[data-type="image"] .resize-handle[data-resize="se"],
+.free-element[data-type="image"] .resize-handle[data-resize="sw"] {
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, .16);
+}
+
+
+/* v18：修正 YouTube 播放器與圖片一致的設定邏輯 */
+.free-element[data-type="youtube"],
+.free-element[data-type="youtube"] .inner,
+.free-element[data-type="youtube"] iframe {
+  cursor: default !important;
+}
+
+.free-element[data-type="youtube"] .youtube-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+.free-element[data-type="youtube"] iframe.editable-youtube {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.free-element[data-type="youtube"] iframe.editable-youtube.d-none {
+  display: none !important;
+}
+
+.youtube-placeholder {
+  position: absolute;
+  inset: 0;
+  color: #ffffff;
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  font-size: 14px;
+}
+
+body.preview-mode .free-element[data-type="youtube"] iframe.editable-youtube {
+  pointer-events: auto;
+}
+
+body.preview-mode .youtube-placeholder {
+  display: none !important;
+}
+
+
+/* v19：修正預覽模式 YouTube 影片無法點擊播放 */
+.free-element[data-type="youtube"] iframe.editable-youtube {
+  pointer-events: none !important;
+}
+
+body.preview-mode .free-element[data-type="youtube"],
+body.preview-mode .free-element[data-type="youtube"] .inner,
+body.preview-mode .free-element[data-type="youtube"] iframe.editable-youtube {
+  pointer-events: auto !important;
+}
+
+body.preview-mode .free-element[data-type="youtube"] iframe.editable-youtube {
+  position: relative;
+  z-index: 999;
+}
+
+
+/* v20：YouTube 官方 iframe HTML 可編輯 */
+.code-textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+/* v20：影片元件像圖片一樣可直接拖曳本體移動 */
+.free-element[data-type="youtube"],
+.free-element[data-type="youtube"] .inner,
+.free-element[data-type="youtube"] .youtube-inner {
+  cursor: move !important;
+}
+
+.free-element[data-type="youtube"] iframe.editable-youtube {
+  cursor: move !important;
+}
+
+
+/* v21：影片只能等比例縮放，刪除影片自由寬高調整 */
+.free-element[data-type="youtube"] .resize-handle[data-resize="n"],
+.free-element[data-type="youtube"] .resize-handle[data-resize="e"],
+.free-element[data-type="youtube"] .resize-handle[data-resize="s"],
+.free-element[data-type="youtube"] .resize-handle[data-resize="w"] {
+  display: none !important;
+}
+
+.free-element[data-type="youtube"] .resize-handle[data-resize="nw"],
+.free-element[data-type="youtube"] .resize-handle[data-resize="ne"],
+.free-element[data-type="youtube"] .resize-handle[data-resize="se"],
+.free-element[data-type="youtube"] .resize-handle[data-resize="sw"] {
+  display: block;
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, .18);
+}
+
+/* 編輯模式影片本體可像圖片一樣拖曳，但 iframe 不吃點擊，避免擋住拖曳 */
+.free-element[data-type="youtube"],
+.free-element[data-type="youtube"] .inner,
+.free-element[data-type="youtube"] .youtube-inner {
+  cursor: move !important;
+}
+
+.free-element[data-type="youtube"] iframe.editable-youtube {
+  pointer-events: none !important;
+}
+
+/* 預覽模式恢復影片可點擊播放 */
+body.preview-mode .free-element[data-type="youtube"],
+body.preview-mode .free-element[data-type="youtube"] .inner,
+body.preview-mode .free-element[data-type="youtube"] .youtube-inner,
+body.preview-mode .free-element[data-type="youtube"] iframe.editable-youtube {
+  pointer-events: auto !important;
+  cursor: default !important;
+}
+
+body.preview-mode .free-element[data-type="youtube"] iframe.editable-youtube {
+  position: relative;
+  z-index: 99999;
+}
+
+.cookie-status-box {
+  border: 1px solid #e6eaf0;
+  background: #f8f9fb;
+  border-radius: 10px;
+  padding: 10px;
+  line-height: 1.55;
+}
+
+.cookie-status-box.warning {
+  background: #fff8e6;
+  border-color: #ffe1a6;
+}
+
+.cookie-status-box.ok {
+  background: #ecfff6;
+  border-color: #b8f2d5;
+}
+
+
+/* v22：預覽模式不要顯示區塊/區域/畫布的分層界線 */
+body.preview-mode .html-zone,
+body.preview-mode .zone-header,
+body.preview-mode .zone-main,
+body.preview-mode .zone-footer {
+  border: 0 !important;
+  border-top: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  border-left: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+body.preview-mode .html-block,
+body.preview-mode .html-block:hover,
+body.preview-mode .html-block.selected {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+body.preview-mode .block-canvas,
+body.preview-mode .block-canvas:hover {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+/* 避免空白區塊或編輯提示造成預覽時有淡線 */
+body.preview-mode .site-page,
+body.preview-mode main,
+body.preview-mode header,
+body.preview-mode footer,
+body.preview-mode section,
+body.preview-mode nav {
+  outline: 0 !important;
+}
+
+
+/* v23：新增區塊預設背景透明度為 0 */
+.html-block[data-id] {
+  background-color: rgba(255, 255, 255, 0);
+}
+
+
+/* v24：區塊背景透明度百分比手動輸入 */
+#blockBgOpacityPercent {
+  text-align: right;
+}
+
+
+/* v25：形狀元件 */
+.free-element[data-type="shape"] {
+  cursor: move !important;
+}
+
+.free-element[data-type="shape"] .inner,
+.free-element[data-type="shape"] .shape-fill {
+  width: 100%;
+  height: 100%;
+  cursor: move !important;
+}
+
+.shape-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: rgba(13, 110, 253, 1);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.free-element[data-type="shape"] .resize-handle[data-resize="nw"],
+.free-element[data-type="shape"] .resize-handle[data-resize="ne"],
+.free-element[data-type="shape"] .resize-handle[data-resize="se"],
+.free-element[data-type="shape"] .resize-handle[data-resize="sw"] {
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, .16);
+}
+
+
+/* v26：形狀圓角與漸層設定 */
+.gradient-direction-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+}
+
+.gradient-direction-grid .form-check {
+  margin-bottom: 0;
+  padding-left: 1.6em;
+}
+
+.shape-fill {
+  transition: background .12s ease, border-radius .12s ease;
+}
+
+
+/* v27：形狀漸層顏色複選與透明度 */
+.gradient-color-list {
+  display: grid;
+  gap: 10px;
+}
+
+.gradient-color-item {
+  border: 1px solid #e6eaf0;
+  border-radius: 12px;
+  padding: 10px;
+  background: #fbfcfe;
+}
+
+.gradient-color-item .form-check {
+  margin-bottom: 8px;
+}
+
+.gradient-opacity-row {
+  display: grid;
+  grid-template-columns: auto 1fr 64px auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.gradient-opacity-row input[type="number"] {
+  text-align: right;
+}
+
+
+/* v28：區塊自訂 HTML ID */
+#blockHtmlIdInput.is-invalid {
+  border-color: #dc3545;
+}
+
+.block-id-help {
+  line-height: 1.5;
+}
+
+
+/* v29：所有元件 CSS 功能設定 */
+.css-function-list {
+  border: 1px solid #e6eaf0;
+  background: #fbfcfe;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.free-element[data-css-scroll-enabled="true"] {
+  cursor: pointer;
+}
+
+body.preview-mode .free-element[data-css-scroll-enabled="true"] {
+  cursor: pointer !important;
+}
+
+
+/* v32：拖曳元件時的輔助對齊線 */
+.alignment-guide {
+  position: absolute;
+  display: none;
+  pointer-events: none;
+  z-index: 999999;
+  background: #ff2d55;
+  box-shadow: 0 0 0 1px rgba(255, 45, 85, .18);
+}
+
+.alignment-guide.vertical {
+  top: 0;
+  width: 1px;
+  height: 100%;
+}
+
+.alignment-guide.horizontal {
+  left: 0;
+  width: 100%;
+  height: 1px;
+}
+
+.alignment-guide.center-guide {
+  background: #0d6efd;
+  box-shadow: 0 0 0 1px rgba(13, 110, 253, .2);
+}
+
+body.preview-mode .alignment-guide {
+  display: none !important;
+}
+
+
+/* v33：子頁面管理 */
+.page-manager {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.page-manager .form-select {
+  width: 150px;
+}
+
+@media (max-width: 1180px) {
+  .page-manager {
+    order: 3;
+    width: 100%;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+
+  .page-manager .form-select {
+    width: 180px;
+  }
+}
+
+/* v33：功能列表 */
+.css-function-list .form-select {
+  font-size: 13px;
+}
+
+
+/* v34：左側 JS，CSS 功能 */
+.editor-sidebar [data-add-js-css-block="card-carousel"] {
+  text-align: left;
+}
+
+/* v34：圖文卡片輪播區塊 */
+.carousel-html-block .block-canvas {
+  overflow: visible;
+}
+
+.carousel-editor-panel {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,.96);
+  border: 1px solid #dfe5ef;
+  border-radius: 999px;
+  padding: 6px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, .08);
+}
+
+.carousel-editor-panel .btn {
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.carousel-slide-info {
+  font-size: 12px;
+  color: #495057;
+  padding: 0 6px;
+}
+
+.custom-carousel {
+  position: relative;
+  width: 100%;
+  min-height: 420px;
+}
+
+.carousel-viewport {
+  position: relative;
+  width: 100%;
+  min-height: 420px;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.carousel-track {
+  display: flex;
+  width: 100%;
+  min-height: 420px;
+  transition: transform .45s ease;
+  will-change: transform;
+}
+
+.custom-carousel[data-orientation="vertical"] .carousel-track {
+  flex-direction: column;
+}
+
+.carousel-slide {
+  position: relative;
+  flex: 0 0 100%;
+  width: 100%;
+  min-height: 420px;
+}
+
+.custom-carousel[data-orientation="vertical"] .carousel-slide {
+  height: 420px;
+}
+
+.carousel-slide .block-canvas {
+  position: relative;
+  width: 100%;
+  min-height: 420px;
+}
+
+.carousel-public-controls {
+  position: absolute;
+  inset: auto 16px 14px 16px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.carousel-public-controls button {
+  pointer-events: auto;
+  border: 0;
+  background: rgba(255,255,255,.92);
+  color: #212529;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, .16);
+}
+
+.carousel-dots {
+  pointer-events: auto;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.carousel-dot {
+  width: 9px;
+  height: 9px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(33, 37, 41, .3);
+}
+
+.carousel-dot.active {
+  width: 22px;
+  background: rgba(13, 110, 253, .9);
+}
+
+.custom-carousel[data-mode="auto"] .carousel-public-controls {
+  opacity: .22;
+}
+
+body.preview-mode .carousel-editor-panel {
+  display: none !important;
+}
+
+body.preview-mode .custom-carousel {
+  cursor: grab;
+}
+
+body.preview-mode .custom-carousel:active {
+  cursor: grabbing;
+}
+
+
+/* v35：橫向圖文卡片輪播與自訂圓形按鍵 */
+.custom-carousel .carousel-track,
+.custom-carousel[data-orientation="horizontal"] .carousel-track,
+.custom-carousel[data-orientation="vertical"] .carousel-track {
+  flex-direction: row !important;
+}
+
+.custom-carousel[data-orientation="vertical"] .carousel-slide {
+  height: auto;
+}
+
+.carousel-public-controls {
+  inset: 0 !important;
+  z-index: 90;
+  display: block;
+  pointer-events: none;
+}
+
+.carousel-public-controls .carousel-nav-btn {
+  position: absolute;
+  pointer-events: auto;
+  width: var(--carousel-button-size, 42px);
+  height: var(--carousel-button-size, 42px);
+  border-radius: 50%;
+  border: 0;
+  background: var(--carousel-button-bg, rgba(233, 236, 239, .85));
+  opacity: 1;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transform: translate(-50%, -50%);
+}
+
+.carousel-public-controls .carousel-nav-btn::before {
+  content: "";
+  width: 0;
+  height: 0;
+  display: block;
+}
+
+.carousel-public-controls .carousel-prev-btn {
+  left: var(--carousel-left-x, 4%);
+  top: var(--carousel-left-y, 50%);
+}
+
+.carousel-public-controls .carousel-next-btn {
+  left: var(--carousel-right-x, 96%);
+  top: var(--carousel-right-y, 50%);
+}
+
+.carousel-public-controls .carousel-prev-btn::before {
+  border-top: calc(var(--carousel-button-size, 42px) * .22) solid transparent;
+  border-bottom: calc(var(--carousel-button-size, 42px) * .22) solid transparent;
+  border-right: calc(var(--carousel-button-size, 42px) * .28) solid var(--carousel-button-icon, #adb5bd);
+  margin-left: calc(var(--carousel-button-size, 42px) * -.07);
+}
+
+.carousel-public-controls .carousel-next-btn::before {
+  border-top: calc(var(--carousel-button-size, 42px) * .22) solid transparent;
+  border-bottom: calc(var(--carousel-button-size, 42px) * .22) solid transparent;
+  border-left: calc(var(--carousel-button-size, 42px) * .28) solid var(--carousel-button-icon, #adb5bd);
+  margin-right: calc(var(--carousel-button-size, 42px) * -.07);
+}
+
+.custom-carousel[data-button-visibility="left"] .carousel-next-btn,
+.custom-carousel[data-button-visibility="right"] .carousel-prev-btn,
+.custom-carousel[data-button-visibility="none"] .carousel-nav-btn {
+  display: none !important;
+}
+
+.custom-carousel[data-mode="auto"] .carousel-public-controls,
+.custom-carousel[data-mode="auto"] .carousel-nav-btn {
+  display: none !important;
+}
+
+.custom-carousel[data-mode="manual"] .carousel-public-controls {
+  display: block;
+}
+
+.carousel-dots {
+  display: none !important;
+}
+
+
+/* v36：可分別隱藏左側或右側面板 */
+.panel-visibility-select {
+  width: 150px;
+}
+
+body.hide-left-panel .editor-sidebar {
+  display: none;
+}
+
+body.hide-right-panel .editor-inspector {
+  display: none;
+}
+
+body.hide-both-panels .editor-sidebar,
+body.hide-both-panels .editor-inspector {
+  display: none;
+}
+
+/* 保留舊 class 相容 */
+body.panels-hidden .editor-sidebar,
+body.panels-hidden .editor-inspector {
+  display: none;
+}
+
+/* v36：所有元件超連結 */
+#elementLinkSettings {
+  border: 1px solid #e6eaf0;
+  background: #fbfcfe;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.free-element[data-link-enabled="true"] {
+  cursor: pointer;
+}
+
+body.preview-mode .free-element[data-link-enabled="true"] {
+  cursor: pointer !important;
+}
+
+/* v36：形狀漸層設定開啟後才顯示 */
+#shapeGradientControls {
+  border: 1px solid #e6eaf0;
+  background: #fbfcfe;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+
+/* v37：左右側邊欄縮放 */
+.sidebar-resize-controls {
+  display: grid;
+  grid-template-columns: auto 84px 52px auto 84px 52px;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #495057;
+}
+
+.sidebar-resize-controls input[type="range"] {
+  width: 84px;
+}
+
+.sidebar-resize-controls input[type="number"] {
+  width: 52px;
+  height: 30px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+@media (max-width: 1220px) {
+  .sidebar-resize-controls {
+    grid-template-columns: auto 90px 58px;
+  }
+}
+
+/* v37：Ctrl 多選元件 */
+.free-element.multi-selected,
+.free-element.selected.multi-selected {
+  outline: 2px dashed #8a2be2 !important;
+  outline-offset: 3px;
+}
+
+.free-element.multi-selected::after {
+  content: "多選";
+  position: absolute;
+  left: 0;
+  top: -26px;
+  z-index: 120;
+  background: #8a2be2;
+  color: #fff;
+  font-size: 12px;
+  border-radius: 999px;
+  padding: 2px 8px;
+  pointer-events: none;
+}
+
+/* v37：輪播組複製按鈕 */
+.carousel-editor-panel [data-carousel-action="copy"],
+.carousel-editor-panel [data-carousel-action="paste"],
+.carousel-editor-panel [data-carousel-action="duplicate"] {
+  font-weight: 600;
+}
+
+
+/* v38：側邊欄按下縮成小 icon，再按恢復 v36 大小 */
+.sidebar-collapse-controls {
+  display: flex;
+  gap: 8px;
+}
+
+body.left-sidebar-collapsed {
+  --sidebar-width: 54px;
+}
+
+body.right-sidebar-collapsed {
+  --inspector-width: 54px;
+}
+
+body.left-sidebar-collapsed .editor-sidebar,
+body.right-sidebar-collapsed .editor-inspector {
+  padding: 10px 7px;
+  overflow: hidden;
+}
+
+body.left-sidebar-collapsed .editor-sidebar > *:not(.sidebar-mini-toggle),
+body.right-sidebar-collapsed .editor-inspector > *:not(.sidebar-mini-toggle) {
+  display: none !important;
+}
+
+.sidebar-mini-toggle {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid #d9dee7;
+  background: #fff;
+  align-items: center;
+  justify-content: center;
+  color: #495057;
+}
+
+body.left-sidebar-collapsed .editor-sidebar .sidebar-mini-toggle,
+body.right-sidebar-collapsed .editor-inspector .sidebar-mini-toggle {
+  display: flex;
+}
+
+/* v38：圖片移入放大 */
+.free-element[data-type="image"][data-hover-zoom-enabled="true"] .editable-image {
+  transform: scale(var(--image-zoom-normal, 1));
+  transition: transform .25s ease;
+  transform-origin: center center;
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].hover-zoom-preview:hover .editable-image {
+  transform: scale(var(--image-zoom-hover, 1.2));
+}
+
+/* v38：表單自由元件 */
+.free-element[data-type="select"],
+.free-element[data-type="input"] {
+  cursor: move;
+}
+
+.editable-select,
+.editable-input {
+  width: 100%;
+  height: 100%;
+  border: 1px solid #ced4da;
+  border-radius: inherit;
+  padding: 0 14px;
+  font-size: inherit;
+  color: inherit;
+  background: #fff;
+}
+
+body:not(.preview-mode) .editable-select,
+body:not(.preview-mode) .editable-input {
+  pointer-events: none;
+}
+
+/* v38：Q&A 模板搜尋 */
+.template-search-box {
+  border: 1px solid #e6eaf0;
+  background: #fbfcfe;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.qa-search-results {
+  max-height: 180px;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+}
+
+.qa-result-item {
+  width: 100%;
+  border: 1px solid #d9dee7;
+  background: #fff;
+  border-radius: 10px;
+  padding: 7px 8px;
+  text-align: left;
+  font-size: 12px;
+  color: #343a40;
+}
+
+.qa-result-item:hover {
+  border-color: #0d6efd;
+  color: #0d6efd;
+}
+
+/* v38：輪播新增空白組 */
+.carousel-empty-slide {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: #adb5bd;
+  border: 1px dashed #ced4da;
+  border-radius: 14px;
+  padding: 16px 20px;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+
+/* v39：側邊欄改回隱藏 / 顯示，不縮成小 icon */
+body.left-sidebar-collapsed,
+body.right-sidebar-collapsed {
+  --sidebar-width: 245px;
+  --inspector-width: 290px;
+}
+
+body.left-sidebar-collapsed .editor-sidebar,
+body.right-sidebar-collapsed .editor-inspector {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+body.left-sidebar-collapsed .editor-sidebar > *,
+body.right-sidebar-collapsed .editor-inspector > * {
+  display: initial;
+}
+
+body.hide-left-panel .editor-sidebar,
+body.hide-right-panel .editor-inspector {
+  display: none !important;
+}
+
+body.hide-left-panel {
+  --sidebar-width: 245px;
+}
+
+body.hide-right-panel {
+  --inspector-width: 290px;
+}
+
+
+/* v40：垂直圖文輪播區塊 */
+.vertical-news-html-block {
+  overflow: hidden;
+}
+
+.vertical-news-block {
+  position: relative;
+  width: 100%;
+  min-height: 520px;
+  padding: 56px 42px 40px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.68), rgba(255,255,255,.08)),
+    linear-gradient(135deg, rgba(230,230,230,.78), rgba(180,180,180,.45));
+  overflow: hidden;
+}
+
+.vertical-news-title {
+  position: absolute;
+  left: 9%;
+  top: 24px;
+  color: rgba(60,60,60,.22);
+  line-height: 1.1;
+  letter-spacing: 10px;
+  font-weight: 800;
+  font-size: 30px;
+  text-transform: lowercase;
+  pointer-events: none;
+}
+
+.vertical-news-title span {
+  display: block;
+  margin-top: 0;
+  color: rgba(60,60,60,.55);
+  letter-spacing: 8px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.vertical-news-card {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  min-height: 420px;
+  background: rgba(255, 255, 255, .95);
+  border-radius: 38px;
+  padding: 26px 34px 26px 26px;
+  box-shadow: 0 20px 35px rgba(40,40,40,.16);
+}
+
+.vertical-news-viewport {
+  position: relative;
+  max-height: 350px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 20px;
+  scroll-behavior: smooth;
+}
+
+.vertical-news-viewport::-webkit-scrollbar {
+  width: 12px;
+}
+
+.vertical-news-viewport::-webkit-scrollbar-track {
+  background: rgba(210,210,210,.65);
+  border-radius: 999px;
+}
+
+.vertical-news-viewport::-webkit-scrollbar-thumb {
+  background: rgba(95,95,95,.75);
+  border-radius: 999px;
+}
+
+.vertical-news-list {
+  display: grid;
+  gap: 14px;
+}
+
+.vertical-news-item {
+  display: grid;
+  grid-template-columns: minmax(160px, 30%) 1fr auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 45px;
+}
+
+.vertical-news-image {
+  height: 42px;
+  border-radius: 10px;
+  background: #666;
+  overflow: hidden;
+}
+
+.vertical-news-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none;
+}
+
+.vertical-news-text {
+  color: #4b4b4b;
+  font-size: 14px;
+  line-height: 1.7;
+  letter-spacing: 2px;
+}
+
+.vertical-news-date {
+  color: #4b4b4b;
+  font-size: 13px;
+  letter-spacing: 4px;
+  white-space: nowrap;
+}
+
+.vertical-news-arrow {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translateY(-50%);
+  opacity: .75;
+}
+
+.vertical-news-arrow::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 2px solid #666;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+
+.vertical-news-controls {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  z-index: 5;
+  display: flex;
+  gap: 6px;
+}
+
+.vertical-news-controls button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #d9dee7;
+  border-radius: 999px;
+  background: rgba(255,255,255,.95);
+  color: #555;
+  font-size: 13px;
+}
+
+body.preview-mode .vertical-news-controls {
+  display: flex;
+}
+
+@media (max-width: 768px) {
+  .vertical-news-block {
+    padding: 56px 16px 28px;
+  }
+
+  .vertical-news-card {
+    border-radius: 28px;
+    padding: 22px 20px;
+  }
+
+  .vertical-news-item {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .vertical-news-image {
+    height: 54px;
+  }
+
+  .vertical-news-date {
+    letter-spacing: 2px;
+  }
+}
+
+
+/* v41：下拉式選項每個選項的功能列表與超連結 */
+.select-option-action-panel,
+.select-option-function-list,
+.select-option-link-settings {
+  border: 1px solid #e6eaf0;
+  background: #fbfcfe;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+/* v41：圖片放大改為整個元件長寬一起放大 */
+.free-element[data-type="image"][data-hover-zoom-enabled="true"] {
+  transform: scale(var(--image-zoom-normal, 1));
+  transition: transform .25s ease;
+  transform-origin: center center;
+}
+
+.free-element[data-type="image"][data-hover-zoom-enabled="true"] .editable-image {
+  transform: none !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"]:hover,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"].hover-zoom-preview:hover {
+  transform: scale(var(--image-zoom-hover, 1.2));
+}
+
+/* v41：垂直圖文輪播群組化，可像橫向輪播一樣編輯 */
+.vertical-news-editor-panel {
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  z-index: 90;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: rgba(255,255,255,.96);
+  border: 1px solid #dfe5ef;
+  border-radius: 18px;
+  padding: 6px;
+  box-shadow: 0 10px 25px rgba(15,23,42,.08);
+}
+
+.vertical-news-editor-panel .btn {
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.vertical-news-track {
+  display: grid;
+  gap: 14px;
+}
+
+.vertical-news-slide {
+  position: relative;
+  min-height: 82px;
+  border-radius: 14px;
+}
+
+.vertical-news-slide.active {
+  outline: 2px dashed rgba(13,110,253,.55);
+  outline-offset: 4px;
+}
+
+.vertical-news-slide .block-canvas {
+  position: relative;
+  width: 100%;
+  min-height: 82px;
+}
+
+.vertical-news-empty-group {
+  border: 1px dashed #ced4da;
+  border-radius: 14px;
+  padding: 20px;
+  color: #adb5bd;
+  font-size: 14px;
+  text-align: center;
+}
+
+body.preview-mode .vertical-news-editor-panel {
+  display: none !important;
+}
+
+body.preview-mode .vertical-news-slide {
+  outline: 0 !important;
+}
+
+
+/* v42：垂直圖文輪播移除背景、背景文字與旁邊圖示 */
+.vertical-news-block {
+  background: transparent !important;
+  padding: 24px 0 !important;
+}
+
+.vertical-news-title,
+.vertical-news-arrow,
+.vertical-news-arrow::before {
+  display: none !important;
+}
+
+.vertical-news-card {
+  box-shadow: none !important;
+}
+
+
+/* v43：橫向輪播第二種排版，露出下一組 */
+.custom-carousel[data-layout="peek"] .carousel-viewport {
+  overflow: hidden;
+}
+
+.custom-carousel[data-layout="peek"] .carousel-track {
+  gap: var(--carousel-slide-gap, 4%);
+}
+
+.custom-carousel[data-layout="peek"] .carousel-slide {
+  flex: 0 0 var(--carousel-slide-width, 84%);
+}
+
+.custom-carousel[data-layout="peek"] .carousel-slide .block-canvas {
+  border-radius: 18px;
+}
+
+.custom-carousel[data-layout="full"] .carousel-track {
+  gap: 0;
+}
+
+.custom-carousel[data-layout="full"] .carousel-slide {
+  flex: 0 0 100%;
+}
+
+/* v43：圖片 / 形狀陰影設定 */
+#elementShadowControls {
+  border: 1px solid #e6eaf0;
+  background: #fbfcfe;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+
+/* v49：圖層表 */
+.layer-list {
+  display: grid;
+  gap: 6px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.layer-item {
+  width: 100%;
+  border: 1px solid #dfe5ef;
+  background: #fff;
+  border-radius: 10px;
+  padding: 7px 9px;
+  text-align: left;
+  font-size: 12px;
+  color: #343a40;
+}
+
+.layer-item:hover {
+  background: #f1f5ff;
+  border-color: #9ec5fe;
+}
+
+.layer-item.active {
+  background: #e7f1ff;
+  border-color: #0d6efd;
+  color: #0b5ed7;
+  font-weight: 700;
+}
+
+.layer-item .layer-type {
+  display: inline-block;
+  color: #6c757d;
+  font-weight: 500;
+  margin-right: 6px;
+}
+
+/* v49：群組 */
+.free-element[data-type="group"] {
+  overflow: visible;
+}
+
+.free-element[data-type="group"] > .inner.group-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border: 1px dashed rgba(13,110,253,.45);
+  border-radius: inherit;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.free-element[data-type="group"] > .inner.group-inner > .free-element {
+  pointer-events: auto;
+}
+
+body.preview-mode .free-element[data-type="group"] > .inner.group-inner {
+  border: 0;
+}
+
+/* v49：形狀材質 */
+.free-element[data-type="shape"][data-shape-material="frosted"] .shape-fill {
+  background: rgba(255,255,255,.28) !important;
+  border: 1px solid rgba(255,255,255,.45);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.38), 0 12px 28px rgba(15,23,42,.14);
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+}
+
+.free-element[data-type="shape"][data-shape-material="glass"] .shape-fill {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.58), rgba(255,255,255,.16)) !important;
+  border: 1px solid rgba(255,255,255,.68);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.75), 0 18px 40px rgba(15,23,42,.18);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+}
+
+/* v49：形狀可移出區塊邊界，避免被裁切 */
+.html-block,
+.block-canvas,
+.free-element[data-type="shape"] {
+  overflow: visible;
+}
+
+
+/* v50：群組點選時，只顯示當前選取層級的浮動工具列 */
+.free-element[data-type="group"]:hover .free-element:not(.selected) > .move-handle,
+.free-element[data-type="group"]:hover .free-element:not(.selected) > .element-toolbar,
+.free-element[data-type="group"]:hover .free-element:not(.selected) > .resize-handle {
+  display: none !important;
+}
+
+.free-element[data-type="group"].selected .free-element:not(.selected) > .move-handle,
+.free-element[data-type="group"].selected .free-element:not(.selected) > .element-toolbar,
+.free-element[data-type="group"].selected .free-element:not(.selected) > .resize-handle {
+  display: none !important;
+}
+
+.group-action-btn:not(.d-none) {
+  display: inline-flex !important;
+}
+
+
+/* v51：群組內容元件被選取時，外層群組的工具列消失 */
+.free-element[data-type="group"].has-selected-child > .move-handle,
+.free-element[data-type="group"].has-selected-child > .element-toolbar,
+.free-element[data-type="group"].has-selected-child > .resize-handle {
+  display: none !important;
+}
+
+.free-element[data-type="group"].has-selected-child .free-element.selected > .move-handle {
+  display: inline-flex !important;
+}
+
+.free-element[data-type="group"].has-selected-child .free-element.selected > .element-toolbar {
+  display: flex !important;
+}
+
+.free-element[data-type="group"].has-selected-child .free-element.selected > .resize-handle {
+  display: block !important;
+}
+
+/* v51：圖片與形狀只能用邊界上方的移動鍵拖曳 */
+.free-element[data-type="image"],
+.free-element[data-type="shape"] {
+  cursor: default;
+}
+
+.free-element[data-type="image"] > .move-handle,
+.free-element[data-type="shape"] > .move-handle {
+  cursor: move !important;
+}
+
+
+/* v52：圖片與形狀跟文字邏輯一致，只能用邊界上方的「移動」鍵拖曳 */
+.free-element[data-type="image"]:hover,
+.free-element[data-type="shape"]:hover,
+.free-element[data-type="image"].selected,
+.free-element[data-type="shape"].selected {
+  outline: 1px dashed #8bbcff;
+}
+
+.free-element[data-type="image"]:hover > .move-handle,
+.free-element[data-type="shape"]:hover > .move-handle,
+.free-element[data-type="image"].selected > .move-handle,
+.free-element[data-type="shape"].selected > .move-handle {
+  display: inline-flex !important;
+}
+
+.free-element[data-type="image"] .inner,
+.free-element[data-type="image"] .editable-image,
+.free-element[data-type="shape"] .inner,
+.free-element[data-type="shape"] .shape-fill {
+  cursor: default !important;
+}
+
+
+/* v53：圖片只有邊界或四角可以拖曳本體，中央不可拖 */
+.free-element[data-type="image"] {
+  cursor: default;
+}
+
+.free-element[data-type="image"]:hover {
+  outline: 1px dashed #8bbcff;
+}
+
+/* 圖片邊界仍由 JS 判斷，滑鼠靠近邊界 / 四角時才會啟動拖曳 */
+.free-element[data-type="image"] > .move-handle {
+  cursor: move !important;
+}
+
+/* v53：群組內容元件選取後，長寬控制點與工具列固定在內容元件上 */
+.free-element[data-type="group"].has-selected-child .group-inner > .free-element.selected {
+  outline: 2px solid var(--primary);
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, .12);
+}
+
+
+/* v54：圖片移動方式跟形狀一致，只能拖曳上方「移動」鍵 */
+.free-element[data-type="image"] .inner,
+.free-element[data-type="image"] .editable-image,
+.free-element[data-type="shape"] .inner,
+.free-element[data-type="shape"] .shape-fill {
+  cursor: default !important;
+}
+
+.free-element[data-type="image"] > .move-handle,
+.free-element[data-type="shape"] > .move-handle {
+  cursor: move !important;
+}
+
+/* v54：群組容器使用和輪播組別相近的 block-canvas 邏輯，只是群組本身可移動 */
+.free-element[data-type="group"] > .group-inner,
+.free-element[data-type="group"] > .inner.group-inner.block-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  border: 1px dashed rgba(13, 110, 253, .42);
+  border-radius: inherit;
+  overflow: visible;
+  background-image:
+    linear-gradient(rgba(13, 110, 253, .045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(13, 110, 253, .045) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: auto;
+}
+
+.group-empty {
+  position: absolute;
+  inset: 14px;
+  border: 1px dashed #cbd3df;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a93a1;
+  font-size: 13px;
+  pointer-events: none;
+}
+
+body.preview-mode .free-element[data-type="group"] > .group-inner,
+body.preview-mode .free-element[data-type="group"] > .inner.group-inner.block-canvas {
+  border: 0;
+  background-image: none;
+}
+
+
+/* v55：修正圖片工具列被圖片外層 overflow hidden 裁切 */
+.free-element[data-type="image"] {
+  overflow: visible !important;
+}
+
+.free-element[data-type="image"] > .move-handle,
+.free-element[data-type="image"] > .element-toolbar,
+.free-element[data-type="image"] > .resize-handle {
+  pointer-events: auto;
+}
+
+.free-element[data-type="image"] > .inner {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.free-element[data-type="image"] .editable-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  display: block;
+}
+
+.free-element[data-type="image"]:hover > .move-handle,
+.free-element[data-type="image"].selected > .move-handle {
+  display: inline-flex !important;
+}
+
+.free-element[data-type="image"]:hover > .element-toolbar,
+.free-element[data-type="image"].selected > .element-toolbar {
+  display: flex !important;
+}
+
+.free-element[data-type="image"]:hover > .resize-handle,
+.free-element[data-type="image"].selected > .resize-handle {
+  display: block !important;
+}
+
+
+/* v56：下拉式選項換組區塊 */
+.select-switcher-html-block {
+  overflow: visible;
+}
+
+.select-switcher-block {
+  display: grid;
+  gap: 18px;
+}
+
+.select-switcher-control-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 360px;
+}
+
+.select-switcher-label {
+  font-weight: 700;
+  color: #495057;
+  white-space: nowrap;
+}
+
+.select-switcher-control {
+  min-height: 42px;
+}
+
+.select-switcher-group {
+  display: none;
+}
+
+.select-switcher-group.active {
+  display: block;
+}
+
+.select-switcher-group-canvas {
+  position: relative;
+  min-height: 360px;
+  border: 1px dashed #d7dfea;
+  border-radius: 14px;
+  overflow: visible;
+  background-image:
+    linear-gradient(rgba(13, 110, 253, .045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(13, 110, 253, .045) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.select-switcher-empty-group {
+  position: absolute;
+  inset: 20px;
+  border: 1px dashed #cbd3df;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a93a1;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+body.preview-mode .select-switcher-group-canvas,
+body.exported-site .select-switcher-group-canvas {
+  border: 0 !important;
+  background-image: none !important;
+}
+
+/* v56：露出下一組循環輪播 ghost clone */
+.carousel-loop-clone {
+  pointer-events: none;
+}
+
+.custom-carousel[data-layout="peek"] .carousel-loop-clone {
+  flex: 0 0 var(--carousel-slide-width, 84%);
+}
+
+/* v56：圖片放大邊界限制 */
+.free-element[data-type="image"][data-hover-zoom-boundary="true"] .editable-image {
+  will-change: transform;
+}
+
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-boundary="true"]:hover .editable-image {
+  transform: var(--image-zoom-boundary-transform, scale(var(--image-zoom-hover, 1.2))) !important;
+  transform-origin: var(--image-zoom-origin, center center);
+}
+
+
+/* v57：輪播 / 下拉換組工具列不遮住內容 */
+.carousel-editor-panel {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  right: auto !important;
+  transform: none !important;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  margin: 0 0 18px 0 !important;
+  padding: 8px 10px;
+  border: 1px solid #dfe5ef;
+  border-radius: 999px;
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 10px 24px rgba(15,23,42,.08);
+  z-index: 3;
+}
+
+.carousel-editor-panel .btn {
+  white-space: nowrap;
+}
+
+.select-switcher-html-block .select-switcher-block,
+.carousel-html-block .custom-carousel {
+  clear: both;
+}
+
+/* v57：下拉換組文字刪除，選單改成可調位置的自由元件 */
+.select-switcher-control-wrap {
+  display: none !important;
+}
+
+.select-switcher-block {
+  position: relative;
+  min-height: 440px;
+}
+
+.select-switcher-select-element {
+  overflow: visible !important;
+}
+
+.select-switcher-select-element .select-switcher-control {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  color: inherit;
+  background: inherit;
+  font-size: inherit;
+  font-family: inherit;
+  padding: 0 14px;
+}
+
+body:not(.preview-mode) .select-switcher-select-element .select-switcher-control {
+  pointer-events: auto;
+}
+
+.select-switcher-groups {
+  position: relative;
+  padding-top: 74px;
+}
+
+/* v57：右側設定卡片收合滑出 */
+.editor-inspector .setting-card {
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+.editor-inspector .setting-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.editor-inspector .setting-title::after {
+  content: "⌄";
+  width: 22px;
+  height: 22px;
+  border: 1px solid #dfe5ef;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6c757d;
+  font-size: 13px;
+  transition: transform .2s ease;
+  flex: 0 0 auto;
+}
+
+.editor-inspector .setting-card.collapsed .setting-title::after {
+  transform: rotate(-90deg);
+}
+
+.setting-card-content {
+  overflow: hidden;
+  max-height: 1800px;
+  opacity: 1;
+  transform-origin: top;
+  transition: max-height .24s ease, opacity .18s ease, transform .2s ease;
+}
+
+.setting-card.collapsed > .setting-card-content {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+}
+
+/* v57：側邊欄模板 icon 滑出 */
+.template-drawer-wrap {
+  border: 1px solid #e6eaf0;
+  border-radius: 14px;
+  background: #fbfcfe;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.template-drawer-toggle {
+  width: 100%;
+  border: 1px solid #dfe5ef;
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #343a40;
+  font-weight: 700;
+}
+
+.template-drawer-icon-wrap {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: #eef4ff;
+  color: #0d6efd;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.template-drawer-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.template-drawer-panel {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(-12px);
+  transition: max-height .26s ease, opacity .2s ease, transform .24s ease;
+}
+
+.template-drawer-wrap.open .template-drawer-panel {
+  max-height: 520px;
+  opacity: 1;
+  transform: translateX(0);
+  margin-top: 12px;
+}
+
+/* v57：避免區塊上方編輯工具把內容壓到奇怪位置 */
+.select-switcher-html-block,
+.carousel-html-block {
+  overflow: visible;
+}
+
+
+/* v58：下拉換組的下拉元件可像一般元件一樣移動，選單本體不攔截編輯拖曳 */
+.free-element[data-type="select-switcher-control"],
+.select-switcher-select-element {
+  overflow: visible !important;
+  cursor: default;
+}
+
+.free-element[data-type="select-switcher-control"] > .move-handle,
+.select-switcher-select-element > .move-handle {
+  cursor: move !important;
+}
+
+body:not(.preview-mode) .select-switcher-select-element .select-switcher-control {
+  pointer-events: none !important;
+}
+
+body.preview-mode .select-switcher-select-element .select-switcher-control,
+body.exported-site .select-switcher-select-element .select-switcher-control {
+  pointer-events: auto !important;
+}
+
+.free-element[data-type="select-switcher-control"]:hover > .move-handle,
+.free-element[data-type="select-switcher-control"].selected > .move-handle,
+.select-switcher-select-element:hover > .move-handle,
+.select-switcher-select-element.selected > .move-handle {
+  display: inline-flex !important;
+}
+
+.free-element[data-type="select-switcher-control"]:hover > .element-toolbar,
+.free-element[data-type="select-switcher-control"].selected > .element-toolbar,
+.select-switcher-select-element:hover > .element-toolbar,
+.select-switcher-select-element.selected > .element-toolbar {
+  display: flex !important;
+}
+
+.free-element[data-type="select-switcher-control"]:hover > .resize-handle,
+.free-element[data-type="select-switcher-control"].selected > .resize-handle,
+.select-switcher-select-element:hover > .resize-handle,
+.select-switcher-select-element.selected > .resize-handle {
+  display: block !important;
+}
+
+.select-switcher-control-name-mode #selectOptionActionSelect,
+.select-switcher-control-name-mode #selectOptionActionPanel,
+.select-switcher-control-name-mode .setting-title.small {
+  display: none !important;
+}
+
+
+/* v59：下拉換組選項名稱卡片放最上面，不參與收合 */
+#selectSwitcherOptionNameTopCard .setting-title {
+  cursor: default;
+}
+
+#selectSwitcherOptionNameTopCard .setting-title::after {
+  display: none !important;
+}
+
+#selectSwitcherOptionNameTopCard .setting-card-content {
+  max-height: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  overflow: visible !important;
+}
+
+/* v59：下拉換組元件可直接用滑鼠拖曳，且拖曳不改長寬 */
+.free-element[data-type="select-switcher-control"],
+.select-switcher-select-element {
+  cursor: move !important;
+}
+
+body:not(.preview-mode) .select-switcher-select-element .select-switcher-control {
+  pointer-events: none !important;
+  cursor: move !important;
+}
+
+body.preview-mode .select-switcher-select-element .select-switcher-control,
+body.exported-site .select-switcher-select-element .select-switcher-control {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+
+/* v60：預覽時下拉換組元件不出現任何編輯 / 移動效果 */
+body.preview-mode .free-element[data-type="select-switcher-control"],
+body.exported-site .free-element[data-type="select-switcher-control"],
+body.preview-mode .select-switcher-select-element,
+body.exported-site .select-switcher-select-element {
+  cursor: default !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+body.preview-mode .free-element[data-type="select-switcher-control"]:hover,
+body.exported-site .free-element[data-type="select-switcher-control"]:hover,
+body.preview-mode .free-element[data-type="select-switcher-control"].selected,
+body.exported-site .free-element[data-type="select-switcher-control"].selected,
+body.preview-mode .select-switcher-select-element:hover,
+body.exported-site .select-switcher-select-element:hover,
+body.preview-mode .select-switcher-select-element.selected,
+body.exported-site .select-switcher-select-element.selected {
+  cursor: default !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+body.preview-mode .free-element[data-type="select-switcher-control"] > .move-handle,
+body.preview-mode .free-element[data-type="select-switcher-control"] > .element-toolbar,
+body.preview-mode .free-element[data-type="select-switcher-control"] > .resize-handle,
+body.preview-mode .select-switcher-select-element > .move-handle,
+body.preview-mode .select-switcher-select-element > .element-toolbar,
+body.preview-mode .select-switcher-select-element > .resize-handle,
+body.exported-site .free-element[data-type="select-switcher-control"] > .move-handle,
+body.exported-site .free-element[data-type="select-switcher-control"] > .element-toolbar,
+body.exported-site .free-element[data-type="select-switcher-control"] > .resize-handle,
+body.exported-site .select-switcher-select-element > .move-handle,
+body.exported-site .select-switcher-select-element > .element-toolbar,
+body.exported-site .select-switcher-select-element > .resize-handle {
+  display: none !important;
+}
+
+/* v60：編輯模式下，不讓 select 本體鎖定滑鼠事件，拖曳會作用在外層元件 */
+body:not(.preview-mode):not(.exported-site) .select-switcher-select-element .select-switcher-control {
+  pointer-events: none !important;
+  user-select: none;
+}
+
+/* v60：只有編輯模式才顯示下拉換組元件的移動感 */
+body:not(.preview-mode):not(.exported-site) .select-switcher-select-element:hover,
+body:not(.preview-mode):not(.exported-site) .select-switcher-select-element.selected {
+  cursor: move !important;
+}
+
+
+/* v61：Header / 導覽列置頂、Footer 置底，預覽與匯出才生效 */
+body.preview-mode .html-block.site-fixed-top,
+body.exported-site .html-block.site-fixed-top {
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  z-index: 2000 !important;
+}
+
+body.preview-mode .html-block.site-fixed-bottom,
+body.exported-site .html-block.site-fixed-bottom {
+  position: fixed !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  z-index: 2000 !important;
+}
+
+/* v61：側邊欄滑出模板 */
+.side-drawer-template {
+  position: fixed !important;
+  right: 24px;
+  top: 45%;
+  z-index: 2200;
+  width: 360px;
+  height: 420px;
+  pointer-events: none;
+}
+
+.side-drawer-trigger {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 54px;
+  height: 54px;
+  border: 0;
+  border-radius: 999px;
+  background: #0d6efd;
+  color: #fff;
+  box-shadow: 0 14px 36px rgba(15,23,42,.25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.side-drawer-trigger img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.side-drawer-panel {
+  position: absolute;
+  right: 70px;
+  top: 0;
+  width: 280px;
+  min-height: 260px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 20px 50px rgba(15,23,42,.18);
+  border: 1px solid #e6eaf0;
+  padding: 22px;
+  opacity: 0;
+  transform: translateX(24px);
+  pointer-events: none;
+  transition: opacity .22s ease, transform .24s ease;
+}
+
+.side-drawer-template.open .side-drawer-panel,
+body.preview-mode .side-drawer-template.open .side-drawer-panel,
+body.exported-site .side-drawer-template.open .side-drawer-panel {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+body:not(.preview-mode):not(.exported-site) .side-drawer-template .side-drawer-panel {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  position: relative;
+  right: auto;
+  top: auto;
+  margin-left: 70px;
+}
+
+body:not(.preview-mode):not(.exported-site) .side-drawer-template {
+  position: relative !important;
+  right: auto;
+  top: auto;
+  width: 100%;
+  height: 360px;
+  pointer-events: auto;
+}
+
+body:not(.preview-mode):not(.exported-site) .side-drawer-trigger {
+  left: 0;
+  right: auto;
+}
+
+/* v61：圖片黑白滑入彩色 */
+.free-element[data-type="image"][data-grayscale-hover="true"] .editable-image {
+  filter: grayscale(1);
+  transition: filter .28s ease, transform .25s ease;
+}
+
+body.preview-mode .free-element[data-type="image"][data-grayscale-hover="true"]:hover .editable-image,
+body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"]:hover .editable-image,
+.free-element[data-type="image"][data-grayscale-hover="true"].hover-color-preview:hover .editable-image {
+  filter: grayscale(0);
+}
+
+/* v61：鎖定元件 */
+.free-element[data-locked="true"] {
+  outline-color: #adb5bd !important;
+}
+
+.free-element[data-locked="true"] > .resize-handle,
+.free-element[data-locked="true"] > .move-handle {
+  display: none !important;
+}
+
+.free-element[data-locked="true"] > .element-toolbar [data-element-action="lock"] {
+  color: #198754 !important;
+  font-weight: 700;
+}
+
+
+/* v62：響應式編輯模式 */
+.responsive-device-controls {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.responsive-device-controls .active {
+  background: #212529;
+  color: #fff;
+  border-color: #212529;
+}
+
+body.device-tablet .canvas-area,
+body.device-mobile .canvas-area {
+  justify-content: center;
+}
+
+body.device-desktop .site-page {
+  width: 100%;
+}
+
+body.device-tablet .site-page {
+  width: 768px;
+  max-width: 768px;
+  min-height: 1024px;
+}
+
+body.device-mobile .site-page {
+  width: 390px;
+  max-width: 390px;
+  min-height: 844px;
+}
+
+body.device-tablet .canvas-area,
+body.device-mobile .canvas-area {
+  overflow: auto;
+  padding: 28px;
+}
+
+/* v62：滑鼠放上區塊上滑換組 */
+.hover-slide-html-block {
+  overflow: visible;
+}
+
+.hover-slide-editor-panel {
+  position: relative !important;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  margin: 0 0 18px 0;
+  padding: 8px 10px;
+  border: 1px solid #dfe5ef;
+  border-radius: 999px;
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 10px 24px rgba(15,23,42,.08);
+  z-index: 5;
+}
+
+.hover-slide-viewport {
+  position: relative;
+  min-height: 420px;
+  overflow: hidden;
+  border: 1px dashed #d7dfea;
+  border-radius: 18px;
+  background-image:
+    linear-gradient(rgba(13, 110, 253, .045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(13, 110, 253, .045) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.hover-slide-track {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  transition: transform .48s ease;
+  will-change: transform;
+}
+
+.hover-slide-group {
+  flex: 0 0 100%;
+  min-height: 420px;
+  position: relative;
+}
+
+.hover-slide-group-canvas {
+  position: relative;
+  min-height: 420px;
+  overflow: visible;
+}
+
+.hover-slide-empty-group {
+  position: absolute;
+  inset: 20px;
+  border: 1px dashed #cbd3df;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a93a1;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+body.preview-mode .hover-slide-viewport,
+body.exported-site .hover-slide-viewport {
+  border: 0 !important;
+  background-image: none !important;
+}
+
+/* 預覽 / 匯出時滑鼠放上後往上滑到下一組 */
+body.preview-mode .js-css-hover-slide-groups:hover .hover-slide-track,
+body.exported-site .js-css-hover-slide-groups:hover .hover-slide-track {
+  transform: translateY(var(--hover-slide-next-transform, -100%)) !important;
+}
+
+/* v62：基礎滑動出入動畫 */
+[data-slide-animation="true"] {
+  --base-slide-distance: 40px;
+  --base-slide-duration: 600ms;
+}
+
+body.preview-mode [data-slide-animation="true"],
+body.exported-site [data-slide-animation="true"] {
+  opacity: 0;
+  transition:
+    opacity var(--base-slide-duration, 600ms) ease,
+    transform var(--base-slide-duration, 600ms) ease;
+}
+
+body.preview-mode [data-slide-animation="true"][data-slide-direction="up"],
+body.exported-site [data-slide-animation="true"][data-slide-direction="up"] {
+  transform: translateY(var(--base-slide-distance, 40px));
+}
+
+body.preview-mode [data-slide-animation="true"][data-slide-direction="down"],
+body.exported-site [data-slide-animation="true"][data-slide-direction="down"] {
+  transform: translateY(calc(var(--base-slide-distance, 40px) * -1));
+}
+
+body.preview-mode [data-slide-animation="true"][data-slide-direction="left"],
+body.exported-site [data-slide-animation="true"][data-slide-direction="left"] {
+  transform: translateX(var(--base-slide-distance, 40px));
+}
+
+body.preview-mode [data-slide-animation="true"][data-slide-direction="right"],
+body.exported-site [data-slide-animation="true"][data-slide-direction="right"] {
+  transform: translateX(calc(var(--base-slide-distance, 40px) * -1));
+}
+
+body.preview-mode [data-slide-animation="true"].animate-in,
+body.exported-site [data-slide-animation="true"].animate-in {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+
+
+/* v63：編輯與預覽裝置畫面置中 */
+.canvas-area {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+body.device-desktop .site-page,
+body.preview-mode.device-desktop .site-page,
+body.export-mode-desktop .site-page {
+  width: 100%;
+  max-width: 100%;
+}
+
+body.device-tablet .site-page,
+body.preview-mode.device-tablet .site-page,
+body.export-mode-tablet .site-page {
+  width: 768px;
+  max-width: 768px;
+  min-height: 1024px;
+}
+
+body.device-mobile .site-page,
+body.preview-mode.device-mobile .site-page,
+body.export-mode-mobile .site-page {
+  width: 390px;
+  max-width: 390px;
+  min-height: 844px;
+}
+
+body.preview-mode .canvas-area {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  width: 100vw;
+  min-height: 100vh;
+  overflow: auto;
+  background: #fff;
+}
+
+/* 預覽時不顯示任何編輯介面與選取效果 */
+body.preview-mode .no-export,
+body.preview-mode .editor-topbar,
+body.preview-mode .editor-sidebar,
+body.preview-mode .editor-inspector,
+body.preview-mode .canvas-hint,
+body.preview-mode .editor-actions,
+body.preview-mode .move-handle,
+body.preview-mode .element-toolbar,
+body.preview-mode .resize-handle,
+body.preview-mode .zone-label,
+body.preview-mode .zone-empty,
+body.preview-mode .block-label,
+body.preview-mode .block-empty,
+body.preview-mode .group-empty,
+body.preview-mode .select-switcher-empty-group,
+body.preview-mode .hover-slide-empty-group {
+  display: none !important;
+}
+
+body.preview-mode .html-block,
+body.preview-mode .html-block:hover,
+body.preview-mode .html-block.selected,
+body.preview-mode .free-element,
+body.preview-mode .free-element:hover,
+body.preview-mode .free-element.selected,
+body.preview-mode .free-element.multi-selected {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* v63：純黑白色調 */
+.free-element[data-type="image"][data-pure-black-white="true"] .editable-image {
+  filter: grayscale(1) contrast(1.45) brightness(.92) !important;
+  transition: filter .28s ease, transform .25s ease;
+}
+
+/* 純黑白優先於滑入彩色 */
+.free-element[data-type="image"][data-pure-black-white="true"][data-grayscale-hover="true"] .editable-image {
+  filter: grayscale(1) contrast(1.45) brightness(.92) !important;
+}
+
+/* v63：滑動動畫改為滑到區塊才啟動，支援初始/滑入位置 */
+[data-slide-animation="true"] {
+  --base-slide-initial-x: 0px;
+  --base-slide-initial-y: 40px;
+  --base-slide-final-x: 0px;
+  --base-slide-final-y: 0px;
+  --base-slide-duration: 600ms;
+}
+
+body.preview-mode [data-slide-animation="true"],
+body.exported-site [data-slide-animation="true"] {
+  opacity: 0;
+  transform: translate(var(--base-slide-initial-x, 0px), var(--base-slide-initial-y, 40px));
+  transition:
+    opacity var(--base-slide-duration, 600ms) ease,
+    transform var(--base-slide-duration, 600ms) ease;
+}
+
+body.preview-mode [data-slide-animation="true"].animate-in,
+body.exported-site [data-slide-animation="true"].animate-in {
+  opacity: 1;
+  transform: translate(var(--base-slide-final-x, 0px), var(--base-slide-final-y, 0px));
+}
+
+
+/* v64：區塊工具列不能擋住區塊內容 */
+.html-block {
+  position: relative;
+  overflow: visible;
+}
+
+.editor-actions {
+  position: absolute !important;
+  top: -46px !important;
+  right: 12px !important;
+  left: auto !important;
+  transform: none !important;
+  z-index: 80 !important;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  max-width: calc(100% - 24px);
+  pointer-events: auto;
+}
+
+.html-block:first-child .editor-actions {
+  top: 8px !important;
+  transform: translateY(-100%) !important;
+}
+
+/* v64：預覽模式完全不顯示任何編輯介面 */
+body.preview-mode .no-export,
+body.preview-mode .editor-actions,
+body.preview-mode .move-handle,
+body.preview-mode .element-toolbar,
+body.preview-mode .resize-handle,
+body.preview-mode .zone-label,
+body.preview-mode .zone-empty,
+body.preview-mode .block-label,
+body.preview-mode .block-empty,
+body.preview-mode .group-empty,
+body.preview-mode .select-switcher-empty-group,
+body.preview-mode .hover-slide-empty-group,
+body.preview-mode [data-block-action],
+body.preview-mode [data-element-action] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body.preview-mode .html-block,
+body.preview-mode .html-block:hover,
+body.preview-mode .html-block.selected,
+body.preview-mode .free-element,
+body.preview-mode .free-element:hover,
+body.preview-mode .free-element.selected,
+body.preview-mode .free-element.multi-selected,
+body.preview-mode .free-element.has-selected-child {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent;
+}
+
+/* v64：滑動動畫的初始位置 / 滑入位置強制實現，覆蓋舊方向規則 */
+body.preview-mode [data-slide-animation="true"],
+body.preview-mode [data-slide-animation="true"][data-slide-direction="up"],
+body.preview-mode [data-slide-animation="true"][data-slide-direction="down"],
+body.preview-mode [data-slide-animation="true"][data-slide-direction="left"],
+body.preview-mode [data-slide-animation="true"][data-slide-direction="right"],
+body.exported-site [data-slide-animation="true"],
+body.exported-site [data-slide-animation="true"][data-slide-direction="up"],
+body.exported-site [data-slide-animation="true"][data-slide-direction="down"],
+body.exported-site [data-slide-animation="true"][data-slide-direction="left"],
+body.exported-site [data-slide-animation="true"][data-slide-direction="right"] {
+  opacity: 0 !important;
+  transform: translate(var(--base-slide-initial-x, 0px), var(--base-slide-initial-y, 40px)) !important;
+  transition:
+    opacity var(--base-slide-duration, 600ms) ease,
+    transform var(--base-slide-duration, 600ms) ease !important;
+}
+
+body.preview-mode [data-slide-animation="true"].animate-in,
+body.preview-mode [data-slide-animation="true"][data-slide-direction="up"].animate-in,
+body.preview-mode [data-slide-animation="true"][data-slide-direction="down"].animate-in,
+body.preview-mode [data-slide-animation="true"][data-slide-direction="left"].animate-in,
+body.preview-mode [data-slide-animation="true"][data-slide-direction="right"].animate-in,
+body.exported-site [data-slide-animation="true"].animate-in,
+body.exported-site [data-slide-animation="true"][data-slide-direction="up"].animate-in,
+body.exported-site [data-slide-animation="true"][data-slide-direction="down"].animate-in,
+body.exported-site [data-slide-animation="true"][data-slide-direction="left"].animate-in,
+body.exported-site [data-slide-animation="true"][data-slide-direction="right"].animate-in {
+  opacity: 1 !important;
+  transform: translate(var(--base-slide-final-x, 0px), var(--base-slide-final-y, 0px)) !important;
+}
+
+/* v64：滑鼠上滑換組為模板，不再作為 JS/CSS 區塊顯示在左側 */
+
+
+/* v65：JS/CSS 功能改成模板模式 */
+.template-drawer-panel .component-btn[data-add-template="card-carousel"],
+.template-drawer-panel .component-btn[data-add-template="select-switcher"],
+.template-drawer-panel .component-btn[data-add-template="vertical-news-carousel"],
+.template-drawer-panel .component-btn[data-add-template="hover-slide-groups"] {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+/* v65：滑鼠上滑換組模板可在同一區塊內新增多組 */
+.hover-slide-html-block[data-template-mode="true"] .hover-slide-editor-panel {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  transform: none !important;
+  margin-bottom: 18px !important;
+}
+
+.hover-slide-html-block[data-template-mode="true"] .hover-slide-info::before {
+  content: "組別 ";
+}
+
+/* v65：動畫數值輸入更明確 */
+#baseAnimationSettingCard .position-grid input {
+  text-align: right;
+}
+
+#applyBaseSlidePositionBtn {
+  position: relative;
+  z-index: 1;
+}
+
+
+/* v66：模板清單可下滑查看，不再需要上傳模板 icon */
+.template-drawer-panel {
+  max-height: 62vh !important;
+  overflow-y: auto !important;
+  padding-right: 6px;
+}
+
+.template-drawer-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.template-drawer-panel::-webkit-scrollbar-thumb {
+  background: #d7dfea;
+  border-radius: 999px;
+}
+
+/* v66：預覽返回編輯浮動按鈕 */
+.floating-exit-preview {
+  display: none;
+}
+
+body.preview-mode .floating-exit-preview {
+  display: inline-flex !important;
+  position: fixed;
+  right: 18px;
+  top: 18px;
+  z-index: 9999;
+  box-shadow: 0 12px 30px rgba(15,23,42,.22);
+}
+
+/* v66：JS/CSS 模板組合放在既有區塊中，不再當外層區塊 */
+.js-css-template-element,
+.hover-slide-template-element {
+  overflow: visible !important;
+}
+
+.js-css-template-element > .inner,
+.hover-slide-template-element > .inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: visible;
+}
+
+.hover-slide-template-inner .hover-slide-viewport,
+.hover-slide-template-element .hover-slide-viewport {
+  height: calc(100% - 58px);
+  min-height: 360px;
+}
+
+.hover-slide-template-element .hover-slide-group,
+.hover-slide-template-element .hover-slide-group-canvas {
+  min-height: 100%;
+  height: 100%;
+}
+
+body.preview-mode .hover-slide-template-element > .move-handle,
+body.preview-mode .hover-slide-template-element > .element-toolbar,
+body.preview-mode .hover-slide-template-element > .resize-handle,
+body.exported-site .hover-slide-template-element > .move-handle,
+body.exported-site .hover-slide-template-element > .element-toolbar,
+body.exported-site .hover-slide-template-element > .resize-handle {
+  display: none !important;
+}
+
+
+/* v67：顏色與透明度放在同一組色彩設定裡 */
+.color-opacity-row {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.color-opacity-control {
+  display: grid;
+  grid-template-columns: auto 1fr 64px auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+/* v67：元件滑鼠換色效果 */
+.free-element[data-hover-color-enabled="true"] {
+  transition:
+    color .22s ease,
+    background-color .22s ease,
+    background .22s ease,
+    filter .22s ease,
+    transform .22s ease;
+}
+
+body.preview-mode .free-element[data-hover-color-enabled="true"]:hover,
+body.exported-site .free-element[data-hover-color-enabled="true"]:hover,
+.free-element[data-hover-color-enabled="true"].hover-color-effect-preview:hover {
+  color: var(--element-hover-text-color, #ffffff) !important;
+  background: var(--element-hover-bg-color, #0d6efd) !important;
+}
+
+body.preview-mode .free-element[data-hover-color-enabled="true"]:hover .inner,
+body.exported-site .free-element[data-hover-color-enabled="true"]:hover .inner,
+body.preview-mode .free-element[data-hover-color-enabled="true"]:hover a,
+body.exported-site .free-element[data-hover-color-enabled="true"]:hover a {
+  color: var(--element-hover-text-color, #ffffff) !important;
+}
+
+/* v67：下拉式選項樣式模板 */
+.accordion-dropdown-template {
+  overflow: visible !important;
+}
+
+.accordion-dropdown-inner {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  background: #ffffff;
+  border: 1px solid #e6eaf0;
+  border-radius: inherit;
+  box-shadow: 0 14px 36px rgba(15,23,42,.08);
+  padding: 18px;
+}
+
+.accordion-editor-panel {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  width: max-content;
+  max-width: none;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  border: 1px solid #dfe5ef;
+  border-radius: 999px;
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 10px 24px rgba(15,23,42,.08);
+  z-index: 5;
+}
+
+.accordion-item-template {
+  border: 1px solid #dfe5ef;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  margin-bottom: 10px;
+}
+
+.accordion-item-head {
+  width: 100%;
+  border: 0;
+  background: #f8f9fa;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-weight: 700;
+  color: #212529;
+  cursor: pointer;
+}
+
+.accordion-item-head::after {
+  content: "⌄";
+  transition: transform .22s ease;
+}
+
+.accordion-item-template.open .accordion-item-head::after {
+  transform: rotate(180deg);
+}
+
+.accordion-item-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .28s ease;
+}
+
+.accordion-item-template.open .accordion-item-body {
+  max-height: 420px;
+}
+
+.accordion-item-content {
+  padding: 16px;
+  color: #495057;
+  line-height: 1.7;
+}
+
+/* v67：滑鼠上滑換組工具列固定橫向，不因元件大小換行或卡在內容裡 */
+.hover-slide-template-element .hover-slide-editor-panel,
+.js-css-hover-slide-groups .hover-slide-editor-panel {
+  position: absolute !important;
+  left: 0 !important;
+  top: -58px !important;
+  right: auto !important;
+  transform: none !important;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+  width: max-content !important;
+  max-width: none !important;
+  z-index: 120 !important;
+  overflow: visible !important;
+}
+
+.hover-slide-template-element,
+.js-css-hover-slide-groups {
+  overflow: visible !important;
+}
+
+
+/* v68：預覽返回編輯按鈕固定在右下角，不能被 no-export 或預覽隱藏規則蓋掉 */
+#floatingExitPreviewBtn,
+#exitPreviewBtn {
+  display: none !important;
+}
+
+body.preview-mode #floatingExitPreviewBtn,
+body.preview-mode #exitPreviewBtn {
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  position: fixed !important;
+  right: 24px !important;
+  bottom: 24px !important;
+  top: auto !important;
+  left: auto !important;
+  z-index: 2147483647 !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  box-shadow: 0 14px 34px rgba(15,23,42,.28);
+}
+
+/* 若兩個按鈕都存在，只顯示專用 floating 按鈕，避免重疊 */
+body.preview-mode #exitPreviewBtn {
+  display: none !important;
+}
+
+body.preview-mode #floatingExitPreviewBtn {
+  display: inline-flex !important;
+}
+
+body:not(.preview-mode) #floatingExitPreviewBtn,
+body:not(.preview-mode) #exitPreviewBtn {
+  display: none !important;
+}
+
+
+/* v69：顏色透明度操作方式回到 v61，不再強制使用合併色彩列 */
+.color-opacity-row {
+  display: block;
+}
+
+.color-opacity-control {
+  display: block;
+}
+
+/* v69：滑鼠上滑換組的組別工具列移到元件移動工具列上方，不互相覆蓋 */
+.hover-slide-template-element .hover-slide-editor-panel,
+.js-css-hover-slide-groups .hover-slide-editor-panel {
+  position: absolute !important;
+  left: 0 !important;
+  top: -112px !important;
+  right: auto !important;
+  transform: none !important;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  white-space: nowrap !important;
+  width: max-content !important;
+  max-width: none !important;
+  z-index: 130 !important;
+  overflow: visible !important;
+  padding: 8px 10px !important;
+}
+
+.hover-slide-template-element > .element-toolbar,
+.js-css-hover-slide-groups > .element-toolbar {
+  top: -54px !important;
+  z-index: 120 !important;
+}
+
+/* 若空間不足，仍保持橫向排列，允許畫布水平捲動 */
+.canvas-area {
+  overflow: auto;
+}
+
+/* v69：讓一般按鈕 / Bootstrap 按鈕的文字顏色可被元件文字顏色覆蓋 */
+.free-element .inner button,
+.free-element .inner .btn,
+.free-element .inner a,
+.free-element .accordion-item-head {
+  color: inherit;
+}
+
+
+/* v70：所有工具列在未選取 / 未滑過時隱藏 */
+body:not(.preview-mode) .html-block > .editor-actions,
+body:not(.preview-mode) .free-element > .move-handle,
+body:not(.preview-mode) .free-element > .element-toolbar,
+body:not(.preview-mode) .free-element > .resize-handle,
+body:not(.preview-mode) .carousel-editor-panel,
+body:not(.preview-mode) .select-switcher-editor-panel,
+body:not(.preview-mode) .vertical-carousel-editor-panel,
+body:not(.preview-mode) .hover-slide-editor-panel,
+body:not(.preview-mode) .accordion-editor-panel {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body:not(.preview-mode) .html-block:hover > .editor-actions,
+body:not(.preview-mode) .html-block.selected > .editor-actions,
+body:not(.preview-mode) .free-element:hover > .move-handle,
+body:not(.preview-mode) .free-element.selected > .move-handle,
+body:not(.preview-mode) .free-element.multi-selected > .move-handle,
+body:not(.preview-mode) .free-element:hover > .element-toolbar,
+body:not(.preview-mode) .free-element.selected > .element-toolbar,
+body:not(.preview-mode) .free-element.multi-selected > .element-toolbar,
+body:not(.preview-mode) .free-element:hover > .resize-handle,
+body:not(.preview-mode) .free-element.selected > .resize-handle,
+body:not(.preview-mode) .free-element.multi-selected > .resize-handle,
+body:not(.preview-mode) .html-block:hover .carousel-editor-panel,
+body:not(.preview-mode) .html-block.selected .carousel-editor-panel,
+body:not(.preview-mode) .free-element:hover .carousel-editor-panel,
+body:not(.preview-mode) .free-element.selected .carousel-editor-panel,
+body:not(.preview-mode) .html-block:hover .select-switcher-editor-panel,
+body:not(.preview-mode) .html-block.selected .select-switcher-editor-panel,
+body:not(.preview-mode) .free-element:hover .select-switcher-editor-panel,
+body:not(.preview-mode) .free-element.selected .select-switcher-editor-panel,
+body:not(.preview-mode) .html-block:hover .vertical-carousel-editor-panel,
+body:not(.preview-mode) .html-block.selected .vertical-carousel-editor-panel,
+body:not(.preview-mode) .free-element:hover .vertical-carousel-editor-panel,
+body:not(.preview-mode) .free-element.selected .vertical-carousel-editor-panel,
+body:not(.preview-mode) .free-element:hover .hover-slide-editor-panel,
+body:not(.preview-mode) .free-element.selected .hover-slide-editor-panel,
+body:not(.preview-mode) .html-block:hover .hover-slide-editor-panel,
+body:not(.preview-mode) .html-block.selected .hover-slide-editor-panel,
+body:not(.preview-mode) .free-element:hover .accordion-editor-panel,
+body:not(.preview-mode) .free-element.selected .accordion-editor-panel {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* v70：滑鼠上滑換組工具列在移動工具列上方，且固定橫向不覆蓋 */
+.hover-slide-template-element .hover-slide-editor-panel,
+.js-css-hover-slide-groups .hover-slide-editor-panel {
+  top: -122px !important;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  white-space: nowrap !important;
+  width: max-content !important;
+  max-width: none !important;
+  overflow: visible !important;
+  z-index: 150 !important;
+}
+
+.hover-slide-template-element > .move-handle,
+.js-css-hover-slide-groups > .move-handle {
+  top: -58px !important;
+  z-index: 140 !important;
+}
+
+.hover-slide-template-element > .element-toolbar,
+.js-css-hover-slide-groups > .element-toolbar {
+  top: -58px !important;
+  z-index: 140 !important;
+}
+
+/* v70：按鈕 / 連結文字顏色可正常跟著設定與 hover 換色 */
+.free-element {
+  --element-text-color: inherit;
+  --element-hover-text-color: inherit;
+}
+
+.free-element > .inner,
+.free-element > .inner a,
+.free-element > .inner button,
+.free-element > .inner .btn,
+.free-element .accordion-item-head,
+.free-element .accordion-item-head span {
+  color: var(--element-text-color, inherit) !important;
+}
+
+.free-element[data-type="button"] > .inner,
+.free-element[data-type="button"] > .inner a,
+.free-element[data-type="button"] > .inner button,
+.free-element[data-type="button"] > .inner .btn {
+  text-decoration: none !important;
+}
+
+body.preview-mode .free-element[data-hover-color-enabled="true"]:hover,
+body.exported-site .free-element[data-hover-color-enabled="true"]:hover,
+.free-element[data-hover-color-enabled="true"].hover-color-effect-preview:hover {
+  background: var(--element-hover-bg-color, #0d6efd) !important;
+  color: var(--element-hover-text-color, #ffffff) !important;
+}
+
+body.preview-mode .free-element[data-hover-color-enabled="true"]:hover > .inner,
+body.preview-mode .free-element[data-hover-color-enabled="true"]:hover > .inner *,
+body.exported-site .free-element[data-hover-color-enabled="true"]:hover > .inner,
+body.exported-site .free-element[data-hover-color-enabled="true"]:hover > .inner *,
+.free-element[data-hover-color-enabled="true"].hover-color-effect-preview:hover > .inner,
+.free-element[data-hover-color-enabled="true"].hover-color-effect-preview:hover > .inner * {
+  color: var(--element-hover-text-color, #ffffff) !important;
+}
+
+/* v70：下拉自動收合模板內部項目也可選取、移動、編輯 */
+.accordion-list-canvas {
+  position: relative;
+  min-height: 330px;
+  overflow: visible;
+  border: 1px dashed rgba(13, 110, 253, .16);
+  border-radius: 14px;
+  padding: 0;
+}
+
+.accordion-dropdown-template .accordion-item-template {
+  position: absolute;
+  overflow: visible;
+}
+
+.accordion-item-inner {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.accordion-item-head {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  background: #f8f9fa;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+}
+
+.accordion-item-head::after {
+  content: "⌄";
+  transition: transform .22s ease;
+}
+
+.accordion-item-template.open .accordion-item-head::after {
+  transform: rotate(180deg);
+}
+
+.accordion-item-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .28s ease;
+  background: #fff;
+}
+
+.accordion-item-template.open .accordion-item-body {
+  max-height: 360px;
+}
+
+.accordion-item-content {
+  padding: 14px 16px;
+  color: inherit;
+  line-height: 1.7;
+}
+
+
+/* v71：區塊工具列只有點進去選取區塊後才顯示，滑過不顯示 */
+body:not(.preview-mode) .html-block:hover > .editor-actions {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body:not(.preview-mode) .html-block.selected > .editor-actions {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* v71：一般元件工具列仍需選取或滑到元件才顯示 */
+body:not(.preview-mode) .free-element:not(:hover):not(.selected):not(.multi-selected) > .move-handle,
+body:not(.preview-mode) .free-element:not(:hover):not(.selected):not(.multi-selected) > .element-toolbar,
+body:not(.preview-mode) .free-element:not(:hover):not(.selected):not(.multi-selected) > .resize-handle {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* v71：下拉自動收合模板功能工具列在選取模板或滑過模板時才出現 */
+body:not(.preview-mode) .accordion-dropdown-template:not(:hover):not(.selected):not(:has(.accordion-item-template.selected)) .accordion-editor-panel {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body:not(.preview-mode) .accordion-dropdown-template:hover .accordion-editor-panel,
+body:not(.preview-mode) .accordion-dropdown-template.selected .accordion-editor-panel,
+body:not(.preview-mode) .accordion-dropdown-template:has(.accordion-item-template.selected) .accordion-editor-panel {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* v71：按鈕文字顏色，避免 Bootstrap 類別造成只出現底線或沒有換色 */
+.free-element > .inner,
+.free-element > .inner *,
+.free-element .accordion-item-head,
+.free-element .accordion-item-head * {
+  color: var(--element-text-color, inherit) !important;
+}
+
+.free-element > .inner a,
+.free-element > .inner button,
+.free-element > .inner .btn {
+  text-decoration: none !important;
+}
+
+body.preview-mode .free-element[data-hover-color-enabled="true"]:hover,
+body.exported-site .free-element[data-hover-color-enabled="true"]:hover,
+.free-element[data-hover-color-enabled="true"].hover-color-effect-preview:hover {
+  background: var(--element-hover-bg-color, #0d6efd) !important;
+  color: var(--element-hover-text-color, #ffffff) !important;
+}
+
+body.preview-mode .free-element[data-hover-color-enabled="true"]:hover > .inner,
+body.preview-mode .free-element[data-hover-color-enabled="true"]:hover > .inner *,
+body.exported-site .free-element[data-hover-color-enabled="true"]:hover > .inner,
+body.exported-site .free-element[data-hover-color-enabled="true"]:hover > .inner *,
+.free-element[data-hover-color-enabled="true"].hover-color-effect-preview:hover > .inner,
+.free-element[data-hover-color-enabled="true"].hover-color-effect-preview:hover > .inner * {
+  color: var(--element-hover-text-color, #ffffff) !important;
+}
+
+/* v71：下拉自動收合模板下拉出的區塊可作為元件編輯與移動 */
+.accordion-dropdown-template .accordion-item-template {
+  cursor: default;
+}
+
+.accordion-dropdown-template .accordion-item-template.selected {
+  outline: 2px solid #0d6efd !important;
+}
+
+.accordion-editor-panel {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+  white-space: nowrap !important;
+  width: max-content !important;
+  max-width: none !important;
+  overflow: visible !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: -58px !important;
+  z-index: 150 !important;
+}
+
+
+/* v72：JS 類工具列只有真正選取該 JS 區塊 / 模板時才顯示 */
+/* 先全部隱藏，覆蓋舊版 hover 顯示規則 */
+body:not(.preview-mode) .html-block:hover .carousel-editor-panel,
+body:not(.preview-mode) .html-block:hover .select-switcher-editor-panel,
+body:not(.preview-mode) .html-block:hover .vertical-carousel-editor-panel,
+body:not(.preview-mode) .html-block:hover .hover-slide-editor-panel,
+body:not(.preview-mode) .html-block:hover .accordion-editor-panel,
+body:not(.preview-mode) .free-element:hover .carousel-editor-panel,
+body:not(.preview-mode) .free-element:hover .select-switcher-editor-panel,
+body:not(.preview-mode) .free-element:hover .vertical-carousel-editor-panel,
+body:not(.preview-mode) .free-element:hover .hover-slide-editor-panel,
+body:not(.preview-mode) .free-element:hover .accordion-editor-panel,
+body:not(.preview-mode) .js-css-card-carousel:not(.selected) .carousel-editor-panel,
+body:not(.preview-mode) .js-css-select-switcher:not(.selected) .select-switcher-editor-panel,
+body:not(.preview-mode) .js-css-vertical-news-carousel:not(.selected) .vertical-carousel-editor-panel,
+body:not(.preview-mode) .js-css-hover-slide-groups:not(.selected) .hover-slide-editor-panel,
+body:not(.preview-mode) .accordion-dropdown-template:not(.selected) .accordion-editor-panel,
+body:not(.preview-mode) .accordion-dropdown-template:has(.accordion-item-template.selected) .accordion-editor-panel {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* 只有選取 JS 外層本身時顯示 */
+body:not(.preview-mode) .js-css-card-carousel.selected .carousel-editor-panel,
+body:not(.preview-mode) .js-css-select-switcher.selected .select-switcher-editor-panel,
+body:not(.preview-mode) .js-css-vertical-news-carousel.selected .vertical-carousel-editor-panel,
+body:not(.preview-mode) .js-css-hover-slide-groups.selected .hover-slide-editor-panel,
+body:not(.preview-mode) .accordion-dropdown-template.selected .accordion-editor-panel {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* 區塊工具列：只有選取區塊本身後才顯示，滑過不顯示 */
+body:not(.preview-mode) .html-block:hover > .editor-actions {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body:not(.preview-mode) .html-block.selected > .editor-actions {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* v72：下拉自動收合模板開關行為回到 v69 */
+.accordion-item-template.open .accordion-item-body {
+  max-height: 420px !important;
+}
+
+.accordion-item-template:not(.open) .accordion-item-body {
+  max-height: 0 !important;
+}
+
+
+/* v73：下拉自動收合模板選項改回直向分開排列，不再擠在一起 */
+.accordion-dropdown-template .accordion-list-canvas,
+.accordion-dropdown-template .accordion-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  position: relative !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background-image: none !important;
+}
+
+.accordion-dropdown-template .accordion-item-template {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 54px !important;
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+}
+
+.accordion-dropdown-template .accordion-item-inner {
+  width: 100% !important;
+  height: auto !important;
+}
+
+.accordion-dropdown-template .accordion-item-head {
+  width: 100% !important;
+  min-height: 52px !important;
+}
+
+.accordion-dropdown-template .accordion-item-body {
+  max-height: 0 !important;
+  overflow: hidden !important;
+  transition: max-height .28s ease !important;
+}
+
+.accordion-dropdown-template .accordion-item-template.open .accordion-item-body {
+  max-height: 420px !important;
+}
+
+/* v73：垂直輪播工具列顯示修正，只在選取外層垂直輪播模板 / 區塊時顯示 */
+body:not(.preview-mode) .vertical-carousel-editor-panel,
+body:not(.preview-mode) .vertical-news-editor-panel,
+body:not(.preview-mode) .js-css-vertical-news-carousel:not(.selected) .vertical-carousel-editor-panel,
+body:not(.preview-mode) .js-css-vertical-news-carousel:not(.selected) .vertical-news-editor-panel,
+body:not(.preview-mode) .html-block:hover .vertical-carousel-editor-panel,
+body:not(.preview-mode) .html-block:hover .vertical-news-editor-panel,
+body:not(.preview-mode) .free-element:hover .vertical-carousel-editor-panel,
+body:not(.preview-mode) .free-element:hover .vertical-news-editor-panel {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body:not(.preview-mode) .js-css-vertical-news-carousel.selected .vertical-carousel-editor-panel,
+body:not(.preview-mode) .js-css-vertical-news-carousel.selected .vertical-news-editor-panel,
+body:not(.preview-mode) .html-block.js-css-vertical-news-carousel.selected .vertical-carousel-editor-panel,
+body:not(.preview-mode) .html-block.js-css-vertical-news-carousel.selected .vertical-news-editor-panel,
+body:not(.preview-mode) .free-element.js-css-vertical-news-carousel.selected .vertical-carousel-editor-panel,
+body:not(.preview-mode) .free-element.js-css-vertical-news-carousel.selected .vertical-news-editor-panel {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* 內部項目選取時，不顯示垂直輪播外層工具列 */
+body:not(.preview-mode) .js-css-vertical-news-carousel:has(.free-element.selected:not(.js-css-vertical-news-carousel)) .vertical-carousel-editor-panel,
+body:not(.preview-mode) .js-css-vertical-news-carousel:has(.free-element.selected:not(.js-css-vertical-news-carousel)) .vertical-news-editor-panel {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+
+/* v74：匯出網站完全移除編輯控制，圖片不能出現移動鍵 */
+body.exported-site .no-export,
+body.exported-site .editor-actions,
+body.exported-site .move-handle,
+body.exported-site .element-toolbar,
+body.exported-site .resize-handle,
+body.exported-site .zone-label,
+body.exported-site .zone-empty,
+body.exported-site .block-label,
+body.exported-site .block-empty,
+body.exported-site .group-empty,
+body.exported-site .select-switcher-empty-group,
+body.exported-site .hover-slide-empty-group,
+body.exported-site .accordion-editor-panel,
+body.exported-site .carousel-editor-panel,
+body.exported-site .select-switcher-editor-panel,
+body.exported-site .vertical-carousel-editor-panel,
+body.exported-site .vertical-news-editor-panel,
+body.exported-site .hover-slide-editor-panel,
+body.exported-site .alignment-guide,
+body.exported-site [data-element-action],
+body.exported-site [data-block-action],
+body.exported-site [data-resize],
+body.exported-site [data-accordion-action],
+body.exported-site [data-carousel-action],
+body.exported-site [data-select-switcher-action],
+body.exported-site [data-vertical-carousel-action],
+body.exported-site [data-hover-slide-action] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.exported-site .html-block,
+body.exported-site .html-block:hover,
+body.exported-site .html-block.selected,
+body.exported-site .free-element,
+body.exported-site .free-element:hover,
+body.exported-site .free-element.selected,
+body.exported-site .free-element.multi-selected,
+body.exported-site .free-element.has-selected-child {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+body.exported-site [contenteditable],
+body.exported-site [data-editable-text] {
+  -webkit-user-modify: read-only !important;
+  user-select: auto !important;
+}
+
+body.exported-site .editable-image,
+body.exported-site .free-element[data-type="image"],
+body.exported-site .free-element[data-type="image"] .inner {
+  cursor: default !important;
+}
+
+
+/* v75：匯出與預覽一致，圖片 / 元件不顯示移動游標 */
+body.preview-mode .free-element,
+body.preview-mode .free-element *,
+body.preview-mode .editable-image,
+body.preview-mode .free-element[data-type="image"],
+body.preview-mode .free-element[data-type="image"] *,
+body.exported-site .free-element,
+body.exported-site .free-element *,
+body.exported-site .editable-image,
+body.exported-site .free-element[data-type="image"],
+body.exported-site .free-element[data-type="image"] *,
+body.exported-site img,
+body.exported-site picture,
+body.exported-site figure {
+  cursor: default !important;
+}
+
+/* 正式網站中只有真正可點擊的元素顯示手指游標 */
+body.preview-mode a[href],
+body.preview-mode button,
+body.preview-mode [role="button"],
+body.preview-mode [data-link-enabled="true"],
+body.preview-mode [data-css-scroll-enabled="true"],
+body.preview-mode [data-css-page-enabled="true"],
+body.exported-site a[href],
+body.exported-site button,
+body.exported-site [role="button"],
+body.exported-site [data-link-enabled="true"],
+body.exported-site [data-css-scroll-enabled="true"],
+body.exported-site [data-css-page-enabled="true"],
+body.exported-site .carousel-nav-btn,
+body.exported-site .carousel-dot,
+body.exported-site .accordion-item-head,
+body.exported-site [data-side-drawer-toggle] {
+  cursor: pointer !important;
+}
+
+/* 但圖片本身即使在連結裡，也不變成移動游標 */
+body.preview-mode a[href] img,
+body.preview-mode a[href] .editable-image,
+body.exported-site a[href] img,
+body.exported-site a[href] .editable-image {
+  cursor: pointer !important;
+}
+
+/* 匯出網站再次保險：任何編輯器拖移控制都不可見也不可互動 */
+body.exported-site .move-handle,
+body.exported-site .element-toolbar,
+body.exported-site .resize-handle,
+body.exported-site .editor-actions,
+body.exported-site [data-element-action],
+body.exported-site [data-block-action],
+body.exported-site [data-resize] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
+
+/* v76：橫向輪播露出下一組樣式補強 */
+.js-css-card-carousel[data-carousel-layout="peek"] .custom-carousel,
+.custom-carousel[data-layout="peek"] {
+  overflow: visible !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="peek"] .carousel-viewport,
+.custom-carousel[data-layout="peek"] .carousel-viewport {
+  overflow: hidden !important;
+  width: 100% !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="peek"] .carousel-track,
+.custom-carousel[data-layout="peek"] .carousel-track {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: var(--carousel-slide-gap, 4%) !important;
+  transition: transform .35s ease !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="peek"] .carousel-slide,
+.custom-carousel[data-layout="peek"] .carousel-slide {
+  flex: 0 0 var(--carousel-slide-width, 84%) !important;
+  width: var(--carousel-slide-width, 84%) !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="full"] .carousel-track,
+.custom-carousel[data-layout="full"] .carousel-track {
+  gap: 0 !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="full"] .carousel-slide,
+.custom-carousel[data-layout="full"] .carousel-slide {
+  flex: 0 0 100% !important;
+  width: 100% !important;
+}
+
+/* v76：形狀與一般元件對齊輔助線補強 */
+body:not(.preview-mode) .alignment-guide {
+  position: absolute !important;
+  display: none;
+  pointer-events: none !important;
+  z-index: 2147483000 !important;
+  background: #0d6efd !important;
+  box-shadow: 0 0 0 1px rgba(13,110,253,.25);
+}
+
+body:not(.preview-mode) .alignment-guide.vertical {
+  width: 1px !important;
+  top: 0 !important;
+  bottom: 0 !important;
+}
+
+body:not(.preview-mode) .alignment-guide.horizontal {
+  height: 1px !important;
+  left: 0 !important;
+  right: 0 !important;
+}
+
+body:not(.preview-mode) .alignment-guide.center-guide {
+  background: #20c997 !important;
+}
+
+/* v76：圖片裁切工具基本效果 */
+.free-element[data-type="image"] {
+  overflow: hidden;
+}
+
+.free-element[data-type="image"] .editable-image {
+  will-change: transform, filter;
+}
+
+/* v76：圖片黑白滑入彩色不被覆蓋物件擋住 */
+body.preview-mode .free-element[data-type="image"][data-grayscale-hover="true"],
+body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"] {
+  z-index: 9990 !important;
+  pointer-events: auto !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-grayscale-hover="true"]:hover,
+body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"]:hover {
+  z-index: 99999 !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-grayscale-hover="true"]:hover .editable-image,
+body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"]:hover .editable-image {
+  filter: grayscale(0) !important;
+}
+
+/* v76：快速翻轉 / 旋轉保留中心點 */
+.free-element {
+  transform-origin: center center;
+}
+
+
+/* v77：形狀拖曳也跟圖片一樣顯示對齊輔助線 */
+body:not(.preview-mode) .block-canvas > .alignment-guide {
+  display: none;
+  position: absolute !important;
+  pointer-events: none !important;
+  z-index: 2147483000 !important;
+  background: #0d6efd !important;
+}
+
+body:not(.preview-mode) .block-canvas > .alignment-guide.vertical {
+  width: 2px !important;
+  top: 0 !important;
+  bottom: 0 !important;
+}
+
+body:not(.preview-mode) .block-canvas > .alignment-guide.horizontal {
+  height: 2px !important;
+  left: 0 !important;
+  right: 0 !important;
+}
+
+body:not(.preview-mode) .block-canvas > .alignment-guide.center-guide {
+  background: #20c997 !important;
+}
+
+/* v77：即時存檔狀態 */
+.autosave-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid #e6eaf0;
+  border-radius: 999px;
+  background: #fff;
+  color: #6c757d;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.autosave-status.is-saving {
+  color: #0d6efd;
+  border-color: rgba(13,110,253,.28);
+  background: rgba(13,110,253,.06);
+}
+
+.autosave-status.is-saved {
+  color: #198754;
+  border-color: rgba(25,135,84,.28);
+  background: rgba(25,135,84,.06);
+}
+
+.autosave-status.is-error {
+  color: #dc3545;
+  border-color: rgba(220,53,69,.28);
+  background: rgba(220,53,69,.06);
+}
+
+
+/* v78：圖片圓角設定 */
+.free-element[data-type="image"] .editable-image {
+  border-radius: inherit;
+}
+
+/* v78：下拉自動收合模板背景可套用元件背景色與透明度 */
+.accordion-dropdown-template .accordion-dropdown-inner {
+  background: inherit;
+  border-radius: inherit;
+  backdrop-filter: inherit;
+  -webkit-backdrop-filter: inherit;
+}
+
+.accordion-item-template .accordion-item-inner,
+.accordion-item-template .accordion-item-head,
+.accordion-item-template .accordion-item-body,
+.accordion-item-template .accordion-item-content {
+  background: inherit;
+  border-radius: inherit;
+}
+
+/* v78：所有元件背景毛玻璃 / 玻璃材質 */
+.free-element[data-element-material="frosted"],
+.free-element[data-element-material="frosted"] > .inner {
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+}
+
+.free-element[data-element-material="glass"],
+.free-element[data-element-material="glass"] > .inner {
+  backdrop-filter: blur(8px) saturate(155%);
+  -webkit-backdrop-filter: blur(8px) saturate(155%);
+}
+
+.free-element[data-element-material="frosted"],
+.free-element[data-element-material="glass"] {
+  border: 1px solid rgba(255,255,255,.38);
+}
+
+/* v78：上傳字體後，套用到元件內所有文字節點 */
+.free-element > .inner,
+.free-element > .inner * {
+  font-family: inherit;
+}
+
+/* v78：橫向輪播設定的一般 / 露出下一張 */
+.js-css-card-carousel[data-carousel-layout="peek"] .custom-carousel,
+.custom-carousel[data-layout="peek"] {
+  overflow: visible !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="peek"] .carousel-track,
+.custom-carousel[data-layout="peek"] .carousel-track {
+  gap: var(--carousel-slide-gap, 4%) !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="peek"] .carousel-slide,
+.custom-carousel[data-layout="peek"] .carousel-slide {
+  flex: 0 0 var(--carousel-slide-width, 84%) !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="full"] .carousel-track,
+.custom-carousel[data-layout="full"] .carousel-track {
+  gap: 0 !important;
+}
+
+.js-css-card-carousel[data-carousel-layout="full"] .carousel-slide,
+.custom-carousel[data-layout="full"] .carousel-slide {
+  flex: 0 0 100% !important;
+}
+
+
+/* v79：下拉自動收合模板每個選項可自訂標題 / 內容背景 */
+.accordion-item-template .accordion-item-head {
+  background: var(--accordion-head-bg, #f8f9fa) !important;
+}
+
+.accordion-item-template .accordion-item-body,
+.accordion-item-template .accordion-item-content {
+  background: var(--accordion-body-bg, #ffffff) !important;
+}
+
+/* v79：下拉式選項旁邊 ICON 可開關 */
+.accordion-dropdown-template[data-accordion-icon-visible="false"] .accordion-item-head::after {
+  display: none !important;
+  content: "" !important;
+}
+
+/* v79：滑鼠移到標題自動展開時，標題保留可操作游標 */
+.accordion-dropdown-template[data-accordion-hover-open="true"] .accordion-item-head {
+  cursor: pointer !important;
+}
+
+/* v79：一般 select option 背景色保留 */
+.editable-select option {
+  background-color: inherit;
+}
+
+
+/* v80：下拉式元件單一選項標題 / 內容背景設定 */
+.editable-select {
+  transition: background-color .18s ease, color .18s ease;
+}
+
+.select-option-style-panel {
+  border: 1px solid #e6eaf0;
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(248,249,250,.72);
+}
+
+/* v80：導覽列下拉標題模板 */
+.nav-dropdown {
+  overflow: visible !important;
+}
+
+.nav-dropdown-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.nav-dropdown-title {
+  width: 100%;
+  height: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid #e6eaf0;
+  border-radius: inherit;
+  background: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nav-dropdown-title::after {
+  content: "⌄";
+  font-size: .9em;
+  transition: transform .18s ease;
+}
+
+.nav-dropdown:hover .nav-dropdown-title::after {
+  transform: rotate(180deg);
+}
+
+.nav-dropdown-menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid #e6eaf0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(15,23,42,.14);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease, visibility .18s ease;
+  z-index: 9999;
+}
+
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown:focus-within .nav-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.nav-dropdown-option {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  text-align: left;
+  background: #ffffff;
+  color: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.nav-dropdown-option:hover {
+  filter: brightness(.96);
+}
+
+/* v80：避免調色時連續重繪造成卡頓 */
+.editor-inspector input[type="color"],
+.editor-inspector input[type="range"] {
+  will-change: auto;
+}
+
+
+/* v81：導覽列下拉標題不要 icon */
+.nav-dropdown-title::after {
+  display: none !important;
+  content: "" !important;
+}
+
+/* v81：移到下拉選項前不會先收起 */
+.nav-dropdown {
+  padding-bottom: 12px;
+}
+
+.nav-dropdown-menu {
+  top: 100% !important;
+}
+
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown:focus-within .nav-dropdown-menu,
+.nav-dropdown.menu-open .nav-dropdown-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+
+/* v81：單一選項樣式新增邊框設定 */
+.select-option-style-panel .quick-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.nav-dropdown-option,
+.nav-dropdown-title,
+.editable-select {
+  box-sizing: border-box;
+}
+
+/* v81：所有元件字體都可被設定面板套用 */
+.free-element,
+.free-element > .inner,
+.free-element > .inner *,
+.free-element input,
+.free-element select,
+.free-element button,
+.free-element textarea {
+  font-family: inherit;
+}
+
+/* v82：下拉選項回到 V78 + 新增多樣式 */
+.free-element[data-dropdown-style-mode="v78"] .editable-select,
+.editable-select[data-dropdown-style-mode="v78"] {
+  appearance: auto;
+}
+
+.free-element[data-dropdown-style-mode="hover-title"] .editable-select,
+.editable-select.dropdown-style-hover-title {
+  cursor: pointer;
+}
+
+.free-element[data-dropdown-style-mode="vertical-list"] .editable-select,
+.editable-select.dropdown-style-vertical-list {
+  min-height: 120px;
+}
+
+/* v82：導覽列標題型下拉材質與垂直並排 */
+.nav-dropdown[data-nav-style-mode="vertical-list"] .nav-dropdown-menu {
+  position: relative;
+  top: 8px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+
+.nav-dropdown[data-nav-style-mode="hover-title"] .nav-dropdown-menu {
+  position: absolute;
+}
+
+/* v82：文字透明度由 rgba 寫入，避免繼承失效 */
+.free-element > .inner,
+.free-element > .inner * {
+  color: inherit;
+}
+
+/* v82：區塊獨立圖層表拖拉 */
+.layer-item[draggable="true"] {
+  cursor: grab;
+}
+
+.layer-item[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* v82：鎖定 / 解鎖更直覺 */
+.free-element.is-locked {
+  outline: 2px dashed rgba(25,135,84,.55) !important;
+}
+
+.free-element.is-locked > .move-handle span:first-child::after {
+  content: " 🔒";
+}
+
+/* v82：選色效能 */
+.editor-inspector input[type="color"] {
+  contain: layout paint;
+}
+
+/* v83：多選平均分配功能只在 3 個以上出現 */
+.multi-distribute-tools.d-none {
+  display: none !important;
+}
+
+/* v83：圖層表左側拖拉把手 */
+.layer-item {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+}
+
+.layer-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  color: #6c757d;
+  background: rgba(108,117,125,.12);
+  cursor: grab;
+  user-select: none;
+  font-size: 12px;
+}
+
+.layer-drag-placeholder {
+  background: transparent;
+  cursor: default;
+}
+
+.layer-item.dragging {
+  opacity: .55;
+}
+
+.layer-item.drag-over {
+  outline: 2px solid rgba(13,110,253,.5);
+  background: rgba(13,110,253,.08);
+}
+
+.layer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* v83：多選鎖定時每個元件都顯示鎖定狀態 */
+.free-element.is-locked {
+  outline: 2px dashed rgba(25,135,84,.65) !important;
+}
+
+/* v84：備份匯入按鈕 */
+#importBackupBtn {
+  white-space: nowrap;
+}
+
+/* v85：手動存檔狀態 */
+.manual-save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid #e6eaf0;
+  border-radius: 999px;
+  background: #fff;
+  color: #6c757d;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.manual-save-status.is-saving {
+  color: #0d6efd;
+  border-color: rgba(13,110,253,.28);
+  background: rgba(13,110,253,.06);
+}
+
+.manual-save-status.is-saved {
+  color: #198754;
+  border-color: rgba(25,135,84,.28);
+  background: rgba(25,135,84,.06);
+}
+
+.manual-save-status.is-backup {
+  color: #fd7e14;
+  border-color: rgba(253,126,20,.32);
+  background: rgba(253,126,20,.08);
+}
+
+.manual-save-status.is-error {
+  color: #dc3545;
+  border-color: rgba(220,53,69,.28);
+  background: rgba(220,53,69,.06);
+}
+
+</style>
+</head>
+
+<body>
+  <header class="editor-topbar no-export">
+    <div class="editor-title">
+      <i class="bi bi-bounding-box-circles me-1"></i>
+      自訂網站編輯器</div>
+
+    <div class="page-manager no-export">
+      <select class="form-select form-select-sm" id="pageSelect" title="目前頁面">
+        <option value="home">首頁</option>
+      </select>
+
+      <button class="btn btn-outline-secondary btn-sm" id="addPageBtn">
+        <i class="bi bi-file-earmark-plus"></i> 新增子頁面
+      </button>
+
+      <button class="btn btn-outline-secondary btn-sm" id="renamePageBtn">
+        <i class="bi bi-pencil"></i> 改名
+      </button>
+
+      <button class="btn btn-outline-danger btn-sm" id="deletePageBtn">
+        <i class="bi bi-x-circle"></i> 刪除
+      </button>
+    </div>
+
+    <div class="topbar-actions">
+      <div class="sidebar-collapse-controls no-export" title="側邊欄隱藏 / 顯示">
+        <button class="btn btn-outline-secondary btn-sm" id="toggleLeftSidebarBtn">
+          <i class="bi bi-layout-sidebar-inset"></i> 隱藏左側欄
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" id="toggleRightSidebarBtn">
+          <i class="bi bi-layout-sidebar-inset-reverse"></i> 隱藏右側欄
+        </button>
+      </div>
+
+      
+      <div class="responsive-device-controls no-export" title="響應式編輯尺寸">
+        <button class="btn btn-outline-secondary btn-sm active" data-device-mode="desktop">
+          <i class="bi bi-display"></i> 桌機
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" data-device-mode="tablet">
+          <i class="bi bi-tablet"></i> 平板
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" data-device-mode="mobile">
+          <i class="bi bi-phone"></i> 手機
+        </button>
+      </div>
+
+      <button class="btn btn-outline-secondary btn-sm" id="saveBtn">
+        <i class="bi bi-save"></i> 儲存
+      </button>
+
+      <span class="manual-save-status no-export" id="manualSaveStatus">
+        <i class="bi bi-dot"></i> 手動存檔
+      </span>
+
+      <button class="btn btn-outline-secondary btn-sm" id="loadBtn">
+        <i class="bi bi-arrow-clockwise"></i> 載入
+      </button>
+
+      <button class="btn btn-outline-secondary btn-sm" id="importBackupBtn">
+        <i class="bi bi-upload"></i> 匯入備份
+      </button>
+      <input type="file" id="importBackupInput" accept="application/json,.json" class="d-none">
+
+      <span class="autosave-status no-export" id="autosaveStatus">
+        <i class="bi bi-cloud-check"></i> 即時存檔
+      </span>
+
+      <button class="btn btn-outline-danger btn-sm" id="clearBtn">
+        <i class="bi bi-trash"></i> 清空
+      </button>
+
+      <button class="btn btn-outline-primary btn-sm" id="previewBtn">
+        <i class="bi bi-eye"></i> 預覽
+      </button>
+
+      <button class="btn btn-primary btn-sm" id="exportBtn">
+        <i class="bi bi-file-zip"></i> 匯出 ZIP
+      </button>
+    </div>
+  </header>
+
+  <div class="editor-layout">
+    <aside class="editor-sidebar no-export">
+      <h6 class="fw-bold mb-3">新增 HTML 區塊</h6>
+
+      <button class="btn btn-outline-primary component-btn" data-add-block="header">
+        <i class="bi bi-window"></i> Header 區塊
+      </button>
+
+      <button class="btn btn-outline-primary component-btn" data-add-block="nav">
+        <i class="bi bi-menu-button-wide"></i> 導覽列區塊
+      </button>
+
+      <button class="btn btn-outline-primary component-btn" data-add-block="section">
+        <i class="bi bi-square"></i> Section 區塊
+      </button>
+
+      <button class="btn btn-outline-primary component-btn" data-add-block="div">
+        <i class="bi bi-box"></i> Div 區塊
+      </button>
+
+      <button class="btn btn-outline-primary component-btn" data-add-block="footer">
+        <i class="bi bi-layout-text-window-reverse"></i> Footer 區塊
+      </button>
+
+      <hr>
+
+      <h6 class="fw-bold mb-3">新增自由元件</h6>
+
+      <button class="btn btn-outline-success component-btn" data-add-element="text">
+        <i class="bi bi-fonts"></i> 文字
+      </button>
+
+      <button class="btn btn-outline-success component-btn" data-add-element="heading">
+        <i class="bi bi-type-h1"></i> 標題
+      </button>
+
+      <button class="btn btn-outline-success component-btn" data-add-element="image">
+        <i class="bi bi-image"></i> 圖片
+      </button>
+
+      <button class="btn btn-outline-success component-btn" data-add-element="shape-square">
+        <i class="bi bi-square"></i> 正方形
+      </button>
+
+      <button class="btn btn-outline-success component-btn" data-add-element="shape-rect">
+        <i class="bi bi-aspect-ratio"></i> 長方形
+      </button>
+
+      <button class="btn btn-outline-success component-btn" data-add-element="button">
+        <i class="bi bi-ui-checks"></i> 按鈕
+      </button>
+
+      <button class="btn btn-outline-success component-btn" data-add-element="link">
+        <i class="bi bi-link-45deg"></i> 連結
+      </button>
+
+      <button class="btn btn-outline-success component-btn" data-add-element="list">
+        <i class="bi bi-list-ul"></i> 清單
+      </button>
+
+      <button class="btn btn-outline-success component-btn" data-add-element="youtube">
+        <i class="bi bi-youtube"></i> YouTube 影片
+      </button>
+
+      <button class="btn btn-outline-success component-btn" data-add-element="select">
+        <i class="bi bi-menu-button"></i> 下拉式選項
+      </button>
+
+      <button class="btn btn-outline-success component-btn" data-add-element="input">
+        <i class="bi bi-input-cursor-text"></i> 可輸入欄位
+      </button>
+
+      <hr>
+
+      <h6 class="fw-bold mb-3">JS，CSS功能</h6>
+
+
+<button class="btn btn-outline-warning component-btn" data-apply-js-css-function="image-hover-zoom">
+        <i class="bi bi-zoom-in"></i> 圖片滑鼠移入放大
+      </button>
+
+      <hr>
+      <div class="template-drawer-wrap">
+        <button type="button" class="template-drawer-toggle" id="templateDrawerToggle">
+          <span class="template-drawer-icon-wrap">
+            <img id="templateDrawerIcon" class="template-drawer-icon d-none" alt="模板 icon">
+            <i class="bi bi-grid-1x2"></i>
+          </span>
+          <span>模板</span>
+        </button>
+<div class="template-drawer-panel" id="templateDrawerPanel">
+          <h6 class="fw-bold mb-3">模板功能</h6>
+
+          <div class="template-search-box">
+            <label class="simple-label">Q&A 搜尋提示字</label>
+            <input type="text" class="form-control form-control-sm mb-2" id="qaSearchInput" placeholder="輸入問題提示字，例如：費用、報名">
+            <div class="qa-search-results" id="qaSearchResults">
+              <div class="small text-muted">輸入提示字後會顯示相關問題</div>
+            </div>
+          </div>
+
+          <button class="btn btn-outline-info component-btn mt-2" data-add-template="qa">
+            <i class="bi bi-question-circle"></i> 新增 Q&A 模板
+          </button>
+
+          <button class="btn btn-outline-info component-btn mt-2" data-add-template="side-drawer">
+            <i class="bi bi-layout-sidebar"></i> 新增側邊欄滑出模板
+          </button>
+
+          <button class="btn btn-outline-info component-btn mt-2" data-add-template="hover-slide-groups">
+            <i class="bi bi-arrow-up-square"></i> 新增滑鼠上滑換組模板
+          </button>
+
+          <hr class="my-3">
+
+          <div class="small fw-bold text-muted mb-2">JS / CSS 模板</div>
+
+          <button class="btn btn-outline-info component-btn mt-2" data-add-template="card-carousel">
+            <i class="bi bi-images"></i> 新增橫向輪播模板
+          </button>
+
+          <button class="btn btn-outline-info component-btn mt-2" data-add-template="select-switcher">
+            <i class="bi bi-menu-button-wide"></i> 新增下拉換組模板
+          </button>
+
+          <button class="btn btn-outline-info component-btn mt-2" data-add-template="accordion-dropdown">
+            <i class="bi bi-chevron-bar-down"></i> 下拉自動收合模板
+          </button>
+
+          <button class="btn btn-outline-info component-btn mt-2" data-add-template="nav-dropdown">
+            <i class="bi bi-menu-down"></i> 導覽列下拉標題
+          </button>
+
+          <button class="btn btn-outline-info component-btn mt-2" data-add-template="vertical-news-carousel">
+            <i class="bi bi-layout-text-window"></i> 新增垂直圖文輪播模板
+          </button>
+        </div>
+      </div>
+
+      <div class="helper-box mt-3">
+        <div class="fw-bold mb-1">v11 操作</div>
+        <div>1. 區塊照 HTML 順序排列</div>
+        <div>2. 區塊不能自由拖移</div>
+        <div>3. 元件在區塊內自由排版</div>
+        <div>4. 拖邊框上方「移動」把手移動</div>
+        <div>5. 拖藍色控制點縮放</div>
+        <div>6. 雙擊文字即可編輯，位置與樣式皆可手動輸入 px</div>
+      </div>
+    </aside>
+
+    <main class="canvas-area" id="canvasArea">
+<div id="sitePage" class="site-page">
+        <div class="html-zone zone-header" data-zone="header">
+          <div class="zone-label no-export">Header 區域</div>
+          <div class="zone-empty no-export">新增 Header 或導覽列區塊</div>
+        </div>
+
+        <main class="html-zone zone-main" data-zone="main">
+          <div class="zone-label no-export">Main / Body 區域</div>
+          <div class="zone-empty no-export">新增 Section / Div，或選取區塊後新增自由元件</div>
+        </main>
+
+        <div class="html-zone zone-footer" data-zone="footer">
+          <div class="zone-label no-export">Footer 區域</div>
+          <div class="zone-empty no-export">新增 Footer 區塊</div>
+        </div>
+      </div>
+    </main>
+
+    <aside class="editor-inspector no-export">
+      <h6 class="fw-bold mb-3">設定</h6>
+
+      <div class="setting-card">
+        <div class="setting-title">目前選取</div>
+        <div class="fw-bold" id="selectedName">尚未選取</div>
+        <div class="small text-muted" id="selectedHint">請先點選區塊或自由元件</div>
+      </div>
+
+      <div class="setting-card d-none" id="selectSwitcherOptionNameTopCard" data-no-collapse="true">
+        <div class="setting-title">選項名稱</div>
+        <div class="small text-muted mb-2">
+          下拉換組元件的選項名稱，每行一個名稱。
+        </div>
+        <textarea class="form-control form-control-sm mb-2" id="selectSwitcherTopOptionNamesInput" rows="6" placeholder="每行一個選項名稱"></textarea>
+        <button type="button" class="btn btn-outline-primary btn-sm w-100" id="applySelectSwitcherTopOptionNamesBtn">套用選項名稱</button>
+      </div>
+
+      <div class="setting-card" id="layerPanelCard">
+        <div class="setting-title">圖層表</div>
+        <div class="small text-muted mb-2">選取區塊後，會顯示該區塊的圖層，可拖拉排序。</div>
+        <div class="layer-list" id="layerList">
+          <div class="small text-muted">尚無圖層</div>
+        </div>
+        <div class="small text-muted mt-2">
+          點擊圖層可選取元件或區塊。
+        </div>
+      </div>
+
+      <div class="setting-card">
+        <div class="setting-title">頁面設定</div>
+        <label class="simple-label">頁面背景</label>
+        <input type="color" class="form-control form-control-color mb-3" id="pageBgColor" value="#ffffff">
+      </div>
+
+      <div class="setting-card d-none" id="baseAnimationSettingCard">
+        <div class="setting-title">基礎滑動動畫</div>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="baseSlideAnimationToggle">
+          <label class="form-check-label small" for="baseSlideAnimationToggle">
+            開啟滑動出入動畫
+          </label>
+        </div>
+
+        <label class="simple-label">滑動方向</label>
+        <select class="form-select form-select-sm mb-3" id="baseSlideAnimationDirection">
+          <option value="up">由下往上滑入</option>
+          <option value="down">由上往下滑入</option>
+          <option value="left">由右往左滑入</option>
+          <option value="right">由左往右滑入</option>
+        </select>
+
+        <label class="simple-label">移動距離</label>
+        <input type="range" class="form-range" id="baseSlideAnimationDistance" min="0" max="160" step="4" value="40">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="baseSlideAnimationDistanceInput" min="0" max="160" step="4" value="40">
+        </div>
+
+        <label class="simple-label">初始位置 X / Y</label>
+        <div class="position-grid mb-3">
+          <div>
+            <span>X px</span>
+            <input type="number" class="form-control form-control-sm" id="baseSlideInitialXInput" value="0">
+          </div>
+          <div>
+            <span>Y px</span>
+            <input type="number" class="form-control form-control-sm" id="baseSlideInitialYInput" value="40">
+          </div>
+        </div>
+
+        <label class="simple-label">滑入位置 X / Y</label>
+        <div class="position-grid mb-3">
+          <div>
+            <span>X px</span>
+            <input type="number" class="form-control form-control-sm" id="baseSlideFinalXInput" value="0">
+          </div>
+          <div>
+            <span>Y px</span>
+            <input type="number" class="form-control form-control-sm" id="baseSlideFinalYInput" value="0">
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-3" id="applyBaseSlidePositionBtn">
+          套用初始 / 滑入位置數值
+        </button>
+
+        <label class="simple-label">動畫時間</label>
+        <input type="range" class="form-range" id="baseSlideAnimationDuration" min="100" max="2000" step="50" value="600">
+        <div class="px-input-row">
+          <span>ms</span>
+          <input type="number" class="form-control form-control-sm" id="baseSlideAnimationDurationInput" min="100" max="2000" step="50" value="600">
+        </div>
+
+        <div class="small text-muted mt-2">
+          可套用在目前選取的區塊或自由元件。預覽與匯出時會播放。
+        </div>
+      </div>
+
+      <div class="setting-card d-none" id="blockSettingCard">
+        <div class="setting-title">區塊設定</div>
+
+        <label class="simple-label">區塊 ID</label>
+        <input type="text" class="form-control form-control-sm mb-1" id="blockHtmlIdInput" placeholder="例如：about-us">
+        <div class="small text-muted block-id-help mb-2">
+          會套用到 HTML 的 id 屬性，可用於錨點連結，例如 #about-us。
+        </div>
+        <button class="btn btn-outline-primary btn-sm w-100 mb-3" id="applyBlockHtmlIdBtn">套用區塊 ID</button>
+
+        <label class="simple-label">區塊背景</label>
+        <input type="color" class="form-control form-control-color mb-3" id="blockBgColor" value="#ffffff">
+
+        <label class="simple-label">背景透明度</label>
+        <input type="range" class="form-range" id="blockBgOpacity" min="0" max="100" step="1" value="0">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="blockBgOpacityPercent" min="0" max="100" step="1" value="0">
+        </div>
+
+        <label class="simple-label">文字顏色</label>
+        <input type="color" class="form-control form-control-color mb-3" id="blockTextColor" value="#212529">
+
+        <label class="simple-label">區塊高度</label>
+        <input type="range" class="form-range" id="blockHeight" min="120" max="1000" step="20" value="360">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="blockHeightPx" value="360">
+        </div>
+
+        <label class="simple-label">上下留白</label>
+        <input type="range" class="form-range" id="blockPaddingY" min="0" max="120" step="4" value="32">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="blockPaddingYPx" value="32">
+        </div>
+
+        <label class="simple-label">左右留白</label>
+        <input type="range" class="form-range" id="blockPaddingX" min="0" max="120" step="4" value="32">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="blockPaddingXPx" value="32">
+        </div>
+
+        <label class="simple-label">圓角</label>
+        <input type="range" class="form-range" id="blockRadius" min="0" max="64" step="1" value="0">
+        <div class="px-input-row">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="blockRadiusPx" value="0">
+        </div>
+
+        <hr>
+
+        <div id="blockFixedTopControl" class="form-check form-switch mb-2 d-none">
+          <input class="form-check-input" type="checkbox" role="switch" id="blockFixedTopToggle">
+          <label class="form-check-label small" for="blockFixedTopToggle">
+            Header / 導覽列置頂在網站
+          </label>
+        </div>
+
+        <div id="blockFixedBottomControl" class="form-check form-switch mb-2 d-none">
+          <input class="form-check-input" type="checkbox" role="switch" id="blockFixedBottomToggle">
+          <label class="form-check-label small" for="blockFixedBottomToggle">
+            Footer 置底在網站
+          </label>
+        </div>
+
+        <div class="small text-muted">
+          置頂 / 置底只會在預覽與匯出網站時生效，編輯時維持原本排版。
+        </div>
+      </div>
+
+      <div class="setting-card d-none" id="elementPositionCard">
+        <div class="setting-title">自由元件位置</div>
+
+        <label class="simple-label">左右位置</label>
+        <input type="range" class="form-range" id="elX" min="0" max="100" step="0.1" value="8">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="elXPx" value="0">
+        </div>
+
+        <label class="simple-label">上下位置</label>
+        <input type="range" class="form-range" id="elY" min="0" max="1000" step="1" value="40">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="elYPx" value="40">
+        </div>
+
+        <label class="simple-label">寬度</label>
+        <input type="range" class="form-range" id="elW" min="3" max="100" step="0.1" value="30">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="elWPx" value="0">
+        </div>
+
+        <label class="simple-label">高度</label>
+        <input type="range" class="form-range" id="elH" min="24" max="800" step="1" value="120">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="elHPx" value="120">
+        </div>
+
+        <label class="simple-label">快速對齊</label>
+        <div class="quick-grid mb-3">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="center-both">置中</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="left">靠左</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="right">靠右</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="top">靠上</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="bottom">靠下</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="center-x">水平置中</button>
+        </div>
+
+        <label class="simple-label">翻轉 / 旋轉</label>
+        <div class="quick-grid">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="flip-x">水平翻轉</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="flip-y">垂直翻轉</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-position-action="rotate-right">右旋 90°</button>
+        </div>
+      </div>
+
+      <div class="setting-card d-none" id="elementSettingCard">
+        <div class="setting-title">自由元件樣式</div>
+
+        <label class="simple-label">文字對齊</label>
+        <div class="quick-grid mb-3">
+          <button class="btn btn-outline-secondary btn-sm" data-text-align="left">靠左</button>
+          <button class="btn btn-outline-secondary btn-sm" data-text-align="center">置中</button>
+          <button class="btn btn-outline-secondary btn-sm" data-text-align="right">靠右</button>
+        </div>
+
+        <label class="simple-label">字體</label>
+        <select class="form-select form-select-sm mb-3" id="elementFontFamily">
+          <option value="">預設字體</option>
+          <option value="'Noto Sans TC', sans-serif">Noto Sans TC</option>
+          <option value="'Microsoft JhengHei', sans-serif">微軟正黑體</option>
+          <option value="'Arial', sans-serif">Arial</option>
+          <option value="'Times New Roman', serif">Times New Roman</option>
+          <option value="'Courier New', monospace">Courier New</option>
+        </select>
+
+        <label class="simple-label">上傳字體</label>
+        <input type="file" class="form-control form-control-sm mb-2" id="fontUploadInput" accept=".ttf,.otf,.woff,.woff2,font/*">
+        <div class="small text-muted mb-3">
+          支援 ttf / otf / woff / woff2，上傳後會加入上方字體選單。
+        </div>
+
+        <label class="simple-label">文字樣式</label>
+        <div class="quick-grid mb-3">
+          <button class="btn btn-outline-secondary btn-sm" id="boldBtn">粗體</button>
+          <button class="btn btn-outline-secondary btn-sm" id="italicBtn">斜體</button>
+          <button class="btn btn-outline-secondary btn-sm" id="underlineBtn">底線</button>
+        </div>
+
+        <label class="simple-label">文字顏色</label>
+        <input type="color" class="form-control form-control-color mb-3" id="elementTextColor" value="#212529">
+
+        <label class="simple-label">文字透明度</label>
+        <input type="range" class="form-range" id="elementTextOpacity" min="0" max="100" step="1" value="100">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="elementTextOpacityPercent" min="0" max="100" step="1" value="100">
+        </div>
+
+        <label class="simple-label">背景顏色</label>
+        <input type="color" class="form-control form-control-color mb-3" id="elementBgColor" value="#ffffff">
+
+        <label class="simple-label">背景透明度</label>
+        <input type="range" class="form-range" id="elementBgOpacity" min="0" max="100" step="1" value="100">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="elementBgOpacityPercent" min="0" max="100" step="1" value="100">
+        </div>
+
+        <label class="simple-label">背景材質</label>
+        <select class="form-select form-select-sm mb-3" id="elementMaterial">
+          <option value="none">一般背景</option>
+          <option value="frosted">毛玻璃材質</option>
+          <option value="glass">玻璃材質</option>
+        </select>
+
+        <label class="simple-label">字體大小</label>
+        <input type="range" class="form-range" id="elementFontSize" min="12" max="72" step="1" value="18">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="elementFontSizePx" value="18">
+        </div>
+
+        <label class="simple-label">行高</label>
+        <input type="range" class="form-range" id="elementLineHeight" min="8" max="120" step="1" value="27">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="elementLineHeightPx" value="27">
+        </div>
+
+        <label class="simple-label">字距</label>
+        <input type="range" class="form-range" id="elementLetterSpacing" min="-2" max="10" step="0.5" value="0">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="elementLetterSpacingPx" value="0" step="0.5">
+        </div>
+
+        <label class="simple-label">圓角</label>
+        <input type="range" class="form-range" id="elementRadius" min="0" max="64" step="1" value="8">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="elementRadiusPx" value="8">
+        </div>
+
+        <label class="simple-label">層級</label>
+        <input type="range" class="form-range" id="elementZIndex" min="0" max="100" step="1" value="10">
+        <div class="px-input-row">
+          <span>數值</span>
+          <input type="number" class="form-control form-control-sm" id="elementZIndexInput" value="10">
+        </div>
+      </div>
+
+
+
+      <div class="setting-card d-none" id="elementContentTextCard">
+        <div class="setting-title">內容文字</div>
+        <label class="simple-label">可編輯內容文字</label>
+        <textarea class="form-control form-control-sm mb-2" id="elementContentTextInput" rows="6" placeholder="選取文字元件後可在這裡直接修改內容"></textarea>
+        <button type="button" class="btn btn-outline-primary btn-sm w-100" id="applyElementContentTextBtn">套用內容文字</button>
+        <div class="small text-muted mt-2">
+          若元件內有多段可編輯文字，會用「---」分隔。
+        </div>
+      </div>
+
+      <div class="setting-card d-none" id="elementHoverColorCard">
+        <div class="setting-title">滑鼠換色效果</div>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="elementHoverColorToggle">
+          <label class="form-check-label small" for="elementHoverColorToggle">
+            滑鼠放上後切換顏色
+          </label>
+        </div>
+
+        <label class="simple-label">滑鼠移入文字顏色</label>
+        <input type="color" class="form-control form-control-color mb-3" id="elementHoverTextColor" value="#ffffff">
+
+        <label class="simple-label">滑鼠移入背景顏色</label>
+        <input type="color" class="form-control form-control-color mb-3" id="elementHoverBgColor" value="#0d6efd">
+
+        <label class="simple-label">滑鼠移入背景透明度</label>
+        <input type="range" class="form-range" id="elementHoverBgOpacity" min="0" max="100" step="1" value="100">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="elementHoverBgOpacityInput" min="0" max="100" step="1" value="100">
+        </div>
+
+        <div class="small text-muted">
+          預覽與匯出網站時，滑鼠移到此元件會切換成上方自選顏色。
+        </div>
+      </div>
+
+      <div class="setting-card d-none" id="accordionDropdownStyleCard">
+        <div class="setting-title">下拉式選項樣式</div>
+
+        <div class="small text-muted mb-2">
+          選取「下拉自動收合模板」或其中一個下拉選項後可設定。
+        </div>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="accordionHoverOpenToggle">
+          <label class="form-check-label small" for="accordionHoverOpenToggle">
+            滑鼠移到選項標題時，自動下拉列表
+          </label>
+        </div>
+
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" role="switch" id="accordionIconVisibleToggle" checked>
+          <label class="form-check-label small" for="accordionIconVisibleToggle">
+            顯示選項旁邊 ICON
+          </label>
+        </div>
+
+        <label class="simple-label">目前選項標題背景顏色</label>
+        <input type="color" class="form-control form-control-color mb-3" id="accordionHeadBgColor" value="#f8f9fa">
+
+        <label class="simple-label">標題背景透明度</label>
+        <input type="range" class="form-range" id="accordionHeadBgOpacity" min="0" max="100" step="1" value="100">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="accordionHeadBgOpacityInput" min="0" max="100" step="1" value="100">
+        </div>
+
+        <label class="simple-label">目前選項內容背景顏色</label>
+        <input type="color" class="form-control form-control-color mb-3" id="accordionBodyBgColor" value="#ffffff">
+
+        <label class="simple-label">內容背景透明度</label>
+        <input type="range" class="form-range" id="accordionBodyBgOpacity" min="0" max="100" step="1" value="100">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="accordionBodyBgOpacityInput" min="0" max="100" step="1" value="100">
+        </div>
+
+        <button type="button" class="btn btn-outline-primary btn-sm w-100" id="applyAccordionDropdownStyleBtn">套用下拉樣式</button>
+      </div>
+
+      <div class="setting-card d-none" id="imageSettingCard">
+        <div class="setting-title">圖片設定</div>
+
+        <label class="simple-label">上傳圖片</label>
+        <input type="file" class="form-control form-control-sm mb-3" id="imageUploadInput" accept="image/*">
+
+        <label class="simple-label">或使用圖片網址</label>
+        <input type="text" class="form-control form-control-sm mb-2" id="imageUrlInput" placeholder="貼上圖片網址">
+        <button class="btn btn-primary btn-sm w-100 mb-3" id="applyImageBtn">套用圖片網址</button>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="imageClickSwapToggle">
+          <label class="form-check-label small" for="imageClickSwapToggle">
+            點擊後切換成另一張圖
+          </label>
+        </div>
+
+        <label class="simple-label">第二張圖片網址</label>
+        <input type="text" class="form-control form-control-sm mb-2" id="imageSwapUrlInput" placeholder="貼上第二張圖片網址">
+        <button class="btn btn-outline-primary btn-sm w-100 mb-2" id="applyImageSwapBtn">套用第二張圖片</button>
+
+        <label class="simple-label">或上傳第二張圖片</label>
+        <input type="file" class="form-control form-control-sm mb-3" id="imageSwapUploadInput" accept="image/*">
+
+        <hr>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="imageOriginalScaleToggle">
+          <label class="form-check-label small" for="imageOriginalScaleToggle">
+            使用原圖比例縮放
+          </label>
+        </div>
+
+        <label class="simple-label">原圖百分比</label>
+        <input type="range" class="form-range" id="imageOriginalScaleRange" min="5" max="200" step="1" value="100">
+        <div class="px-input-row mb-2">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="imageOriginalScaleInput" min="5" max="200" step="1" value="100">
+        </div>
+
+        <div class="small text-muted" id="imageOriginalInfo">
+          開啟後會依照圖片原始寬高比例調整元件大小。
+        </div>
+
+        <hr>
+
+        <label class="simple-label">圖片圓角</label>
+        <input type="range" class="form-range" id="imageRadius" min="0" max="200" step="1" value="0">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="imageRadiusPx" min="0" max="200" step="1" value="0">
+        </div>
+
+        <hr>
+
+        <div class="setting-title small mb-2">圖片裁切工具</div>
+
+        <label class="simple-label">裁切模式</label>
+        <select class="form-select form-select-sm mb-3" id="imageCropFit">
+          <option value="cover">裁切填滿</option>
+          <option value="contain">完整顯示</option>
+          <option value="fill">拉伸填滿</option>
+          <option value="none">原始大小</option>
+        </select>
+
+        <label class="simple-label">裁切位置 X</label>
+        <input type="range" class="form-range" id="imageCropX" min="0" max="100" step="1" value="50">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="imageCropXInput" min="0" max="100" step="1" value="50">
+        </div>
+
+        <label class="simple-label">裁切位置 Y</label>
+        <input type="range" class="form-range" id="imageCropY" min="0" max="100" step="1" value="50">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="imageCropYInput" min="0" max="100" step="1" value="50">
+        </div>
+
+        <label class="simple-label">裁切放大</label>
+        <input type="range" class="form-range" id="imageCropZoom" min="100" max="300" step="5" value="100">
+        <div class="px-input-row mb-2">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="imageCropZoomInput" min="100" max="300" step="5" value="100">
+        </div>
+
+        <button type="button" class="btn btn-outline-secondary btn-sm w-100 mb-2" id="resetImageCropBtn">重設裁切</button>
+
+        <hr>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="imageGrayscaleHoverToggle">
+          <label class="form-check-label small" for="imageGrayscaleHoverToggle">
+            圖片黑白，滑鼠移入後變彩色
+          </label>
+        </div>
+
+        <div class="small text-muted mb-3">
+          開啟後，圖片平常為黑白，預覽或匯出網站中滑鼠移入會恢復彩色。
+        </div>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="imagePureBlackWhiteToggle">
+          <label class="form-check-label small" for="imagePureBlackWhiteToggle">
+            純黑白色調效果
+          </label>
+        </div>
+
+        <div class="small text-muted">
+          開啟後圖片會套用較強烈的黑白高對比效果，不會滑入變彩色。
+        </div>
+      </div>
+
+      <div class="setting-card d-none" id="shapeSettingCard">
+        <div class="setting-title">形狀設定</div>
+
+        <label class="simple-label">形狀顏色</label>
+        <input type="color" class="form-control form-control-color mb-3" id="shapeColor" value="#0d6efd">
+
+        <label class="simple-label">形狀透明度</label>
+        <input type="range" class="form-range" id="shapeOpacity" min="0" max="100" step="1" value="100">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="shapeOpacityPercent" min="0" max="100" step="1" value="100">
+        </div>
+
+        <label class="simple-label">形狀材質</label>
+        <select class="form-select form-select-sm mb-3" id="shapeMaterial">
+          <option value="none">一般材質</option>
+          <option value="frosted">毛玻璃材質</option>
+          <option value="glass">玻璃材質</option>
+        </select>
+
+        <label class="simple-label">形狀圓角</label>
+        <input type="range" class="form-range" id="shapeRadius" min="0" max="200" step="1" value="0">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="shapeRadiusPx" min="0" max="200" step="1" value="0">
+        </div>
+
+        <hr>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="shapeGradientEnabled">
+          <label class="form-check-label small" for="shapeGradientEnabled">
+            開啟漸層效果
+          </label>
+        </div>
+
+        <div id="shapeGradientControls" class="d-none">
+        <label class="simple-label">漸層方向，可複選</label>
+        <div class="gradient-direction-grid mb-3">
+          <label class="form-check small">
+            <input class="form-check-input" type="checkbox" data-shape-gradient="to-bottom">
+            由上往下
+          </label>
+
+          <label class="form-check small">
+            <input class="form-check-input" type="checkbox" data-shape-gradient="to-top">
+            由下往上
+          </label>
+
+          <label class="form-check small">
+            <input class="form-check-input" type="checkbox" data-shape-gradient="to-right">
+            由左到右
+          </label>
+
+          <label class="form-check small">
+            <input class="form-check-input" type="checkbox" data-shape-gradient="to-left">
+            由右到左
+          </label>
+        </div>
+
+        <label class="simple-label">漸層顏色，可複選</label>
+        <div class="gradient-color-list mb-3">
+          <div class="gradient-color-item">
+            <label class="form-check small">
+              <input class="form-check-input" type="checkbox" data-gradient-color-enabled="1" checked>
+              顏色 1
+            </label>
+            <input type="color" class="form-control form-control-color" data-gradient-color="1" value="#ffffff">
+            <div class="gradient-opacity-row">
+              <span>透明度</span>
+              <input type="range" class="form-range" data-gradient-opacity="1" min="0" max="100" step="1" value="0">
+              <input type="number" class="form-control form-control-sm" data-gradient-opacity-input="1" min="0" max="100" step="1" value="0">
+              <span>%</span>
+            </div>
+          </div>
+
+          <div class="gradient-color-item">
+            <label class="form-check small">
+              <input class="form-check-input" type="checkbox" data-gradient-color-enabled="2" checked>
+              顏色 2
+            </label>
+            <input type="color" class="form-control form-control-color" data-gradient-color="2" value="#000000">
+            <div class="gradient-opacity-row">
+              <span>透明度</span>
+              <input type="range" class="form-range" data-gradient-opacity="2" min="0" max="100" step="1" value="35">
+              <input type="number" class="form-control form-control-sm" data-gradient-opacity-input="2" min="0" max="100" step="1" value="35">
+              <span>%</span>
+            </div>
+          </div>
+
+          <div class="gradient-color-item">
+            <label class="form-check small">
+              <input class="form-check-input" type="checkbox" data-gradient-color-enabled="3">
+              顏色 3
+            </label>
+            <input type="color" class="form-control form-control-color" data-gradient-color="3" value="#0d6efd">
+            <div class="gradient-opacity-row">
+              <span>透明度</span>
+              <input type="range" class="form-range" data-gradient-opacity="3" min="0" max="100" step="1" value="45">
+              <input type="number" class="form-control form-control-sm" data-gradient-opacity-input="3" min="0" max="100" step="1" value="45">
+              <span>%</span>
+            </div>
+          </div>
+
+          <div class="gradient-color-item">
+            <label class="form-check small">
+              <input class="form-check-input" type="checkbox" data-gradient-color-enabled="4">
+              顏色 4
+            </label>
+            <input type="color" class="form-control form-control-color" data-gradient-color="4" value="#ff7a00">
+            <div class="gradient-opacity-row">
+              <span>透明度</span>
+              <input type="range" class="form-range" data-gradient-opacity="4" min="0" max="100" step="1" value="45">
+              <input type="number" class="form-control form-control-sm" data-gradient-opacity-input="4" min="0" max="100" step="1" value="45">
+              <span>%</span>
+            </div>
+          </div>
+        </div>
+
+        <label class="simple-label">漸層深度</label>
+        <input type="range" class="form-range" id="shapeGradientDepth" min="0" max="100" step="1" value="100">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="shapeGradientDepthPercent" min="0" max="100" step="1" value="100">
+        </div>
+
+        </div>
+
+        <div class="small text-muted">
+          形狀可直接拖曳移動、自由縮放；按住 Shift 拖四個角可等比例縮放。
+        </div>
+      </div>
+
+
+
+      <div class="setting-card d-none" id="elementShadowSettingCard">
+        <div class="setting-title">陰影設定</div>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="elementShadowEnabled">
+          <label class="form-check-label small" for="elementShadowEnabled">
+            開啟陰影
+          </label>
+        </div>
+
+        <div id="elementShadowControls" class="d-none">
+          <label class="simple-label">陰影顏色</label>
+          <input type="color" class="form-control form-control-color mb-3" id="elementShadowColor" value="#000000">
+
+          <label class="simple-label">陰影透明度</label>
+          <input type="range" class="form-range" id="elementShadowOpacity" min="0" max="100" step="1" value="25">
+          <div class="px-input-row mb-3">
+            <span>%</span>
+            <input type="number" class="form-control form-control-sm" id="elementShadowOpacityInput" min="0" max="100" step="1" value="25">
+          </div>
+
+          <label class="simple-label">水平位移 X</label>
+          <input type="range" class="form-range" id="elementShadowX" min="-80" max="80" step="1" value="0">
+          <div class="px-input-row mb-3">
+            <span>px</span>
+            <input type="number" class="form-control form-control-sm" id="elementShadowXInput" min="-80" max="80" step="1" value="0">
+          </div>
+
+          <label class="simple-label">垂直位移 Y</label>
+          <input type="range" class="form-range" id="elementShadowY" min="-80" max="80" step="1" value="12">
+          <div class="px-input-row mb-3">
+            <span>px</span>
+            <input type="number" class="form-control form-control-sm" id="elementShadowYInput" min="-80" max="80" step="1" value="12">
+          </div>
+
+          <label class="simple-label">模糊 Blur</label>
+          <input type="range" class="form-range" id="elementShadowBlur" min="0" max="120" step="1" value="24">
+          <div class="px-input-row mb-3">
+            <span>px</span>
+            <input type="number" class="form-control form-control-sm" id="elementShadowBlurInput" min="0" max="120" step="1" value="24">
+          </div>
+
+          <label class="simple-label">擴散 Spread</label>
+          <input type="range" class="form-range" id="elementShadowSpread" min="-40" max="80" step="1" value="0">
+          <div class="px-input-row mb-2">
+            <span>px</span>
+            <input type="number" class="form-control form-control-sm" id="elementShadowSpreadInput" min="-40" max="80" step="1" value="0">
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-card d-none" id="elementCssFunctionCard">
+        <div class="setting-title">功能列表</div>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="elementCssFunctionEnabled">
+          <label class="form-check-label small" for="elementCssFunctionEnabled">
+            開啟功能列表
+          </label>
+        </div>
+
+        <div class="css-function-list d-none" id="elementCssFunctionList">
+          <label class="form-check small mb-2">
+            <input class="form-check-input" type="checkbox" id="scrollToIdEnabled">
+            滑鼠點擊後頁面下拉到指定 ID 區塊
+          </label>
+
+          <label class="simple-label">指定 ID 區塊</label>
+          <select class="form-select form-select-sm mb-3" id="scrollToIdSelect">
+            <option value="">請先選擇ID區塊</option>
+          </select>
+
+          <label class="form-check small mb-2">
+            <input class="form-check-input" type="checkbox" id="goToPageEnabled">
+            滑鼠點擊後跳轉到指定子頁面
+          </label>
+
+          <label class="simple-label">指定子頁面</label>
+          <select class="form-select form-select-sm mb-3" id="goToPageSelect">
+            <option value="">請先選擇子頁面</option>
+          </select>
+
+          <button class="btn btn-outline-primary btn-sm w-100" id="applyElementCssFunctionBtn">套用功能列表</button>
+
+          <div class="small text-muted mt-2">
+            只會在預覽與匯出後生效；編輯模式不會觸發下拉，避免影響拖曳與編輯。
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-card d-none" id="linkSettingCard">
+        <div class="setting-title">元件超連結</div>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="elementLinkEnabled">
+          <label class="form-check-label small" for="elementLinkEnabled">
+            開啟新增超連結
+          </label>
+        </div>
+
+        <div id="elementLinkSettings" class="d-none">
+          <label class="simple-label">超連結網址</label>
+          <input type="text" class="form-control form-control-sm mb-2" id="linkUrlInput" placeholder="https://... 或 #about-us">
+          <button class="btn btn-primary btn-sm w-100" id="applyLinkBtn">套用超連結</button>
+          <div class="small text-muted mt-2">
+            預覽與匯出後，點擊此元件會前往設定的超連結。
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-card d-none" id="youtubeSettingCard">
+        <div class="setting-title">YouTube 影片設定</div>
+
+        <label class="simple-label">YouTube 連結</label>
+        <input type="text" class="form-control form-control-sm mb-2" id="youtubeUrlInput" placeholder="貼上 YouTube 網址">
+        <button class="btn btn-primary btn-sm w-100 mb-3" id="applyYoutubeBtn">從連結產生官方 iframe</button>
+
+        <label class="simple-label">嵌入 HTML 程式碼</label>
+        <textarea class="form-control form-control-sm code-textarea mb-2" id="youtubeEmbedHtmlInput" rows="7" placeholder="這裡會產生 YouTube 官方 iframe HTML，也可以自己修改"></textarea>
+        <button class="btn btn-outline-primary btn-sm w-100 mb-3" id="applyYoutubeHtmlBtn">套用 iframe HTML</button>
+
+        <hr>
+
+        <label class="simple-label">影片等比例寬度</label>
+        <input type="range" class="form-range" id="youtubeWidthRange" min="160" max="1280" step="10" value="560">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="youtubeWidthPx" min="160" max="1280" step="10" value="560">
+        </div>
+
+        <button class="btn btn-outline-secondary btn-sm w-100 mb-2" id="checkYoutubeEnvBtn">檢查播放環境 / Cookie</button>
+        <div class="small cookie-status-box" id="youtubeCookieStatus">
+          尚未檢查
+        </div>
+
+        <div class="small text-muted mt-2">
+          影片只能等比例縮放。支援 youtube.com/watch?v=、youtu.be、shorts、embed、live。
+        </div>
+      </div>
+
+
+      <div class="setting-card d-none" id="carouselSettingCard">
+        <div class="setting-title">橫向圖文卡片輪播設定</div>
+
+        <label class="simple-label">輪播方式</label>
+        <select class="form-select form-select-sm mb-3" id="carouselMode">
+          <option value="manual">手滑 / 手動 Slider</option>
+          <option value="auto">自動輪播</option>
+        </select>
+
+        <label class="simple-label">輪播樣式</label>
+        <select class="form-select form-select-sm mb-3" id="carouselLayout">
+          <option value="full">一般</option>
+          <option value="peek">露出下一張</option>
+        </select>
+
+        <label class="simple-label">自動輪播速度</label>
+        <input type="range" class="form-range" id="carouselInterval" min="1000" max="9000" step="500" value="3000">
+        <div class="px-input-row mb-3">
+          <span>ms</span>
+          <input type="number" class="form-control form-control-sm" id="carouselIntervalInput" min="1000" max="9000" step="500" value="3000">
+        </div>
+
+        <div class="small text-muted mb-2" id="carouselSlideInfo">
+          目前第 1 組
+        </div>
+
+        <div class="d-grid gap-2 mb-3">
+          <button class="btn btn-outline-secondary btn-sm" id="carouselPrevBtn">上一組</button>
+          <button class="btn btn-outline-secondary btn-sm" id="carouselNextBtn">下一組</button>
+          <button class="btn btn-outline-primary btn-sm" id="carouselAddSlideBtn">新增圖文卡片組</button>
+          <button class="btn btn-outline-secondary btn-sm" id="carouselCopySlideBtn">複製目前組內容</button>
+          <button class="btn btn-outline-secondary btn-sm" id="carouselPasteSlideBtn">貼上到目前組</button>
+          <button class="btn btn-outline-secondary btn-sm" id="carouselDuplicateSlideBtn">直接複製目前組</button>
+          <button class="btn btn-outline-danger btn-sm" id="carouselDeleteSlideBtn">刪除目前卡片組</button>
+        </div>
+
+        <hr>
+
+        <div class="setting-title small mb-2">輪播按鍵設定</div>
+
+        <label class="simple-label">顯示按鍵</label>
+        <select class="form-select form-select-sm mb-3" id="carouselButtonVisibility">
+          <option value="both">左鍵與右鍵都顯示</option>
+          <option value="left">只顯示左鍵</option>
+          <option value="right">只顯示右鍵</option>
+          <option value="none">不顯示按鍵</option>
+        </select>
+
+        <label class="simple-label">按鍵背景顏色</label>
+        <input type="color" class="form-control form-control-color mb-3" id="carouselButtonBg" value="#e9ecef">
+
+        <label class="simple-label">按鍵透明度</label>
+        <input type="range" class="form-range" id="carouselButtonOpacity" min="0" max="100" step="1" value="85">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="carouselButtonOpacityInput" min="0" max="100" step="1" value="85">
+        </div>
+
+        <label class="simple-label">三角形顏色</label>
+        <input type="color" class="form-control form-control-color mb-3" id="carouselButtonIconColor" value="#adb5bd">
+
+        <label class="simple-label">按鍵大小</label>
+        <input type="range" class="form-range" id="carouselButtonSize" min="24" max="96" step="1" value="42">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="carouselButtonSizeInput" min="24" max="96" step="1" value="42">
+        </div>
+
+        <label class="simple-label">左鍵位置 X</label>
+        <input type="range" class="form-range" id="carouselLeftButtonX" min="0" max="100" step="1" value="4">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="carouselLeftButtonXInput" min="0" max="100" step="1" value="4">
+        </div>
+
+        <label class="simple-label">左鍵位置 Y</label>
+        <input type="range" class="form-range" id="carouselLeftButtonY" min="0" max="100" step="1" value="50">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="carouselLeftButtonYInput" min="0" max="100" step="1" value="50">
+        </div>
+
+        <label class="simple-label">右鍵位置 X</label>
+        <input type="range" class="form-range" id="carouselRightButtonX" min="0" max="100" step="1" value="96">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="carouselRightButtonXInput" min="0" max="100" step="1" value="96">
+        </div>
+
+        <label class="simple-label">右鍵位置 Y</label>
+        <input type="range" class="form-range" id="carouselRightButtonY" min="0" max="100" step="1" value="50">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="carouselRightButtonYInput" min="0" max="100" step="1" value="50">
+        </div>
+
+        <div class="small text-muted mt-2">
+          每一組卡片裡都可以加入圖片、文字、形狀等自由元件，並自由排版。手滑 / 手動 Slider 模式才會顯示按鍵。
+        </div>
+      </div>
+
+
+      <div class="setting-card d-none" id="imageHoverZoomSettingCard">
+        <div class="setting-title">圖片滑鼠移入放大</div>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="imageHoverZoomEnabled">
+          <label class="form-check-label small" for="imageHoverZoomEnabled">
+            開啟滑鼠移入放大
+          </label>
+        </div>
+
+        <div id="imageHoverZoomControls" class="d-none">
+          <label class="simple-label">移入前大小</label>
+          <input type="range" class="form-range" id="imageZoomNormalScale" min="50" max="200" step="1" value="100">
+          <div class="px-input-row mb-3">
+            <span>%</span>
+            <input type="number" class="form-control form-control-sm" id="imageZoomNormalScaleInput" min="50" max="200" step="1" value="100">
+          </div>
+
+          <label class="simple-label">移入後大小</label>
+          <input type="range" class="form-range" id="imageZoomHoverScale" min="50" max="300" step="1" value="120">
+          <div class="px-input-row mb-3">
+            <span>%</span>
+            <input type="number" class="form-control form-control-sm" id="imageZoomHoverScaleInput" min="50" max="300" step="1" value="120">
+          </div>
+
+          <hr>
+
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" role="switch" id="imageZoomBoundaryEnabled" checked>
+            <label class="form-check-label small" for="imageZoomBoundaryEnabled">
+              放大時限制在網站邊界內
+            </label>
+          </div>
+
+          <label class="simple-label">離網站邊界距離</label>
+          <input type="range" class="form-range" id="imageZoomBoundaryGap" min="0" max="80" step="1" value="10">
+          <div class="px-input-row mb-3">
+            <span>px</span>
+            <input type="number" class="form-control form-control-sm" id="imageZoomBoundaryGapInput" min="0" max="80" step="1" value="10">
+          </div>
+
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" role="switch" id="imageZoomCenterEnabled">
+            <label class="form-check-label small" for="imageZoomCenterEnabled">
+              放大時置中效果
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-card d-none" id="formElementSettingCard">
+        <div class="setting-title">表單元件設定</div>
+
+        <div id="inputSettingPanel" class="d-none">
+          <label class="simple-label">預設提示字</label>
+          <input type="text" class="form-control form-control-sm mb-3" id="inputPlaceholderInput" placeholder="請輸入提示字">
+        </div>
+
+        <div id="selectSettingPanel" class="d-none">
+          <div class="small text-muted mb-2 d-none" id="selectSwitcherControlHint">
+            這裡編輯的是下拉換組元件的每個選項名稱，每行一個名稱。
+          </div>
+          <label class="simple-label">選取多樣式</label>
+          <select class="form-select form-select-sm mb-3" id="dropdownStyleModeSelect">
+            <option value="v78">V78 一般下拉樣式</option>
+            <option value="hover-title">選項標題：滑鼠移上去自動下拉</option>
+            <option value="vertical-list">下拉垂直並排選項</option>
+          </select>
+
+          <label class="simple-label" id="selectOptionsLabel">下拉選項</label>
+          <textarea class="form-control form-control-sm mb-2" id="selectOptionsInput" rows="5" placeholder="每行一個選項"></textarea>
+          <button class="btn btn-outline-primary btn-sm w-100 mb-3" id="applySelectOptionsBtn">套用選項</button>
+
+          <div class="select-option-style-panel d-none" id="selectOptionStylePanel">
+            <div class="setting-title small mb-2">單一選項樣式</div>
+
+            <label class="simple-label">目前選項標題背景顏色</label>
+            <input type="color" class="form-control form-control-color mb-3" id="selectOptionHeadBgColor" value="#ffffff">
+
+            <label class="simple-label">標題背景透明度</label>
+            <input type="range" class="form-range" id="selectOptionHeadBgOpacity" min="0" max="100" step="1" value="100">
+            <div class="px-input-row mb-3">
+              <span>%</span>
+              <input type="number" class="form-control form-control-sm" id="selectOptionHeadBgOpacityInput" min="0" max="100" step="1" value="100">
+            </div>
+
+            <label class="simple-label">目前選項內容背景顏色</label>
+            <input type="color" class="form-control form-control-color mb-3" id="selectOptionBodyBgColor" value="#ffffff">
+
+            <label class="simple-label">內容背景透明度</label>
+            <input type="range" class="form-range" id="selectOptionBodyBgOpacity" min="0" max="100" step="1" value="100">
+            <div class="px-input-row mb-3">
+              <span>%</span>
+              <input type="number" class="form-control form-control-sm" id="selectOptionBodyBgOpacityInput" min="0" max="100" step="1" value="100">
+            </div>
+
+            <label class="simple-label">選項邊框顏色</label>
+            <input type="color" class="form-control form-control-color mb-3" id="selectOptionBorderColor" value="#dee2e6">
+
+            <label class="simple-label">選項邊框透明度</label>
+            <input type="range" class="form-range" id="selectOptionBorderOpacity" min="0" max="100" step="1" value="100">
+            <div class="px-input-row mb-3">
+              <span>%</span>
+              <input type="number" class="form-control form-control-sm" id="selectOptionBorderOpacityInput" min="0" max="100" step="1" value="100">
+            </div>
+
+            <label class="simple-label">選項邊框粗細</label>
+            <input type="range" class="form-range" id="selectOptionBorderWidth" min="0" max="12" step="1" value="1">
+            <div class="px-input-row mb-3">
+              <span>px</span>
+              <input type="number" class="form-control form-control-sm" id="selectOptionBorderWidthInput" min="0" max="12" step="1" value="1">
+            </div>
+
+            <label class="simple-label">開啟哪些框線</label>
+            <div class="quick-grid mb-3">
+              <label class="form-check small">
+                <input class="form-check-input" type="checkbox" id="selectOptionBorderTop" checked>
+                上框線
+              </label>
+              <label class="form-check small">
+                <input class="form-check-input" type="checkbox" id="selectOptionBorderRight" checked>
+                右框線
+              </label>
+              <label class="form-check small">
+                <input class="form-check-input" type="checkbox" id="selectOptionBorderBottom" checked>
+                下框線
+              </label>
+              <label class="form-check small">
+                <input class="form-check-input" type="checkbox" id="selectOptionBorderLeft" checked>
+                左框線
+              </label>
+            </div>
+
+            <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-3" id="applySelectOptionStyleBtn">套用此選項樣式</button>
+          </div>
+
+          <hr>
+
+          <div class="setting-title small mb-2">單一選項功能</div>
+
+          <label class="simple-label">選擇要設定的選項</label>
+          <select class="form-select form-select-sm mb-3" id="selectOptionActionSelect">
+            <option value="">請先選擇選項</option>
+          </select>
+
+          <div class="select-option-action-panel d-none" id="selectOptionActionPanel">
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" role="switch" id="selectOptionFunctionEnabled">
+              <label class="form-check-label small" for="selectOptionFunctionEnabled">
+                開啟功能列表
+              </label>
+            </div>
+
+            <div class="select-option-function-list d-none" id="selectOptionFunctionList">
+              <label class="form-check small mb-2">
+                <input class="form-check-input" type="checkbox" id="selectOptionScrollEnabled">
+                選取後下拉到指定 ID 區塊
+              </label>
+
+              <label class="simple-label">指定 ID 區塊</label>
+              <select class="form-select form-select-sm mb-3" id="selectOptionScrollTarget">
+                <option value="">請先選擇ID區塊</option>
+              </select>
+
+              <label class="form-check small mb-2">
+                <input class="form-check-input" type="checkbox" id="selectOptionPageEnabled">
+                選取後跳轉到指定子頁面
+              </label>
+
+              <label class="simple-label">指定子頁面</label>
+              <select class="form-select form-select-sm mb-3" id="selectOptionPageTarget">
+                <option value="">請先選擇子頁面</option>
+              </select>
+            </div>
+
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" role="switch" id="selectOptionLinkEnabled">
+              <label class="form-check-label small" for="selectOptionLinkEnabled">
+                開啟元件超連結
+              </label>
+            </div>
+
+            <div class="select-option-link-settings d-none" id="selectOptionLinkSettings">
+              <label class="simple-label">超連結網址</label>
+              <input type="text" class="form-control form-control-sm mb-3" id="selectOptionLinkUrl" placeholder="https://... 或 #about-us">
+            </div>
+
+            <button class="btn btn-outline-primary btn-sm w-100" id="applySelectOptionActionBtn">套用此選項功能</button>
+          </div>
+        </div>
+      </div>
+
+
+
+      <div class="setting-card d-none" id="selectSwitcherSettingCard">
+        <div class="setting-title">下拉換組設定</div>
+
+        <div class="small text-muted mb-2" id="selectSwitcherInfo">尚未選取下拉換組區塊</div>
+
+        <div class="d-grid gap-2 mb-3">
+          <div class="btn-group">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="selectSwitcherPrevBtn">上一組</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="selectSwitcherNextBtn">下一組</button>
+          </div>
+          <button type="button" class="btn btn-outline-primary btn-sm" id="selectSwitcherAddGroupBtn">新增組</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="selectSwitcherDuplicateGroupBtn">直接複製組</button>
+          <button type="button" class="btn btn-outline-danger btn-sm" id="selectSwitcherDeleteGroupBtn">刪除組</button>
+        </div>
+
+        <div class="small text-muted">
+          選項名稱請點選下拉元件後，在「表單元件設定」裡編輯。下拉元件本身可調整位置、大小、文字顏色、背景、圓角與層級。
+        </div>
+      </div>
+
+
+      <div class="setting-card d-none" id="sideDrawerSettingCard">
+        <div class="setting-title">側邊欄模板設定</div>
+
+        <label class="simple-label">上傳 icon 圖片</label>
+        <input type="file" class="form-control form-control-sm mb-2" id="sideDrawerIconUpload" accept="image/*">
+
+        <label class="simple-label">側邊欄標題</label>
+        <input type="text" class="form-control form-control-sm mb-2" id="sideDrawerTitleInput" placeholder="側邊欄標題">
+
+        <label class="simple-label">側邊欄文字</label>
+        <textarea class="form-control form-control-sm mb-2" id="sideDrawerBodyInput" rows="4" placeholder="側邊欄內容"></textarea>
+
+        <button type="button" class="btn btn-outline-primary btn-sm w-100" id="applySideDrawerTextBtn">套用文字</button>
+
+        <div class="small text-muted mt-2">
+          icon 點擊後側邊欄會從右側滑出。icon 可上傳圖片。
+        </div>
+      </div>
+
+      <div class="setting-card d-none" id="verticalCarouselSettingCard">
+        <div class="setting-title">垂直圖文輪播設定</div>
+
+        <div class="small text-muted mb-2" id="verticalCarouselGroupInfo">
+          目前第 1 組
+        </div>
+
+        <div class="d-grid gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="verticalPrevGroupBtn">上一組</button>
+          <button class="btn btn-outline-secondary btn-sm" id="verticalNextGroupBtn">下一組</button>
+          <button class="btn btn-outline-primary btn-sm" id="verticalAddGroupBtn">新增空白群組</button>
+          <button class="btn btn-outline-secondary btn-sm" id="verticalCopyGroupBtn">複製目前群組內容</button>
+          <button class="btn btn-outline-secondary btn-sm" id="verticalPasteGroupBtn">貼上到目前群組</button>
+          <button class="btn btn-outline-secondary btn-sm" id="verticalDuplicateGroupBtn">直接複製目前群組</button>
+          <button class="btn btn-outline-danger btn-sm" id="verticalDeleteGroupBtn">刪除目前群組</button>
+        </div>
+
+        <div class="small text-muted mt-2">
+          每一組裡都可以新增圖片、文字、形狀等自由元件，邏輯與橫向輪播相同。
+        </div>
+      </div>
+
+      <div class="setting-card d-none" id="actionCard">
+        <div class="setting-title">操作</div>
+        <div class="multi-distribute-tools d-none" id="multiDistributeTools">
+          <div class="small text-muted mb-2">選取 3 個以上元件後可使用。</div>
+          <div class="quick-grid mb-3">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="distributeHorizontalBtn">水平平均分配</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="distributeVerticalBtn">垂直平均分配</button>
+          </div>
+        </div>
+
+        <div class="d-grid gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="cloneBtn">複製</button>
+          <button class="btn btn-outline-secondary btn-sm" id="moveUpBtn">區塊上移</button>
+          <button class="btn btn-outline-secondary btn-sm" id="moveDownBtn">區塊下移</button>
+          <button class="btn btn-outline-secondary btn-sm" id="frontBtn">元件移到上層</button>
+          <button class="btn btn-outline-secondary btn-sm" id="backBtn">元件移到下層</button>
+          <button class="btn btn-outline-danger btn-sm" id="deleteBtn">刪除</button>
+        </div>
+        <div class="small text-muted mt-2">
+          Delete 刪除、Ctrl+C 複製、Ctrl+V 貼上、方向鍵微調元件
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <button class="btn btn-primary exit-preview-btn" id="exitPreviewBtn">
+    <i class="bi bi-pencil-square"></i> 返回編輯
+  </button>
+
+  <button type="button" class="btn btn-dark floating-exit-preview" id="floatingExitPreviewBtn">返回編輯</button>
+
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script>
 // 自訂網站編輯器
 // 區塊照 HTML flow 排列，不自由拖移；區塊內元件可自由拖移/縮放。
 // v11 修正：只有邊框上方「移動」把手可拖曳，雙擊文字可編輯。
@@ -10613,3 +16439,7 @@ document.addEventListener('input', event => {
     } catch (error) {}
   }, 350);
 }, true);
+
+</script>
+</body>
+</html>

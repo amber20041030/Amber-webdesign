@@ -27,13 +27,13 @@
 ## 檔案結構
 
 ```text
-bootstrap-v84/
+bootstrap-v85/
 ├── index.html
 ├── css/
 │   └── editor.css
 ├── js/
 │   └── editor.js
-├── bootstrap-v84.html
+├── bootstrap-v85.html
 └── README.md
 ```
 
@@ -653,9 +653,9 @@ bootstrap-v84/
 ## v42 指定修改
 
 - ZIP 檔名改為簡短格式：
-  - bootstrap-v84.zip
+  - bootstrap-v85.zip
 - 單檔版改為：
-  - bootstrap-v84.html
+  - bootstrap-v85.html
 - 網頁名稱 / 編輯器標題改為：
   - 自訂網站編輯器
 - 垂直圖文輪播區塊移除：
@@ -1736,3 +1736,14 @@ v55 調整為：
 - 新增「匯入備份」按鈕，可載入 JSON 備份
 - 即時存檔不再把大型上傳字體塞進主要儲存資料，降低超過容量的機率
 - 儲存同時寫入新版與舊版 key，提高不同電腦與舊版本相容性
+
+## v85 修正
+
+### 自動存檔失敗時，手動存檔仍可成功
+
+- 手動存檔已獨立於自動存檔流程
+- 移除「手動存檔後又立刻觸發自動存檔」的舊邏輯
+- 自動存檔失敗不會覆蓋手動存檔結果
+- 按「儲存」時會先儲存到瀏覽器 localStorage
+- 若 localStorage 失敗，會自動下載 JSON 備份檔，視為手動存檔完成
+- 新增手動存檔狀態顯示

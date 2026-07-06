@@ -4339,3 +4339,42 @@ body:not(.preview-mode) .block-canvas > .alignment-guide.center-guide {
 #importBackupBtn {
   white-space: nowrap;
 }
+
+/* v85：手動存檔狀態 */
+.manual-save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid #e6eaf0;
+  border-radius: 999px;
+  background: #fff;
+  color: #6c757d;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.manual-save-status.is-saving {
+  color: #0d6efd;
+  border-color: rgba(13,110,253,.28);
+  background: rgba(13,110,253,.06);
+}
+
+.manual-save-status.is-saved {
+  color: #198754;
+  border-color: rgba(25,135,84,.28);
+  background: rgba(25,135,84,.06);
+}
+
+.manual-save-status.is-backup {
+  color: #fd7e14;
+  border-color: rgba(253,126,20,.32);
+  background: rgba(253,126,20,.08);
+}
+
+.manual-save-status.is-error {
+  color: #dc3545;
+  border-color: rgba(220,53,69,.28);
+  background: rgba(220,53,69,.06);
+}
