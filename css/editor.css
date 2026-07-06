@@ -4400,14 +4400,16 @@ body:not(.preview-mode) .block-canvas > .alignment-guide.center-guide {
 .free-element[data-type="line"] .line-main {
   fill: none;
   stroke: #212529;
-  stroke-width: 6;
+  stroke-width: var(--line-weight, 6px) !important;
   stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .free-element[data-type="line"] .line-endpoint {
   display: none;
   fill: #212529;
   stroke: #212529;
+  vector-effect: non-scaling-stroke;
 }
 
 .free-element[data-type="line"] .resize-handle[data-resize="nw"],
@@ -4421,6 +4423,18 @@ body:not(.preview-mode) .block-canvas > .alignment-guide.center-guide {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
+}
+
+.line-arrow-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.free-element[data-type="line"] .line-endpoint.is-outline-arrow {
+  fill: none !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 
@@ -4689,3 +4703,108 @@ body.preview-mode #floatingExitPreviewBtn,
 body.preview-mode #exitPreviewBtn {
   max-width: calc(100vw - 32px) !important;
 }
+
+/* v96：多選 / 群組解除 / Canva 式排列 */
+.free-element:not([data-type="group"]) > .element-toolbar [data-element-action="ungroup"] {
+  display: none !important;
+}
+
+.free-element[data-type="group"] > .element-toolbar [data-element-action="ungroup"] {
+  display: inline-flex;
+}
+
+.free-element.multi-selected {
+  outline: 2px solid #0d6efd !important;
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, .14) !important;
+}
+
+.free-element.multi-selected > .resize-handle {
+  display: block;
+}
+
+.multi-distribute-tools .simple-label {
+  margin-top: 2px;
+}
+
+
+
+/* v100：圖片外框放大還原 V98、圖片移動鍵恢復、解除群組只放在群組浮動工具列 */
+.free-element[data-type="image"] {
+  overflow: visible !important;
+}
+
+.free-element[data-type="image"] > .inner {
+  overflow: hidden !important;
+  border-radius: inherit !important;
+}
+
+body:not(.preview-mode):not(.exported-site) .free-element[data-type="image"]:hover > .move-handle,
+body:not(.preview-mode):not(.exported-site) .free-element[data-type="image"].selected > .move-handle {
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  z-index: 10020 !important;
+}
+
+body:not(.preview-mode):not(.exported-site) .free-element[data-type="image"]:hover > .element-toolbar,
+body:not(.preview-mode):not(.exported-site) .free-element[data-type="image"].selected > .element-toolbar {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  z-index: 10010 !important;
+}
+
+/* 外框放大：回到 V98 原本的整個圖片框放大方式 */
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="element"]:hover > .inner,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="element"]:hover > .inner,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="element"].hover-zoom-preview:hover > .inner,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="element"].image-hover-active > .inner,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="element"].image-hover-zoom-active > .inner {
+  transform: scale(var(--image-zoom-hover, 1.2)) !important;
+  transform-origin: center center !important;
+  filter: none !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="element"]:hover .editable-image,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="element"]:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="element"].hover-zoom-preview:hover .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="element"].image-hover-active .editable-image,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="element"].image-hover-zoom-active .editable-image {
+  transform: var(--image-crop-transform, none) !important;
+  transform-origin: var(--image-crop-origin, center center) !important;
+}
+
+/* 外框放大維持 V98 原本浮到上層的效果；單純黑白滑入彩色不改變圖層 */
+body.preview-mode .free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="element"]:hover,
+body.exported-site .free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="element"]:hover,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="element"].image-hover-active,
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="element"].image-hover-zoom-active {
+  z-index: 99999 !important;
+}
+
+body.preview-mode .free-element[data-type="image"][data-grayscale-hover="true"]:not([data-hover-zoom-enabled="true"]),
+body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"]:not([data-hover-zoom-enabled="true"]),
+body.preview-mode .free-element[data-type="image"][data-grayscale-hover="true"]:not([data-hover-zoom-enabled="true"]):hover,
+body.exported-site .free-element[data-type="image"][data-grayscale-hover="true"]:not([data-hover-zoom-enabled="true"]):hover,
+.free-element[data-type="image"][data-grayscale-hover="true"]:not([data-hover-zoom-enabled="true"]).image-hover-active {
+  z-index: var(--image-layer-z-index, auto) !important;
+}
+
+/* 原框內放大仍維持在原圖框內裁切 */
+.free-element[data-type="image"][data-hover-zoom-enabled="true"][data-hover-zoom-mode="inner"] > .inner {
+  overflow: hidden !important;
+}
+
+/* 解除群組放在群組浮動工具列；非群組不顯示，避免工具列混亂 */
+.free-element:not([data-type="group"]) > .element-toolbar [data-element-action="ungroup"] {
+  display: none !important;
+}
+
+.free-element[data-type="group"] > .element-toolbar [data-element-action="ungroup"] {
+  display: inline-flex !important;
+}
+
