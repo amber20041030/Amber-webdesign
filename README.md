@@ -27,13 +27,13 @@
 ## 檔案結構
 
 ```text
-bootstrap-v83/
+bootstrap-v84/
 ├── index.html
 ├── css/
 │   └── editor.css
 ├── js/
 │   └── editor.js
-├── bootstrap-v83.html
+├── bootstrap-v84.html
 └── README.md
 ```
 
@@ -653,9 +653,9 @@ bootstrap-v83/
 ## v42 指定修改
 
 - ZIP 檔名改為簡短格式：
-  - bootstrap-v83.zip
+  - bootstrap-v84.zip
 - 單檔版改為：
-  - bootstrap-v83.html
+  - bootstrap-v84.html
 - 網頁名稱 / 編輯器標題改為：
   - 自訂網站編輯器
 - 垂直圖文輪播區塊移除：
@@ -1726,3 +1726,13 @@ v55 調整為：
 - 圖層表左側新增拖拉把手
 - 可拖拉排序圖層前後位置
 - 選取區塊後只顯示該區塊的圖層
+
+## v84 修正
+
+### GitHub 連結 / 其他電腦存檔失敗
+
+- 修正其他電腦用 GitHub Pages 開啟後，localStorage 因容量或瀏覽器限制導致不能儲存的問題
+- 手動儲存失敗時，會自動下載 JSON 備份檔
+- 新增「匯入備份」按鈕，可載入 JSON 備份
+- 即時存檔不再把大型上傳字體塞進主要儲存資料，降低超過容量的機率
+- 儲存同時寫入新版與舊版 key，提高不同電腦與舊版本相容性

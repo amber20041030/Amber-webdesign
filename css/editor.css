@@ -4334,3 +4334,8 @@ body:not(.preview-mode) .block-canvas > .alignment-guide.center-guide {
 .free-element.is-locked {
   outline: 2px dashed rgba(25,135,84,.65) !important;
 }
+
+/* v84：備份匯入按鈕 */
+#importBackupBtn {
+  white-space: nowrap;
+}
