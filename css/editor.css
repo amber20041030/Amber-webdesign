@@ -5484,3 +5484,194 @@ body.preview-mode .html-block.site-sticky-top,
 body.exported-site .html-block.site-sticky-top {
   transform: translateZ(0);
 }
+
+
+/* v119：線條本身 Canva 左右漸層 / 左右淡出 */
+.free-element[data-type="line"] .line-main {
+  vector-effect: non-scaling-stroke;
+}
+
+/* v120：下拉式選項標題背景與內容選項背景完全分離 */
+.free-element[data-type="select"] {
+  --select-title-bg-v120: var(--select-title-bg, #ffffff);
+  --select-title-radius-v120: inherit;
+}
+
+.free-element[data-type="select"] .editable-select-title {
+  background: var(--select-title-bg-v120, var(--select-title-bg, #ffffff)) !important;
+  background-color: var(--select-title-bg-v120, var(--select-title-bg, #ffffff)) !important;
+  border-radius: var(--select-title-radius-v120, inherit) !important;
+  overflow: hidden;
+}
+
+.free-element[data-type="select"] .editable-select-menu {
+  background: var(--select-menu-bg, #ffffff) !important;
+  background-color: var(--select-menu-bg, #ffffff) !important;
+}
+
+.free-element[data-type="select"] .editable-select-option {
+  background: var(--select-option-bg, transparent) !important;
+}
+
+/* v121：下拉式選項元件 標題文字 / 內容選項文字分開設定 */
+.free-element[data-type="select"] {
+  --select-title-text-size-v121: inherit;
+  --select-title-text-color-v121: inherit;
+  --select-title-text-weight-v121: inherit;
+  --select-title-text-line-height-v121: inherit;
+  --select-title-text-letter-spacing-v121: inherit;
+  --select-title-text-align-v121: center;
+  --select-content-text-size-v121: inherit;
+  --select-content-text-color-v121: inherit;
+  --select-content-text-weight-v121: inherit;
+  --select-content-text-line-height-v121: inherit;
+  --select-content-text-letter-spacing-v121: inherit;
+  --select-content-text-align-v121: center;
+}
+
+.free-element[data-type="select"] .editable-select-title > span {
+  display: block;
+  width: 100%;
+  font-size: var(--select-title-text-size-v121, inherit) !important;
+  color: var(--select-title-text-color-v121, inherit) !important;
+  font-weight: var(--select-title-text-weight-v121, inherit) !important;
+  line-height: var(--select-title-text-line-height-v121, inherit) !important;
+  letter-spacing: var(--select-title-text-letter-spacing-v121, inherit) !important;
+  text-align: var(--select-title-text-align-v121, center) !important;
+}
+
+.free-element[data-type="select"] .editable-select-option {
+  text-align: var(--select-content-text-align-v121, center) !important;
+}
+
+.free-element[data-type="select"] .editable-select-option > span {
+  display: block;
+  width: 100%;
+  font-size: var(--select-content-text-size-v121, inherit) !important;
+  color: var(--select-content-text-color-v121, inherit) !important;
+  font-weight: var(--select-content-text-weight-v121, inherit) !important;
+  line-height: var(--select-content-text-line-height-v121, inherit) !important;
+  letter-spacing: var(--select-content-text-letter-spacing-v121, inherit) !important;
+  text-align: var(--select-content-text-align-v121, center) !important;
+}
+
+/* v122：下拉式選項設定頁面分類整理 */
+.select-settings-organized .settings-section {
+  border: 1px solid #e6eaf0;
+  border-radius: 12px;
+  background: #ffffff;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.select-settings-organized .settings-section > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #223047;
+  background: linear-gradient(180deg, #fbfcfe, #f4f7fb);
+  border-bottom: 1px solid #e9edf3;
+}
+
+.select-settings-organized .settings-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.select-settings-organized .settings-section > summary::after {
+  content: "⌄";
+  float: right;
+  color: #6c757d;
+  transition: transform .18s ease;
+}
+
+.select-settings-organized .settings-section:not([open]) > summary::after {
+  transform: rotate(-90deg);
+}
+
+.select-settings-organized .settings-section-body {
+  padding: 12px;
+}
+
+.select-settings-organized .setting-subtitle {
+  font-size: 12px;
+  font-weight: 800;
+  color: #495057;
+  border-top: 1px solid #edf1f6;
+  padding-top: 10px;
+  margin: 12px 0 10px;
+}
+
+.select-settings-organized .select-option-style-panel,
+.select-settings-organized .select-option-action-panel,
+.select-settings-organized .select-option-function-list,
+.select-settings-organized .select-option-link-settings,
+.select-settings-organized .select-content-text-style-panel {
+  border: 1px solid #e6eaf0;
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(248,249,250,.72);
+}
+
+
+/* v123：右側設定頁卷軸修正，設定太長時可獨立下滑 */
+.editor-inspector {
+  height: calc(100vh - var(--topbar-height));
+  max-height: calc(100vh - var(--topbar-height));
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-bottom: 32px;
+}
+
+@supports (height: 100dvh) {
+  .editor-inspector {
+    height: calc(100dvh - var(--topbar-height));
+    max-height: calc(100dvh - var(--topbar-height));
+  }
+}
+
+.editor-inspector .setting-card:last-child {
+  margin-bottom: 32px;
+}
+
+.editor-inspector .setting-card:not(.collapsed) > .setting-card-content {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.editor-inspector::-webkit-scrollbar {
+  width: 10px;
+}
+
+.editor-inspector::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, .72);
+  border-radius: 999px;
+}
+
+.editor-inspector::-webkit-scrollbar-thumb {
+  background: rgba(120, 132, 150, .78);
+  border-radius: 999px;
+  border: 2px solid rgba(226, 232, 240, .72);
+}
+
+.editor-inspector::-webkit-scrollbar-thumb:hover {
+  background: rgba(86, 99, 120, .9);
+}
+
+body.right-sidebar-collapsed .editor-inspector {
+  overflow: hidden !important;
+}
+
+
+/* v124：下拉式選項標題與內容選項間距 */
+.free-element[data-type="select"] {
+  --select-title-content-gap-v124: 0px;
+}
+
+.free-element[data-type="select"] .editable-select-menu {
+  margin-top: var(--select-title-content-gap-v124, 0px) !important;
+}

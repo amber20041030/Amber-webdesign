@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>自訂網站編輯器 V118</title>
+  <title>自訂網站編輯器 V124</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
@@ -1030,6 +1030,8 @@
         <label class="simple-label">線條漸層效果</label>
         <select class="form-select form-select-sm mb-3" id="lineGradientMode">
           <option value="left-right">由左到右</option>
+          <option value="canva-left-right">左右漸層（Canva）</option>
+          <option value="canva-fade">左右淡出（Canva）</option>
           <option value="right-left">由右到左</option>
           <option value="top-bottom">由上到下</option>
           <option value="bottom-top">由下到上</option>
@@ -1087,7 +1089,7 @@
         </div>
 
         <div class="small text-muted">
-          可像 Canva 一樣調整粗細、顏色、實線/虛線/點線、左右端點、箭頭樣式、箭頭寬度、箭頭高度、線條漸層與角度；拖拉外框可調整整體長度。
+          可像 Canva 一樣調整粗細、顏色、實線/虛線/點線、左右端點、箭頭樣式、箭頭寬度、箭頭高度、線條本身左右漸層、左右淡出與角度；拖拉外框可調整整體長度。
         </div>
       </div>
 
@@ -1399,239 +1401,442 @@
           <input type="text" class="form-control form-control-sm mb-3" id="inputPlaceholderInput" placeholder="請輸入提示字">
         </div>
 
-        <div id="selectSettingPanel" class="d-none">
+        <div id="selectSettingPanel" class="d-none select-settings-organized">
           <div class="small text-muted mb-2 d-none" id="selectSwitcherControlHint">
             這裡編輯的是下拉換組元件的每個選項名稱，每行一個名稱。
           </div>
-          <label class="simple-label">下拉式選項樣式</label>
-          <select class="form-select form-select-sm mb-3" id="dropdownStyleModeSelect">
-            <option value="v78">點擊標題才展開</option>
-            <option value="hover-title">滑鼠移到標題自動下拉</option>
-            <option value="vertical-list">選項垂直展開排列</option>
-          </select>
 
-          <div class="form-check form-switch mb-3">
-            <input class="form-check-input" type="checkbox" role="switch" id="dropdownIconVisibleToggle" checked>
-            <label class="form-check-label small" for="dropdownIconVisibleToggle">
-              顯示選項旁邊 ICON
-            </label>
-          </div>
-
-          <label class="simple-label">下拉 ICON 樣式</label>
-          <select class="form-select form-select-sm mb-3" id="dropdownIconStyleSelect">
-            <option value="default">預設倒三角旋轉</option>
-            <option value="plus-x">下拉前 +，下拉後 ×</option>
-            <option value="triangle-line">下拉前倒三角，下拉後橫線</option>
-            <option value="none">取消 ICON</option>
-          </select>
-
-          <label class="simple-label">ICON 顏色</label>
-          <input type="color" class="form-control form-control-color mb-3" id="dropdownIconColor" value="#6c757d">
-
-          <label class="simple-label">ICON 大小</label>
-          <input type="range" class="form-range" id="dropdownIconSize" min="8" max="80" step="1" value="18">
-          <div class="px-input-row mb-3">
-            <span>px</span>
-            <input type="number" class="form-control form-control-sm" id="dropdownIconSizeInput" min="8" max="80" step="1" value="18">
-          </div>
-
-          <div id="navDropdownStylePanelV107" class="d-none">
-            <hr>
-            <div class="setting-title small mb-2">導覽列下拉樣式</div>
-
-            <label class="simple-label">標題背景顏色</label>
-            <input type="color" class="form-control form-control-color mb-3" id="navDropdownTitleBgColor" value="#0b3557">
-
-            <label class="simple-label">標題背景透明度</label>
-            <input type="range" class="form-range" id="navDropdownTitleBgOpacity" min="0" max="100" step="1" value="100">
-            <div class="px-input-row mb-3">
-              <span>%</span>
-              <input type="number" class="form-control form-control-sm" id="navDropdownTitleBgOpacityInput" min="0" max="100" step="1" value="100">
-            </div>
-
-            <label class="simple-label">標題背景材質</label>
-            <select class="form-select form-select-sm mb-3" id="navDropdownTitleMaterial">
-              <option value="none">一般背景</option>
-              <option value="frosted">毛玻璃材質</option>
-              <option value="glass">玻璃材質</option>
-              <option value="dark-matte">深灰霧面材質（同圖片）</option>
-            </select>
-
-            <label class="simple-label">標題文字顏色</label>
-            <input type="color" class="form-control form-control-color mb-3" id="navDropdownTitleTextColor" value="#ffffff">
-
-            <label class="simple-label">下拉背景顏色</label>
-            <input type="color" class="form-control form-control-color mb-3" id="navDropdownMenuBgColor" value="#ffffff">
-
-            <label class="simple-label">下拉背景透明度</label>
-            <input type="range" class="form-range" id="navDropdownMenuBgOpacity" min="0" max="100" step="1" value="100">
-            <div class="px-input-row mb-3">
-              <span>%</span>
-              <input type="number" class="form-control form-control-sm" id="navDropdownMenuBgOpacityInput" min="0" max="100" step="1" value="100">
-            </div>
-
-            <label class="simple-label">下拉背景材質</label>
-            <select class="form-select form-select-sm mb-3" id="navDropdownMenuMaterial">
-              <option value="none">一般背景</option>
-              <option value="frosted">毛玻璃材質</option>
-              <option value="glass">玻璃材質</option>
-              <option value="dark-matte">深灰霧面材質（同圖片）</option>
-            </select>
-
-            <label class="simple-label">下拉選項文字顏色</label>
-            <input type="color" class="form-control form-control-color mb-3" id="navDropdownOptionTextColor" value="#333333">
-
-            <label class="simple-label">選項滑入背景顏色</label>
-            <input type="color" class="form-control form-control-color mb-3" id="navDropdownOptionHoverBgColor" value="#edf6ff">
-
-            <label class="simple-label">選項滑入背景透明度</label>
-            <input type="range" class="form-range" id="navDropdownOptionHoverBgOpacity" min="0" max="100" step="1" value="100">
-            <div class="px-input-row mb-3">
-              <span>%</span>
-              <input type="number" class="form-control form-control-sm" id="navDropdownOptionHoverBgOpacityInput" min="0" max="100" step="1" value="100">
-            </div>
-
-            <label class="simple-label">選項滑入文字顏色</label>
-            <input type="color" class="form-control form-control-color mb-3" id="navDropdownOptionHoverTextColor" value="#0b3557">
-          </div>
-
-          <label class="simple-label" id="selectOptionsLabel">下拉選項</label>
-          <textarea class="form-control form-control-sm mb-2" id="selectOptionsInput" rows="5" placeholder="每行一個選項"></textarea>
-          <button class="btn btn-outline-primary btn-sm w-100 mb-3" id="applySelectOptionsBtn">套用選項</button>
-
-          <div class="select-option-style-panel d-none" id="selectOptionStylePanel">
-            <div class="setting-title small mb-2">單一選項樣式</div>
-
-            <label class="simple-label">目前選項標題背景顏色</label>
-            <input type="color" class="form-control form-control-color mb-3" id="selectOptionHeadBgColor" value="#ffffff">
-
-            <label class="simple-label">標題背景透明度</label>
-            <input type="range" class="form-range" id="selectOptionHeadBgOpacity" min="0" max="100" step="1" value="100">
-            <div class="px-input-row mb-3">
-              <span>%</span>
-              <input type="number" class="form-control form-control-sm" id="selectOptionHeadBgOpacityInput" min="0" max="100" step="1" value="100">
-            </div>
-
-            <label class="simple-label">標題背景材質</label>
-            <select class="form-select form-select-sm mb-3" id="selectOptionHeadMaterial">
-              <option value="none">一般背景</option>
-              <option value="frosted">毛玻璃材質</option>
-              <option value="glass">玻璃材質</option>
-              <option value="dark-matte">深灰霧面材質（同圖片）</option>
-            </select>
-
-            <label class="simple-label">目前選項內容背景顏色</label>
-            <input type="color" class="form-control form-control-color mb-3" id="selectOptionBodyBgColor" value="#ffffff">
-
-            <label class="simple-label">內容背景透明度</label>
-            <input type="range" class="form-range" id="selectOptionBodyBgOpacity" min="0" max="100" step="1" value="100">
-            <div class="px-input-row mb-3">
-              <span>%</span>
-              <input type="number" class="form-control form-control-sm" id="selectOptionBodyBgOpacityInput" min="0" max="100" step="1" value="100">
-            </div>
-
-            <label class="simple-label">內容背景材質</label>
-            <select class="form-select form-select-sm mb-3" id="selectOptionBodyMaterial">
-              <option value="none">一般背景</option>
-              <option value="frosted">毛玻璃材質</option>
-              <option value="glass">玻璃材質</option>
-              <option value="dark-matte">深灰霧面材質（同圖片）</option>
-            </select>
-
-            <label class="simple-label">選項邊框顏色</label>
-            <input type="color" class="form-control form-control-color mb-3" id="selectOptionBorderColor" value="#dee2e6">
-
-            <label class="simple-label">選項邊框透明度</label>
-            <input type="range" class="form-range" id="selectOptionBorderOpacity" min="0" max="100" step="1" value="100">
-            <div class="px-input-row mb-3">
-              <span>%</span>
-              <input type="number" class="form-control form-control-sm" id="selectOptionBorderOpacityInput" min="0" max="100" step="1" value="100">
-            </div>
-
-            <label class="simple-label">選項邊框粗細</label>
-            <input type="range" class="form-range" id="selectOptionBorderWidth" min="0" max="12" step="1" value="1">
-            <div class="px-input-row mb-3">
-              <span>px</span>
-              <input type="number" class="form-control form-control-sm" id="selectOptionBorderWidthInput" min="0" max="12" step="1" value="1">
-            </div>
-
-            <label class="simple-label">開啟哪些框線</label>
-            <div class="quick-grid mb-3">
-              <label class="form-check small">
-                <input class="form-check-input" type="checkbox" id="selectOptionBorderTop" checked>
-                上框線
-              </label>
-              <label class="form-check small">
-                <input class="form-check-input" type="checkbox" id="selectOptionBorderRight" checked>
-                右框線
-              </label>
-              <label class="form-check small">
-                <input class="form-check-input" type="checkbox" id="selectOptionBorderBottom" checked>
-                下框線
-              </label>
-              <label class="form-check small">
-                <input class="form-check-input" type="checkbox" id="selectOptionBorderLeft" checked>
-                左框線
-              </label>
-            </div>
-
-            <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-3" id="applySelectOptionStyleBtn">套用此選項樣式</button>
-          </div>
-
-          <hr>
-
-          <div class="setting-title small mb-2">單一選項功能</div>
-
-          <label class="simple-label">選擇要設定的選項</label>
-          <select class="form-select form-select-sm mb-3" id="selectOptionActionSelect">
-            <option value="">請先選擇選項</option>
-          </select>
-
-          <div class="select-option-action-panel d-none" id="selectOptionActionPanel">
-            <div class="form-check form-switch mb-2">
-              <input class="form-check-input" type="checkbox" role="switch" id="selectOptionFunctionEnabled">
-              <label class="form-check-label small" for="selectOptionFunctionEnabled">
-                開啟功能列表
-              </label>
-            </div>
-
-            <div class="select-option-function-list d-none" id="selectOptionFunctionList">
-              <label class="form-check small mb-2">
-                <input class="form-check-input" type="checkbox" id="selectOptionScrollEnabled">
-                選取後下拉到指定 ID 區塊，並對齊區塊底部
-              </label>
-
-              <label class="simple-label">指定 ID 區塊</label>
-              <select class="form-select form-select-sm mb-3" id="selectOptionScrollTarget">
-                <option value="">請先選擇ID區塊</option>
+          <details class="settings-section" open>
+            <summary>基本設定</summary>
+            <div class="settings-section-body">
+              <label class="simple-label">開合狀態／下拉式選項樣式</label>
+              <select class="form-select form-select-sm mb-3" id="dropdownStyleModeSelect">
+                <option value="v78">點擊標題才展開</option>
+                <option value="hover-title">滑鼠移到標題自動下拉</option>
+                <option value="vertical-list">選項垂直展開排列</option>
               </select>
 
-              <label class="form-check small mb-2">
-                <input class="form-check-input" type="checkbox" id="selectOptionPageEnabled">
-                選取後跳轉到指定子頁面
-              </label>
+              <label class="simple-label" id="selectOptionsLabel">標題文字／內容選項文字</label>
+              <textarea class="form-control form-control-sm mb-2" id="selectOptionsInput" rows="5" placeholder="每行一個選項"></textarea>
+              <button class="btn btn-outline-primary btn-sm w-100 mb-3" id="applySelectOptionsBtn">套用選項</button>
 
-              <label class="simple-label">指定子頁面</label>
-              <select class="form-select form-select-sm mb-3" id="selectOptionPageTarget">
-                <option value="">請先選擇子頁面</option>
+              <label class="simple-label">選擇要設定的內容選項</label>
+              <select class="form-select form-select-sm mb-2" id="selectOptionActionSelect">
+                <option value="">請先選擇選項</option>
+              </select>
+              <div class="small text-muted mb-1">
+                選到單一選項後，下方「內容選項樣式」與「進階設定」會顯示該選項的設定。
+              </div>
+            </div>
+          </details>
+
+          <details class="settings-section" id="selectTitleStyleSectionV122" open>
+            <summary>標題樣式</summary>
+            <div class="settings-section-body select-title-style-panel d-none" id="selectTitleStylePanel">
+              <div class="small text-muted mb-2">
+                以下設定只影響下拉標題，不影響下拉後的內容選項。
+              </div>
+
+              <label class="simple-label">標題背景顏色</label>
+              <input type="color" class="form-control form-control-color mb-3" id="selectTitleBgColor" value="#ffffff">
+
+              <label class="simple-label">標題背景透明度</label>
+              <input type="range" class="form-range" id="selectTitleBgOpacity" min="0" max="100" step="1" value="100">
+              <div class="px-input-row mb-3">
+                <span>%</span>
+                <input type="number" class="form-control form-control-sm" id="selectTitleBgOpacityInput" min="0" max="100" step="1" value="100">
+              </div>
+
+              <label class="simple-label">標題圓角</label>
+              <input type="range" class="form-range" id="selectTitleRadius" min="0" max="100" step="1" value="10">
+              <div class="px-input-row mb-3">
+                <span>px</span>
+                <input type="number" class="form-control form-control-sm" id="selectTitleRadiusInput" min="0" max="100" step="1" value="10">
+              </div>
+
+              <label class="simple-label">標題材質效果</label>
+              <select class="form-select form-select-sm mb-3" id="selectTitleMaterial">
+                <option value="none">一般背景</option>
+                <option value="frosted">毛玻璃材質</option>
+                <option value="glass">玻璃材質</option>
+                <option value="dark-matte">深灰霧面材質（同圖片）</option>
+              </select>
+
+              <label class="simple-label">標題內距</label>
+              <input type="range" class="form-range" id="selectTitlePadding" min="0" max="80" step="1" value="10">
+              <div class="px-input-row mb-3">
+                <span>px</span>
+                <input type="number" class="form-control form-control-sm" id="selectTitlePaddingInput" min="0" max="80" step="1" value="10">
+              </div>
+
+              <label class="simple-label">標題與內容選項間距</label>
+              <input type="range" class="form-range" id="selectTitleContentGap" min="0" max="120" step="1" value="0">
+              <div class="px-input-row mb-3">
+                <span>px</span>
+                <input type="number" class="form-control form-control-sm" id="selectTitleContentGapInput" min="0" max="120" step="1" value="0">
+              </div>
+
+              <div class="setting-subtitle">標題文字樣式</div>
+
+              <label class="simple-label">標題文字大小</label>
+              <input type="range" class="form-range" id="selectTitleTextSize" min="8" max="120" step="1" value="16">
+              <div class="px-input-row mb-3">
+                <span>px</span>
+                <input type="number" class="form-control form-control-sm" id="selectTitleTextSizeInput" min="8" max="120" step="1" value="16">
+              </div>
+
+              <label class="simple-label">標題文字顏色</label>
+              <input type="color" class="form-control form-control-color mb-3" id="selectTitleTextColor" value="#212529">
+
+              <label class="simple-label">標題文字字重</label>
+              <select class="form-select form-select-sm mb-3" id="selectTitleTextWeight">
+                <option value="300">細體 300</option>
+                <option value="400">一般 400</option>
+                <option value="500">中等 500</option>
+                <option value="600">半粗 600</option>
+                <option value="700">粗體 700</option>
+                <option value="800">特粗 800</option>
+                <option value="900">黑體 900</option>
+              </select>
+
+              <label class="simple-label">標題文字行高</label>
+              <input type="range" class="form-range" id="selectTitleTextLineHeight" min="80" max="300" step="1" value="135">
+              <div class="px-input-row mb-3">
+                <span>%</span>
+                <input type="number" class="form-control form-control-sm" id="selectTitleTextLineHeightInput" min="80" max="300" step="1" value="135">
+              </div>
+
+              <label class="simple-label">標題文字字距</label>
+              <input type="range" class="form-range" id="selectTitleTextLetterSpacing" min="-10" max="30" step="0.1" value="0.2">
+              <div class="px-input-row mb-3">
+                <span>px</span>
+                <input type="number" class="form-control form-control-sm" id="selectTitleTextLetterSpacingInput" min="-10" max="30" step="0.1" value="0.2">
+              </div>
+
+              <label class="simple-label">標題文字對齊方式</label>
+              <select class="form-select form-select-sm mb-3" id="selectTitleTextAlign">
+                <option value="left">靠左</option>
+                <option value="center">置中</option>
+                <option value="right">靠右</option>
               </select>
             </div>
+          </details>
 
-            <div class="form-check form-switch mb-2">
-              <input class="form-check-input" type="checkbox" role="switch" id="selectOptionLinkEnabled">
-              <label class="form-check-label small" for="selectOptionLinkEnabled">
-                開啟元件超連結
-              </label>
+          <details class="settings-section" id="selectContentStyleSectionV122" open>
+            <summary>內容選項樣式</summary>
+            <div class="settings-section-body">
+              <div class="select-option-style-panel d-none" id="selectOptionStylePanel">
+                <div class="small text-muted mb-2">
+                  以下設定只影響下拉後的內容選項，不影響標題背景與標題文字。
+                </div>
+
+                <label class="simple-label">內容選項背景顏色</label>
+                <input type="color" class="form-control form-control-color mb-3" id="selectOptionHeadBgColor" value="#ffffff">
+
+                <label class="simple-label">內容選項背景透明度</label>
+                <input type="range" class="form-range" id="selectOptionHeadBgOpacity" min="0" max="100" step="1" value="100">
+                <div class="px-input-row mb-3">
+                  <span>%</span>
+                  <input type="number" class="form-control form-control-sm" id="selectOptionHeadBgOpacityInput" min="0" max="100" step="1" value="100">
+                </div>
+
+                <label class="simple-label">內容選項圓角</label>
+                <input type="range" class="form-range" id="selectOptionRadius" min="0" max="100" step="1" value="0">
+                <div class="px-input-row mb-3">
+                  <span>px</span>
+                  <input type="number" class="form-control form-control-sm" id="selectOptionRadiusInput" min="0" max="100" step="1" value="0">
+                </div>
+
+                <label class="simple-label">內容選項材質效果</label>
+                <select class="form-select form-select-sm mb-3" id="selectOptionHeadMaterial">
+                  <option value="none">一般背景</option>
+                  <option value="frosted">毛玻璃材質</option>
+                  <option value="glass">玻璃材質</option>
+                  <option value="dark-matte">深灰霧面材質（同圖片）</option>
+                </select>
+
+                <label class="simple-label">內容選項間距</label>
+                <input type="range" class="form-range" id="selectOptionGap" min="0" max="60" step="1" value="0">
+                <div class="px-input-row mb-3">
+                  <span>px</span>
+                  <input type="number" class="form-control form-control-sm" id="selectOptionGapInput" min="0" max="60" step="1" value="0">
+                </div>
+
+                <label class="simple-label">內容選項內距</label>
+                <input type="range" class="form-range" id="selectOptionPadding" min="0" max="80" step="1" value="12">
+                <div class="px-input-row mb-3">
+                  <span>px</span>
+                  <input type="number" class="form-control form-control-sm" id="selectOptionPaddingInput" min="0" max="80" step="1" value="12">
+                </div>
+
+                <label class="simple-label">內容內距</label>
+                <input type="range" class="form-range" id="selectMenuPadding" min="0" max="80" step="1" value="0">
+                <div class="px-input-row mb-3">
+                  <span>px</span>
+                  <input type="number" class="form-control form-control-sm" id="selectMenuPaddingInput" min="0" max="80" step="1" value="0">
+                </div>
+
+                <label class="simple-label">選項高度</label>
+                <input type="range" class="form-range" id="selectOptionHeight" min="0" max="240" step="1" value="0">
+                <div class="px-input-row mb-3">
+                  <span>px</span>
+                  <input type="number" class="form-control form-control-sm" id="selectOptionHeightInput" min="0" max="240" step="1" value="0">
+                </div>
+
+                <label class="simple-label">下拉內容區背景顏色</label>
+                <input type="color" class="form-control form-control-color mb-3" id="selectOptionBodyBgColor" value="#ffffff">
+
+                <label class="simple-label">下拉內容區背景透明度</label>
+                <input type="range" class="form-range" id="selectOptionBodyBgOpacity" min="0" max="100" step="1" value="100">
+                <div class="px-input-row mb-3">
+                  <span>%</span>
+                  <input type="number" class="form-control form-control-sm" id="selectOptionBodyBgOpacityInput" min="0" max="100" step="1" value="100">
+                </div>
+
+                <label class="simple-label">下拉內容區材質效果</label>
+                <select class="form-select form-select-sm mb-3" id="selectOptionBodyMaterial">
+                  <option value="none">一般背景</option>
+                  <option value="frosted">毛玻璃材質</option>
+                  <option value="glass">玻璃材質</option>
+                  <option value="dark-matte">深灰霧面材質（同圖片）</option>
+                </select>
+
+                <div class="setting-subtitle">內容選項框線</div>
+
+                <label class="simple-label">選項邊框顏色</label>
+                <input type="color" class="form-control form-control-color mb-3" id="selectOptionBorderColor" value="#dee2e6">
+
+                <label class="simple-label">選項邊框透明度</label>
+                <input type="range" class="form-range" id="selectOptionBorderOpacity" min="0" max="100" step="1" value="100">
+                <div class="px-input-row mb-3">
+                  <span>%</span>
+                  <input type="number" class="form-control form-control-sm" id="selectOptionBorderOpacityInput" min="0" max="100" step="1" value="100">
+                </div>
+
+                <label class="simple-label">選項邊框粗細</label>
+                <input type="range" class="form-range" id="selectOptionBorderWidth" min="0" max="12" step="1" value="1">
+                <div class="px-input-row mb-3">
+                  <span>px</span>
+                  <input type="number" class="form-control form-control-sm" id="selectOptionBorderWidthInput" min="0" max="12" step="1" value="1">
+                </div>
+
+                <label class="simple-label">開啟哪些框線</label>
+                <div class="quick-grid mb-3">
+                  <label class="form-check small">
+                    <input class="form-check-input" type="checkbox" id="selectOptionBorderTop" checked>
+                    上框線
+                  </label>
+                  <label class="form-check small">
+                    <input class="form-check-input" type="checkbox" id="selectOptionBorderRight" checked>
+                    右框線
+                  </label>
+                  <label class="form-check small">
+                    <input class="form-check-input" type="checkbox" id="selectOptionBorderBottom" checked>
+                    下框線
+                  </label>
+                  <label class="form-check small">
+                    <input class="form-check-input" type="checkbox" id="selectOptionBorderLeft" checked>
+                    左框線
+                  </label>
+                </div>
+
+                <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-3" id="applySelectOptionStyleBtn">套用此選項樣式</button>
+              </div>
+
+              <div class="select-content-text-style-panel d-none" id="selectContentTextStylePanel">
+                <div class="setting-subtitle">內容選項文字樣式</div>
+                <div class="small text-muted mb-2">
+                  以下設定只影響下拉後的內容選項文字，不影響標題文字。
+                </div>
+
+                <label class="simple-label">內容選項文字大小</label>
+                <input type="range" class="form-range" id="selectContentTextSize" min="8" max="120" step="1" value="16">
+                <div class="px-input-row mb-3">
+                  <span>px</span>
+                  <input type="number" class="form-control form-control-sm" id="selectContentTextSizeInput" min="8" max="120" step="1" value="16">
+                </div>
+
+                <label class="simple-label">內容選項文字顏色</label>
+                <input type="color" class="form-control form-control-color mb-3" id="selectContentTextColor" value="#212529">
+
+                <label class="simple-label">內容選項文字字重</label>
+                <select class="form-select form-select-sm mb-3" id="selectContentTextWeight">
+                  <option value="300">細體 300</option>
+                  <option value="400">一般 400</option>
+                  <option value="500">中等 500</option>
+                  <option value="600">半粗 600</option>
+                  <option value="700">粗體 700</option>
+                  <option value="800">特粗 800</option>
+                  <option value="900">黑體 900</option>
+                </select>
+
+                <label class="simple-label">內容選項文字行高</label>
+                <input type="range" class="form-range" id="selectContentTextLineHeight" min="80" max="300" step="1" value="135">
+                <div class="px-input-row mb-3">
+                  <span>%</span>
+                  <input type="number" class="form-control form-control-sm" id="selectContentTextLineHeightInput" min="80" max="300" step="1" value="135">
+                </div>
+
+                <label class="simple-label">內容選項文字字距</label>
+                <input type="range" class="form-range" id="selectContentTextLetterSpacing" min="-10" max="30" step="0.1" value="0.4">
+                <div class="px-input-row mb-3">
+                  <span>px</span>
+                  <input type="number" class="form-control form-control-sm" id="selectContentTextLetterSpacingInput" min="-10" max="30" step="0.1" value="0.4">
+                </div>
+
+                <label class="simple-label">內容選項文字對齊方式</label>
+                <select class="form-select form-select-sm mb-3" id="selectContentTextAlign">
+                  <option value="left">靠左</option>
+                  <option value="center">置中</option>
+                  <option value="right">靠右</option>
+                </select>
+              </div>
             </div>
+          </details>
 
-            <div class="select-option-link-settings d-none" id="selectOptionLinkSettings">
-              <label class="simple-label">超連結網址</label>
-              <input type="text" class="form-control form-control-sm mb-3" id="selectOptionLinkUrl" placeholder="https://... 或 #about-us">
+          <details class="settings-section" open>
+            <summary>Icon 設定</summary>
+            <div class="settings-section-body">
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" role="switch" id="dropdownIconVisibleToggle" checked>
+                <label class="form-check-label small" for="dropdownIconVisibleToggle">
+                  顯示選項旁邊 ICON
+                </label>
+              </div>
+
+              <label class="simple-label">展開／收合 icon</label>
+              <select class="form-select form-select-sm mb-3" id="dropdownIconStyleSelect">
+                <option value="default">預設倒三角旋轉</option>
+                <option value="plus-x">下拉前 +，下拉後 ×</option>
+                <option value="triangle-line">下拉前倒三角，下拉後橫線</option>
+                <option value="none">取消 ICON</option>
+              </select>
+
+              <label class="simple-label">icon 顏色</label>
+              <input type="color" class="form-control form-control-color mb-3" id="dropdownIconColor" value="#6c757d">
+
+              <label class="simple-label">icon 大小</label>
+              <input type="range" class="form-range" id="dropdownIconSize" min="8" max="80" step="1" value="18">
+              <div class="px-input-row mb-3">
+                <span>px</span>
+                <input type="number" class="form-control form-control-sm" id="dropdownIconSizeInput" min="8" max="80" step="1" value="18">
+              </div>
             </div>
+          </details>
 
-            <button class="btn btn-outline-primary btn-sm w-100" id="applySelectOptionActionBtn">套用此選項功能</button>
-          </div>
+          <details class="settings-section" id="navDropdownStyleSectionV122" open>
+            <summary>導覽列下拉樣式</summary>
+            <div class="settings-section-body d-none" id="navDropdownStylePanelV107">
+              <label class="simple-label">標題背景顏色</label>
+              <input type="color" class="form-control form-control-color mb-3" id="navDropdownTitleBgColor" value="#0b3557">
+
+              <label class="simple-label">標題背景透明度</label>
+              <input type="range" class="form-range" id="navDropdownTitleBgOpacity" min="0" max="100" step="1" value="100">
+              <div class="px-input-row mb-3">
+                <span>%</span>
+                <input type="number" class="form-control form-control-sm" id="navDropdownTitleBgOpacityInput" min="0" max="100" step="1" value="100">
+              </div>
+
+              <label class="simple-label">標題背景材質</label>
+              <select class="form-select form-select-sm mb-3" id="navDropdownTitleMaterial">
+                <option value="none">一般背景</option>
+                <option value="frosted">毛玻璃材質</option>
+                <option value="glass">玻璃材質</option>
+                <option value="dark-matte">深灰霧面材質（同圖片）</option>
+              </select>
+
+              <label class="simple-label">標題文字顏色</label>
+              <input type="color" class="form-control form-control-color mb-3" id="navDropdownTitleTextColor" value="#ffffff">
+
+              <label class="simple-label">下拉背景顏色</label>
+              <input type="color" class="form-control form-control-color mb-3" id="navDropdownMenuBgColor" value="#ffffff">
+
+              <label class="simple-label">下拉背景透明度</label>
+              <input type="range" class="form-range" id="navDropdownMenuBgOpacity" min="0" max="100" step="1" value="100">
+              <div class="px-input-row mb-3">
+                <span>%</span>
+                <input type="number" class="form-control form-control-sm" id="navDropdownMenuBgOpacityInput" min="0" max="100" step="1" value="100">
+              </div>
+
+              <label class="simple-label">下拉背景材質</label>
+              <select class="form-select form-select-sm mb-3" id="navDropdownMenuMaterial">
+                <option value="none">一般背景</option>
+                <option value="frosted">毛玻璃材質</option>
+                <option value="glass">玻璃材質</option>
+                <option value="dark-matte">深灰霧面材質（同圖片）</option>
+              </select>
+
+              <label class="simple-label">下拉選項文字顏色</label>
+              <input type="color" class="form-control form-control-color mb-3" id="navDropdownOptionTextColor" value="#333333">
+
+              <label class="simple-label">選項滑入背景顏色</label>
+              <input type="color" class="form-control form-control-color mb-3" id="navDropdownOptionHoverBgColor" value="#edf6ff">
+
+              <label class="simple-label">選項滑入背景透明度</label>
+              <input type="range" class="form-range" id="navDropdownOptionHoverBgOpacity" min="0" max="100" step="1" value="100">
+              <div class="px-input-row mb-3">
+                <span>%</span>
+                <input type="number" class="form-control form-control-sm" id="navDropdownOptionHoverBgOpacityInput" min="0" max="100" step="1" value="100">
+              </div>
+
+              <label class="simple-label">選項滑入文字顏色</label>
+              <input type="color" class="form-control form-control-color mb-3" id="navDropdownOptionHoverTextColor" value="#0b3557">
+            </div>
+          </details>
+
+          <details class="settings-section" id="selectAdvancedSectionV122">
+            <summary>進階設定</summary>
+            <div class="settings-section-body">
+              <div class="setting-subtitle">單一選項功能</div>
+
+              <div class="select-option-action-panel d-none" id="selectOptionActionPanel">
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" role="switch" id="selectOptionFunctionEnabled">
+                  <label class="form-check-label small" for="selectOptionFunctionEnabled">
+                    開啟功能列表
+                  </label>
+                </div>
+
+                <div class="select-option-function-list d-none" id="selectOptionFunctionList">
+                  <label class="form-check small mb-2">
+                    <input class="form-check-input" type="checkbox" id="selectOptionScrollEnabled">
+                    選取後下拉到指定 ID 區塊，並對齊區塊底部
+                  </label>
+
+                  <label class="simple-label">指定 ID 區塊</label>
+                  <select class="form-select form-select-sm mb-3" id="selectOptionScrollTarget">
+                    <option value="">請先選擇ID區塊</option>
+                  </select>
+
+                  <label class="form-check small mb-2">
+                    <input class="form-check-input" type="checkbox" id="selectOptionPageEnabled">
+                    選取後跳轉到指定子頁面
+                  </label>
+
+                  <label class="simple-label">指定子頁面</label>
+                  <select class="form-select form-select-sm mb-3" id="selectOptionPageTarget">
+                    <option value="">請先選擇子頁面</option>
+                  </select>
+                </div>
+
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" role="switch" id="selectOptionLinkEnabled">
+                  <label class="form-check-label small" for="selectOptionLinkEnabled">
+                    開啟元件超連結
+                  </label>
+                </div>
+
+                <div class="select-option-link-settings d-none" id="selectOptionLinkSettings">
+                  <label class="simple-label">超連結網址</label>
+                  <input type="text" class="form-control form-control-sm mb-3" id="selectOptionLinkUrl" placeholder="https://... 或 #about-us">
+                </div>
+
+                <button class="btn btn-outline-primary btn-sm w-100" id="applySelectOptionActionBtn">套用此選項功能</button>
+              </div>
+            </div>
+          </details>
         </div>
+
       </div>
 
 

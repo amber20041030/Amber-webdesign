@@ -4401,6 +4401,11 @@ function defaultOptionStyle(index = 0) {
     headOpacity: 100,
     bodyBg: '#ffffff',
     bodyOpacity: 100,
+    radius: 0,
+    gap: 0,
+    padding: 12,
+    menuPadding: 0,
+    optionHeight: 0,
     borderColor: '#dee2e6',
     borderOpacity: 100,
     borderWidth: 1,
@@ -4515,6 +4520,16 @@ function syncSelectedOptionStylePanel() {
   setValue('selectOptionBodyBgColor', data.bodyBg || '#ffffff');
   setValue('selectOptionBodyBgOpacity', data.bodyOpacity ?? 100);
   setValue('selectOptionBodyBgOpacityInput', data.bodyOpacity ?? 100);
+  setValue('selectOptionRadius', data.radius ?? 0);
+  setValue('selectOptionRadiusInput', data.radius ?? 0);
+  setValue('selectOptionGap', data.gap ?? 0);
+  setValue('selectOptionGapInput', data.gap ?? 0);
+  setValue('selectOptionPadding', data.padding ?? 12);
+  setValue('selectOptionPaddingInput', data.padding ?? 12);
+  setValue('selectMenuPadding', data.menuPadding ?? 0);
+  setValue('selectMenuPaddingInput', data.menuPadding ?? 0);
+  setValue('selectOptionHeight', data.optionHeight ?? 0);
+  setValue('selectOptionHeightInput', data.optionHeight ?? 0);
   setValue('selectOptionBorderColor', data.borderColor || '#dee2e6');
   setValue('selectOptionBorderOpacity', data.borderOpacity ?? 100);
   setValue('selectOptionBorderOpacityInput', data.borderOpacity ?? 100);
@@ -4549,6 +4564,11 @@ function applySelectedOptionStyleFromPanel() {
     headOpacity: clampNumber(numberValue('selectOptionHeadBgOpacity', 100), 0, 100),
     bodyBg: document.getElementById('selectOptionBodyBgColor')?.value || '#ffffff',
     bodyOpacity: clampNumber(numberValue('selectOptionBodyBgOpacity', 100), 0, 100),
+    radius: clampNumber(numberValue('selectOptionRadius', 0), 0, 100),
+    gap: clampNumber(numberValue('selectOptionGap', 0), 0, 60),
+    padding: clampNumber(numberValue('selectOptionPadding', 12), 0, 80),
+    menuPadding: clampNumber(numberValue('selectMenuPadding', 0), 0, 80),
+    optionHeight: clampNumber(numberValue('selectOptionHeight', 0), 0, 240),
     borderColor: document.getElementById('selectOptionBorderColor')?.value || '#dee2e6',
     borderOpacity: clampNumber(numberValue('selectOptionBorderOpacity', 100), 0, 100),
     borderWidth: clampNumber(numberValue('selectOptionBorderWidth', 1), 0, 12),
@@ -4561,6 +4581,11 @@ function applySelectedOptionStyleFromPanel() {
   setOptionStyleData(host, styles);
   setValue('selectOptionHeadBgOpacityInput', styles[index].headOpacity);
   setValue('selectOptionBodyBgOpacityInput', styles[index].bodyOpacity);
+  setValue('selectOptionRadiusInput', styles[index].radius);
+  setValue('selectOptionGapInput', styles[index].gap);
+  setValue('selectOptionPaddingInput', styles[index].padding);
+  setValue('selectMenuPaddingInput', styles[index].menuPadding);
+  setValue('selectOptionHeightInput', styles[index].optionHeight);
   setValue('selectOptionBorderOpacityInput', styles[index].borderOpacity);
   setValue('selectOptionBorderWidthInput', styles[index].borderWidth);
   applyOptionStylesToHost(host);
@@ -6530,6 +6555,14 @@ function applyLineArrowPreset(preset) {
 }
 
 
+function mixHexColors(colorA, colorB, ratio = 0.5) {
+  const a = hexToRgbParts(colorA) || hexToRgbParts('#212529');
+  const b = hexToRgbParts(colorB) || a;
+  const t = clampNumber(parseFloat(ratio), 0, 1);
+  const toHex = value => Math.round(clampNumber(value, 0, 255)).toString(16).padStart(2, '0');
+  return '#' + toHex(a.r + (b.r - a.r) * t) + toHex(a.g + (b.g - a.g) * t) + toHex(a.b + (b.b - a.b) * t);
+}
+
 function ensureLineGradientStroke(el, svg, fallbackColor) {
   if (!el || !svg || el.dataset.lineGradientEnabled !== 'true') return fallbackColor;
 
@@ -6565,9 +6598,15 @@ function ensureLineGradientStroke(el, svg, fallbackColor) {
 
   // userSpaceOnUse 可避免 SVG <line> 使用 objectBoundingBox 時高度為 0，
   // 導致開啟漸層後部分瀏覽器把線條判定成透明或不可見。
+  const setHorizontalGradient = (reverse = false) => {
+    gradient.setAttribute('x1', String(reverse ? maxX : minX));
+    gradient.setAttribute('y1', String(centerY));
+    gradient.setAttribute('x2', String(reverse ? minX : maxX));
+    gradient.setAttribute('y2', String(centerY));
+  };
+
   if (mode === 'right-left') {
-    gradient.setAttribute('x1', String(maxX)); gradient.setAttribute('y1', String(centerY));
-    gradient.setAttribute('x2', String(minX)); gradient.setAttribute('y2', String(centerY));
+    setHorizontalGradient(true);
   } else if (mode === 'top-bottom') {
     gradient.setAttribute('x1', String(minX)); gradient.setAttribute('y1', String(minY));
     gradient.setAttribute('x2', String(minX)); gradient.setAttribute('y2', String(maxY));
@@ -6575,8 +6614,8 @@ function ensureLineGradientStroke(el, svg, fallbackColor) {
     gradient.setAttribute('x1', String(minX)); gradient.setAttribute('y1', String(maxY));
     gradient.setAttribute('x2', String(minX)); gradient.setAttribute('y2', String(minY));
   } else {
-    gradient.setAttribute('x1', String(minX)); gradient.setAttribute('y1', String(centerY));
-    gradient.setAttribute('x2', String(maxX)); gradient.setAttribute('y2', String(centerY));
+    // v119：Canva 風格左右漸層固定沿著線條本體的左右方向，不套用到箭頭。
+    setHorizontalGradient(false);
   }
 
   const addStop = (offset, color, stopOpacity) => {
@@ -6590,6 +6629,16 @@ function ensureLineGradientStroke(el, svg, fallbackColor) {
   if (mode === 'inside-out') {
     addStop('0%', endColor, endOpacity);
     addStop('50%', startColor, startOpacity);
+    addStop('100%', endColor, endOpacity);
+  } else if (mode === 'canva-left-right') {
+    addStop('0%', startColor, startOpacity);
+    addStop('50%', mixHexColors(startColor, endColor, 0.5), (startOpacity + endOpacity) / 2);
+    addStop('100%', endColor, endOpacity);
+  } else if (mode === 'canva-fade') {
+    addStop('0%', endColor, endOpacity);
+    addStop('16%', startColor, startOpacity);
+    addStop('50%', startColor, startOpacity);
+    addStop('84%', startColor, startOpacity);
     addStop('100%', endColor, endOpacity);
   } else {
     addStop('0%', startColor, startOpacity);
@@ -11067,7 +11116,13 @@ bindNumberInput('lineGradientEndOpacityInput', () => applyLineNumberInput('lineG
     if (id === 'lineGradientEndOpacity') setValue('lineGradientEndOpacityInput', e.target.value);
     applyLineStyleFromPanel();
   });
-  document.getElementById(id)?.addEventListener('change', applyLineStyleFromPanel);
+  document.getElementById(id)?.addEventListener('change', e => {
+    if (id === 'lineGradientMode' && e.target.value === 'canva-fade') {
+      setValue('lineGradientEndOpacity', 0);
+      setValue('lineGradientEndOpacityInput', 0);
+    }
+    applyLineStyleFromPanel();
+  });
 });
 
 document.querySelectorAll('[data-line-angle-preset]').forEach(btn => {
@@ -14279,6 +14334,11 @@ function defaultOptionStyle(index = 0) {
     bodyBg: '#ffffff',
     bodyOpacity: 100,
     bodyMaterial: 'none',
+    radius: 0,
+    gap: 0,
+    padding: 12,
+    menuPadding: 0,
+    optionHeight: 0,
     borderColor: '#dee2e6',
     borderOpacity: 100,
     borderWidth: 1,
@@ -14461,6 +14521,16 @@ function syncSelectedOptionStylePanelV108() {
   setValue('selectOptionBodyBgOpacity', data.bodyOpacity ?? 100);
   setValue('selectOptionBodyBgOpacityInput', data.bodyOpacity ?? 100);
   setValue('selectOptionBodyMaterial', data.bodyMaterial || 'none');
+  setValue('selectOptionRadius', data.radius ?? 0);
+  setValue('selectOptionRadiusInput', data.radius ?? 0);
+  setValue('selectOptionGap', data.gap ?? 0);
+  setValue('selectOptionGapInput', data.gap ?? 0);
+  setValue('selectOptionPadding', data.padding ?? 12);
+  setValue('selectOptionPaddingInput', data.padding ?? 12);
+  setValue('selectMenuPadding', data.menuPadding ?? 0);
+  setValue('selectMenuPaddingInput', data.menuPadding ?? 0);
+  setValue('selectOptionHeight', data.optionHeight ?? 0);
+  setValue('selectOptionHeightInput', data.optionHeight ?? 0);
   setValue('selectOptionBorderColor', data.borderColor || '#dee2e6');
   setValue('selectOptionBorderOpacity', data.borderOpacity ?? 100);
   setValue('selectOptionBorderOpacityInput', data.borderOpacity ?? 100);
@@ -14493,6 +14563,11 @@ function applySelectedOptionStyleFromPanelV108() {
     bodyBg: document.getElementById('selectOptionBodyBgColor')?.value || '#ffffff',
     bodyOpacity: clampNumber(numberValue('selectOptionBodyBgOpacity', 100), 0, 100),
     bodyMaterial: document.getElementById('selectOptionBodyMaterial')?.value || 'none',
+    radius: clampNumber(numberValue('selectOptionRadius', 0), 0, 100),
+    gap: clampNumber(numberValue('selectOptionGap', 0), 0, 60),
+    padding: clampNumber(numberValue('selectOptionPadding', 12), 0, 80),
+    menuPadding: clampNumber(numberValue('selectMenuPadding', 0), 0, 80),
+    optionHeight: clampNumber(numberValue('selectOptionHeight', 0), 0, 240),
     borderColor: document.getElementById('selectOptionBorderColor')?.value || '#dee2e6',
     borderOpacity: clampNumber(numberValue('selectOptionBorderOpacity', 100), 0, 100),
     borderWidth: clampNumber(numberValue('selectOptionBorderWidth', 1), 0, 12),
@@ -14505,6 +14580,11 @@ function applySelectedOptionStyleFromPanelV108() {
   setOptionStyleData(host, styles);
   setValue('selectOptionHeadBgOpacityInput', styles[index].headOpacity);
   setValue('selectOptionBodyBgOpacityInput', styles[index].bodyOpacity);
+  setValue('selectOptionRadiusInput', styles[index].radius);
+  setValue('selectOptionGapInput', styles[index].gap);
+  setValue('selectOptionPaddingInput', styles[index].padding);
+  setValue('selectMenuPaddingInput', styles[index].menuPadding);
+  setValue('selectOptionHeightInput', styles[index].optionHeight);
   setValue('selectOptionBorderOpacityInput', styles[index].borderOpacity);
   setValue('selectOptionBorderWidthInput', styles[index].borderWidth);
   applyOptionStylesToHost(host);
@@ -16235,4 +16315,1242 @@ body.exported-site .html-block.site-sticky-top {
 
   document.querySelectorAll('.html-block').forEach(block => syncBlockFixedClass(block));
   updateStickyZoneClassesV118(sitePage);
+})();
+
+
+/* v119：線條本身 Canva 左右漸層 / 左右淡出，不影響箭頭 */
+(function initCanvaLineGradientV119() {
+  const modeSelect = document.getElementById('lineGradientMode');
+  if (modeSelect && !modeSelect.querySelector('option[value="canva-left-right"]')) {
+    const leftRight = modeSelect.querySelector('option[value="left-right"]');
+    const canva = document.createElement('option');
+    canva.value = 'canva-left-right';
+    canva.textContent = '左右漸層（Canva）';
+    const fade = document.createElement('option');
+    fade.value = 'canva-fade';
+    fade.textContent = '左右淡出（Canva）';
+    if (leftRight && leftRight.nextSibling) {
+      modeSelect.insertBefore(fade, leftRight.nextSibling);
+      modeSelect.insertBefore(canva, fade);
+    } else {
+      modeSelect.appendChild(canva);
+      modeSelect.appendChild(fade);
+    }
+  }
+
+  document.querySelectorAll('.free-element[data-type="line"]').forEach(el => {
+    if (el.dataset.lineGradientMode === 'horizontal') el.dataset.lineGradientMode = 'canva-left-right';
+    if (typeof applyLineStyleToElement === 'function') applyLineStyleToElement(el);
+  });
+})();
+
+/* v120：下拉式選項元件標題背景 / 透明度 / 圓角 / 材質獨立於內容選項 */
+const selectTitleIndependentCSSV120 = `
+.free-element[data-type="select"] {
+  --select-title-bg-v120: var(--select-title-bg, #ffffff);
+  --select-title-radius-v120: inherit;
+}
+
+.free-element[data-type="select"] .editable-select-title {
+  background: var(--select-title-bg-v120, var(--select-title-bg, #ffffff)) !important;
+  background-color: var(--select-title-bg-v120, var(--select-title-bg, #ffffff)) !important;
+  border-radius: var(--select-title-radius-v120, inherit) !important;
+  overflow: hidden;
+}
+
+.free-element[data-type="select"] .editable-select-menu {
+  background: var(--select-menu-bg, #ffffff) !important;
+  background-color: var(--select-menu-bg, #ffffff) !important;
+}
+
+.free-element[data-type="select"] .editable-select-option {
+  background: var(--select-option-bg, transparent) !important;
+}
+`;
+
+(function initSelectTitleIndependentStyleV120() {
+  if (!document.getElementById('selectTitleIndependentCSSV120')) {
+    const style = document.createElement('style');
+    style.id = 'selectTitleIndependentCSSV120';
+    style.textContent = selectTitleIndependentCSSV120;
+    document.head.appendChild(style);
+  }
+
+  function getSelectHostV120() {
+    if (!selectedElement || selectedElement.dataset?.type !== 'select') return null;
+    return selectedElement.querySelector('.editable-select');
+  }
+
+  function getSelectWrapperV120(select) {
+    return select?.closest?.('.free-element[data-type="select"]') || null;
+  }
+
+  function getCurrentOptionStyleFallbackV120(select) {
+    try {
+      const styles = typeof getOptionStyleData === 'function' ? getOptionStyleData(select) : JSON.parse(select.dataset.optionStyles || '{}') || {};
+      const index = String(select.selectedIndex || 0);
+      if (typeof defaultOptionStyle === 'function') return Object.assign(defaultOptionStyle(select.selectedIndex || 0), styles[index] || {});
+      return Object.assign({ headBg: '#ffffff', headOpacity: 100, headMaterial: 'none' }, styles[index] || {});
+    } catch (error) {
+      return { headBg: '#ffffff', headOpacity: 100, headMaterial: 'none' };
+    }
+  }
+
+  function getRadiusFallbackV120(select) {
+    const wrapper = getSelectWrapperV120(select);
+    const raw = wrapper?.style?.borderRadius || select?.style?.borderRadius || '';
+    const value = parseFloat(raw);
+    return Number.isFinite(value) ? value : 10;
+  }
+
+  function getSelectTitleStyleV120(select) {
+    const wrapper = getSelectWrapperV120(select);
+    const fallback = getCurrentOptionStyleFallbackV120(select);
+    return {
+      bgColor: select?.dataset?.selectTitleBgColor || wrapper?.dataset?.selectTitleBgColor || fallback.headBg || '#ffffff',
+      bgOpacity: select?.dataset?.selectTitleBgOpacity || wrapper?.dataset?.selectTitleBgOpacity || fallback.headOpacity || '100',
+      material: select?.dataset?.selectTitleMaterial || wrapper?.dataset?.selectTitleMaterial || fallback.headMaterial || 'none',
+      radius: select?.dataset?.selectTitleRadius || wrapper?.dataset?.selectTitleRadius || String(getRadiusFallbackV120(select))
+    };
+  }
+
+  function writeSelectTitleStyleV120(select, data) {
+    if (!select) return;
+    const wrapper = getSelectWrapperV120(select);
+    const safe = {
+      bgColor: data.bgColor || '#ffffff',
+      bgOpacity: String(clampNumber(parseFloat(data.bgOpacity ?? 100), 0, 100)),
+      material: data.material || 'none',
+      radius: String(clampNumber(parseFloat(data.radius ?? 10), 0, 100))
+    };
+
+    select.dataset.selectTitleBgColor = safe.bgColor;
+    select.dataset.selectTitleBgOpacity = safe.bgOpacity;
+    select.dataset.selectTitleMaterial = safe.material;
+    select.dataset.selectTitleRadius = safe.radius;
+
+    if (wrapper) {
+      wrapper.dataset.selectTitleBgColor = safe.bgColor;
+      wrapper.dataset.selectTitleBgOpacity = safe.bgOpacity;
+      wrapper.dataset.selectTitleMaterial = safe.material;
+      wrapper.dataset.selectTitleRadius = safe.radius;
+    }
+  }
+
+  function applySelectTitleStyleV120(select) {
+    if (!select || !select.matches?.('.editable-select')) return;
+
+    const wrapper = getSelectWrapperV120(select);
+    const combo = typeof ensureEditableSelectCombo === 'function' ? ensureEditableSelectCombo(select) : select.closest('.editable-select-combo');
+    const title = combo?.querySelector?.('.editable-select-title');
+    const data = getSelectTitleStyleV120(select);
+
+    writeSelectTitleStyleV120(select, data);
+
+    const color = typeof colorWithOpacity === 'function'
+      ? colorWithOpacity(data.bgColor, clampNumber(parseFloat(data.bgOpacity ?? 100), 0, 100))
+      : data.bgColor;
+    const radius = `${clampNumber(parseFloat(data.radius ?? 10), 0, 100)}px`;
+
+    if (wrapper) {
+      wrapper.style.setProperty('--select-title-bg-v120', color);
+      wrapper.style.setProperty('--select-title-radius-v120', radius);
+    }
+    if (combo) {
+      combo.style.setProperty('--select-title-bg-v120', color);
+      combo.style.setProperty('--select-title-radius-v120', radius);
+    }
+    if (title) {
+      title.style.setProperty('border-radius', radius, 'important');
+      title.style.overflow = 'hidden';
+      if (typeof applyOptionMaterialToNode === 'function') {
+        applyOptionMaterialToNode(title, data.material || 'none', color);
+      } else {
+        title.style.background = color;
+        title.style.backgroundColor = color;
+      }
+      title.style.setProperty('background', title.style.background || color, 'important');
+      title.style.setProperty('background-color', color, 'important');
+    }
+  }
+
+  function syncSelectTitleStylePanelV120() {
+    const panel = document.getElementById('selectTitleStylePanel');
+    if (!panel) return;
+
+    const select = getSelectHostV120();
+    panel.classList.toggle('d-none', !select);
+    if (!select) return;
+
+    applySelectTitleStyleV120(select);
+    const data = getSelectTitleStyleV120(select);
+    setValue('selectTitleBgColor', data.bgColor || '#ffffff');
+    setValue('selectTitleBgOpacity', data.bgOpacity ?? '100');
+    setValue('selectTitleBgOpacityInput', data.bgOpacity ?? '100');
+    setValue('selectTitleRadius', data.radius ?? '10');
+    setValue('selectTitleRadiusInput', data.radius ?? '10');
+    setValue('selectTitleMaterial', data.material || 'none');
+  }
+
+  function applySelectTitleStyleFromPanelV120() {
+    const select = getSelectHostV120();
+    if (!select) return;
+
+    const data = {
+      bgColor: document.getElementById('selectTitleBgColor')?.value || '#ffffff',
+      bgOpacity: clampNumber(numberValue('selectTitleBgOpacity', 100), 0, 100),
+      radius: clampNumber(numberValue('selectTitleRadius', 10), 0, 100),
+      material: document.getElementById('selectTitleMaterial')?.value || 'none'
+    };
+    writeSelectTitleStyleV120(select, data);
+    setValue('selectTitleBgOpacityInput', data.bgOpacity);
+    setValue('selectTitleRadiusInput', data.radius);
+    applySelectTitleStyleV120(select);
+    scheduleAutoSave?.();
+  }
+
+  ['selectTitleBgColor', 'selectTitleBgOpacity', 'selectTitleRadius', 'selectTitleMaterial'].forEach(id => {
+    const el = document.getElementById(id);
+    el?.addEventListener('input', applySelectTitleStyleFromPanelV120);
+    el?.addEventListener('change', applySelectTitleStyleFromPanelV120);
+  });
+
+  bindNumberInput?.('selectTitleBgOpacityInput', () => {
+    const value = clampNumber(numberValue('selectTitleBgOpacityInput', 100), 0, 100);
+    setValue('selectTitleBgOpacity', value);
+    setValue('selectTitleBgOpacityInput', value);
+    applySelectTitleStyleFromPanelV120();
+  });
+
+  bindNumberInput?.('selectTitleRadiusInput', () => {
+    const value = clampNumber(numberValue('selectTitleRadiusInput', 10), 0, 100);
+    setValue('selectTitleRadius', value);
+    setValue('selectTitleRadiusInput', value);
+    applySelectTitleStyleFromPanelV120();
+  });
+
+  if (typeof applyOptionStylesToHost === 'function' && !window.__selectTitleApplyOptionStylesWrappedV120) {
+    window.__selectTitleApplyOptionStylesWrappedV120 = true;
+    const originalApplyOptionStylesToHostV120 = applyOptionStylesToHost;
+    applyOptionStylesToHost = function(host) {
+      originalApplyOptionStylesToHostV120(host);
+      const select = host?.matches?.('.editable-select') ? host : null;
+      if (select) applySelectTitleStyleV120(select);
+    };
+  }
+
+  if (typeof syncFormElementPanel === 'function' && !window.__selectTitlePanelWrappedV120) {
+    window.__selectTitlePanelWrappedV120 = true;
+    const originalSyncFormElementPanelV120 = syncFormElementPanel;
+    syncFormElementPanel = function() {
+      originalSyncFormElementPanelV120();
+      syncSelectTitleStylePanelV120();
+    };
+  }
+
+  if (typeof applySelectOptions === 'function' && !window.__selectTitleApplyOptionsWrappedV120) {
+    window.__selectTitleApplyOptionsWrappedV120 = true;
+    const originalApplySelectOptionsV120 = applySelectOptions;
+    applySelectOptions = function() {
+      originalApplySelectOptionsV120();
+      const select = getSelectHostV120();
+      if (select) applySelectTitleStyleV120(select);
+    };
+  }
+
+  if (typeof initPageRuntimeAfterHTMLLoad === 'function' && !window.__selectTitleRuntimeWrappedV120) {
+    window.__selectTitleRuntimeWrappedV120 = true;
+    const originalInitPageRuntimeAfterHTMLLoadV120 = initPageRuntimeAfterHTMLLoad;
+    initPageRuntimeAfterHTMLLoad = function() {
+      originalInitPageRuntimeAfterHTMLLoadV120();
+      document.querySelectorAll('.editable-select').forEach(applySelectTitleStyleV120);
+    };
+  }
+
+  if (typeof buildExportCSS === 'function' && !window.__selectTitleExportCSSWrappedV120) {
+    window.__selectTitleExportCSSWrappedV120 = true;
+    const originalBuildExportCSSV120 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV120() + '\n' + selectTitleIndependentCSSV120;
+    };
+  }
+
+  if (typeof buildExportJS === 'function' && !window.__selectTitleExportJSWrappedV120) {
+    window.__selectTitleExportJSWrappedV120 = true;
+    const originalBuildExportJSV120 = buildExportJS;
+    buildExportJS = function(exportPagesJSON, currentPageIdJSON) {
+      return originalBuildExportJSV120(exportPagesJSON, currentPageIdJSON) + `
+(function(){
+  function qsa(root, selector){ return Array.prototype.slice.call((root || document).querySelectorAll(selector)); }
+  function clamp(n, min, max){ n = parseFloat(n); if (!isFinite(n)) n = min; return Math.max(min, Math.min(max, n)); }
+  function rgba(hex, opacity){
+    if (!hex || hex.indexOf('#') !== 0) return hex || '';
+    var value = hex.replace('#','');
+    if (value.length === 3) value = value.split('').map(function(c){ return c + c; }).join('');
+    var r = parseInt(value.slice(0,2),16), g = parseInt(value.slice(2,4),16), b = parseInt(value.slice(4,6),16);
+    var a = clamp(opacity == null ? 100 : opacity, 0, 100) / 100;
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  }
+  function materialBg(base, material){
+    if (material === 'dark-matte') return 'linear-gradient(135deg, rgba(24,27,31,.88), rgba(84,88,96,.62)), ' + base;
+    if (material === 'glass') return 'linear-gradient(135deg, rgba(255,255,255,.46), rgba(255,255,255,.12)), ' + base;
+    if (material === 'frosted') return 'linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,.08)), ' + base;
+    return base;
+  }
+  function applyMaterial(node, material, base){
+    if (!node) return;
+    node.style.setProperty('background', materialBg(base, material || 'none'), 'important');
+    node.style.setProperty('background-color', base, 'important');
+    if (material === 'frosted') { node.style.backdropFilter = 'blur(12px) saturate(130%)'; node.style.webkitBackdropFilter = 'blur(12px) saturate(130%)'; }
+    else if (material === 'glass') { node.style.backdropFilter = 'blur(8px) saturate(155%)'; node.style.webkitBackdropFilter = 'blur(8px) saturate(155%)'; }
+    else if (material === 'dark-matte') { node.style.backdropFilter = 'blur(6px) saturate(125%)'; node.style.webkitBackdropFilter = 'blur(6px) saturate(125%)'; }
+    else { node.style.backdropFilter = ''; node.style.webkitBackdropFilter = ''; }
+  }
+  function applyTitle(select){
+    if (!select) return;
+    var wrapper = select.closest('.free-element[data-type="select"]');
+    var combo = select.closest('.editable-select-combo');
+    var title = combo && combo.querySelector('.editable-select-title');
+    var colorHex = select.getAttribute('data-select-title-bg-color') || (wrapper && wrapper.getAttribute('data-select-title-bg-color')) || '#ffffff';
+    var opacity = select.getAttribute('data-select-title-bg-opacity') || (wrapper && wrapper.getAttribute('data-select-title-bg-opacity')) || '100';
+    var material = select.getAttribute('data-select-title-material') || (wrapper && wrapper.getAttribute('data-select-title-material')) || 'none';
+    var radius = clamp(select.getAttribute('data-select-title-radius') || (wrapper && wrapper.getAttribute('data-select-title-radius')) || '10', 0, 100) + 'px';
+    var bg = rgba(colorHex, opacity);
+    if (wrapper) { wrapper.style.setProperty('--select-title-bg-v120', bg); wrapper.style.setProperty('--select-title-radius-v120', radius); }
+    if (combo) { combo.style.setProperty('--select-title-bg-v120', bg); combo.style.setProperty('--select-title-radius-v120', radius); }
+    if (title) { title.style.setProperty('border-radius', radius, 'important'); title.style.overflow = 'hidden'; applyMaterial(title, material, bg); }
+  }
+  function init(){ qsa(document, '.editable-select').forEach(applyTitle); }
+  document.addEventListener('change', function(event){ var select = event.target.closest && event.target.closest('.editable-select'); if (select) setTimeout(function(){ applyTitle(select); }, 0); }, true);
+  document.addEventListener('click', function(event){ var root = event.target.closest && event.target.closest('.free-element[data-type="select"]'); if (root) setTimeout(function(){ qsa(root, '.editable-select').forEach(applyTitle); }, 0); }, true);
+  init();
+})();`;
+    };
+  }
+
+  document.querySelectorAll('.editable-select').forEach(applySelectTitleStyleV120);
+  syncSelectTitleStylePanelV120();
+})();
+
+/* v121：下拉式選項元件 標題文字 / 內容選項文字完全分開設定 */
+const selectTextIndependentCSSV121 = `
+.free-element[data-type="select"] {
+  --select-title-text-size-v121: inherit;
+  --select-title-text-color-v121: inherit;
+  --select-title-text-weight-v121: inherit;
+  --select-title-text-line-height-v121: inherit;
+  --select-title-text-letter-spacing-v121: inherit;
+  --select-title-text-align-v121: center;
+  --select-content-text-size-v121: inherit;
+  --select-content-text-color-v121: inherit;
+  --select-content-text-weight-v121: inherit;
+  --select-content-text-line-height-v121: inherit;
+  --select-content-text-letter-spacing-v121: inherit;
+  --select-content-text-align-v121: center;
+}
+
+.free-element[data-type="select"] .editable-select-title > span {
+  display: block;
+  width: 100%;
+  font-size: var(--select-title-text-size-v121, inherit) !important;
+  color: var(--select-title-text-color-v121, inherit) !important;
+  font-weight: var(--select-title-text-weight-v121, inherit) !important;
+  line-height: var(--select-title-text-line-height-v121, inherit) !important;
+  letter-spacing: var(--select-title-text-letter-spacing-v121, inherit) !important;
+  text-align: var(--select-title-text-align-v121, center) !important;
+}
+
+.free-element[data-type="select"] .editable-select-option {
+  text-align: var(--select-content-text-align-v121, center) !important;
+}
+
+.free-element[data-type="select"] .editable-select-option > span {
+  display: block;
+  width: 100%;
+  font-size: var(--select-content-text-size-v121, inherit) !important;
+  color: var(--select-content-text-color-v121, inherit) !important;
+  font-weight: var(--select-content-text-weight-v121, inherit) !important;
+  line-height: var(--select-content-text-line-height-v121, inherit) !important;
+  letter-spacing: var(--select-content-text-letter-spacing-v121, inherit) !important;
+  text-align: var(--select-content-text-align-v121, center) !important;
+}
+`;
+
+(function initSelectTextIndependentStyleV121() {
+  if (!document.getElementById('selectTextIndependentCSSV121')) {
+    const style = document.createElement('style');
+    style.id = 'selectTextIndependentCSSV121';
+    style.textContent = selectTextIndependentCSSV121;
+    document.head.appendChild(style);
+  }
+
+  const TITLE_PREFIX = 'selectTitleText';
+  const CONTENT_PREFIX = 'selectContentText';
+
+  function getSelectedSelectHostV121() {
+    if (!selectedElement || selectedElement.dataset?.type !== 'select') return null;
+    return selectedElement.querySelector('.editable-select');
+  }
+
+  function getSelectWrapperV121(select) {
+    return select?.closest?.('.free-element[data-type="select"]') || null;
+  }
+
+  function hasTextStyleDataV121(select, prefix) {
+    const wrapper = getSelectWrapperV121(select);
+    return !!(
+      select?.dataset?.[prefix + 'Size'] || wrapper?.dataset?.[prefix + 'Size'] ||
+      select?.dataset?.[prefix + 'Color'] || wrapper?.dataset?.[prefix + 'Color'] ||
+      select?.dataset?.[prefix + 'Weight'] || wrapper?.dataset?.[prefix + 'Weight'] ||
+      select?.dataset?.[prefix + 'LineHeight'] || wrapper?.dataset?.[prefix + 'LineHeight'] ||
+      select?.dataset?.[prefix + 'LetterSpacing'] || wrapper?.dataset?.[prefix + 'LetterSpacing'] ||
+      select?.dataset?.[prefix + 'Align'] || wrapper?.dataset?.[prefix + 'Align']
+    );
+  }
+
+  function getComputedFallbackV121(select, scope) {
+    const wrapper = getSelectWrapperV121(select);
+    let node = wrapper || select;
+
+    if (scope === 'title') {
+      const combo = select?.closest?.('.editable-select-combo');
+      node = combo?.querySelector?.('.editable-select-title span') || combo?.querySelector?.('.editable-select-title') || wrapper || select;
+    }
+
+    if (scope === 'content') {
+      const combo = select?.closest?.('.editable-select-combo');
+      node = combo?.querySelector?.('.editable-select-option span') || combo?.querySelector?.('.editable-select-option') || wrapper || select;
+    }
+
+    const style = node ? window.getComputedStyle(node) : null;
+    const wrapperStyle = wrapper ? window.getComputedStyle(wrapper) : null;
+    const size = parseFloat(style?.fontSize || wrapperStyle?.fontSize || '16');
+    const lineHeight = (() => {
+      const raw = style?.lineHeight || '';
+      const px = parseFloat(raw);
+      if (Number.isFinite(px) && Number.isFinite(size) && size > 0) return Math.round((px / size) * 100);
+      return 135;
+    })();
+    const letter = (() => {
+      const raw = style?.letterSpacing || '';
+      const px = parseFloat(raw);
+      return Number.isFinite(px) ? px : (scope === 'content' ? 0.4 : 0.2);
+    })();
+    let weight = String(style?.fontWeight || (scope === 'title' ? '700' : '400'));
+    if (weight === 'bold') weight = '700';
+    if (weight === 'normal') weight = '400';
+    const align = style?.textAlign || (scope === 'content' ? 'center' : 'center');
+    const color = normalizeHexColor(style?.color || wrapperStyle?.color || '#212529', '#212529');
+
+    return {
+      size: String(Math.round(clampNumber(size || 16, 8, 120))),
+      color,
+      weight: ['300','400','500','600','700','800','900'].includes(weight) ? weight : (scope === 'title' ? '700' : '400'),
+      lineHeight: String(clampNumber(lineHeight || 135, 80, 300)),
+      letterSpacing: String(clampNumber(letter, -10, 30)),
+      align: ['left','center','right'].includes(align) ? align : 'center'
+    };
+  }
+
+  function getTextStyleDataV121(select, scope, forPanel = false) {
+    if (!select) return null;
+    const prefix = scope === 'title' ? TITLE_PREFIX : CONTENT_PREFIX;
+    const wrapper = getSelectWrapperV121(select);
+    const hasData = hasTextStyleDataV121(select, prefix);
+    if (!hasData && !forPanel) return null;
+
+    const fallback = getComputedFallbackV121(select, scope);
+    const read = key => select?.dataset?.[prefix + key] || wrapper?.dataset?.[prefix + key] || fallback[key.charAt(0).toLowerCase() + key.slice(1)];
+
+    return {
+      size: String(clampNumber(parseFloat(read('Size')), 8, 120)),
+      color: normalizeHexColor(read('Color'), fallback.color || '#212529'),
+      weight: ['300','400','500','600','700','800','900'].includes(String(read('Weight'))) ? String(read('Weight')) : fallback.weight,
+      lineHeight: String(clampNumber(parseFloat(read('LineHeight')), 80, 300)),
+      letterSpacing: String(clampNumber(parseFloat(read('LetterSpacing')), -10, 30)),
+      align: ['left','center','right'].includes(String(read('Align'))) ? String(read('Align')) : fallback.align
+    };
+  }
+
+  function writeTextStyleDataV121(select, scope, data) {
+    if (!select) return;
+    const prefix = scope === 'title' ? TITLE_PREFIX : CONTENT_PREFIX;
+    const wrapper = getSelectWrapperV121(select);
+    const safe = {
+      Size: String(clampNumber(parseFloat(data.size ?? 16), 8, 120)),
+      Color: normalizeHexColor(data.color || '#212529', '#212529'),
+      Weight: ['300','400','500','600','700','800','900'].includes(String(data.weight)) ? String(data.weight) : (scope === 'title' ? '700' : '400'),
+      LineHeight: String(clampNumber(parseFloat(data.lineHeight ?? 135), 80, 300)),
+      LetterSpacing: String(clampNumber(parseFloat(data.letterSpacing ?? 0), -10, 30)),
+      Align: ['left','center','right'].includes(String(data.align)) ? String(data.align) : 'center'
+    };
+
+    Object.entries(safe).forEach(([key, value]) => {
+      select.dataset[prefix + key] = value;
+      if (wrapper) wrapper.dataset[prefix + key] = value;
+    });
+  }
+
+  function setStyleOrRemoveV121(node, prop, value, priority = 'important') {
+    if (!node) return;
+    if (value === null || value === undefined || value === '') node.style.removeProperty(prop);
+    else node.style.setProperty(prop, value, priority);
+  }
+
+  function applyScopeTextStyleV121(select, scope) {
+    const wrapper = getSelectWrapperV121(select);
+    const combo = select?.closest?.('.editable-select-combo') || (typeof ensureEditableSelectCombo === 'function' ? ensureEditableSelectCombo(select) : null);
+    const data = getTextStyleDataV121(select, scope, false);
+    const prefix = scope === 'title' ? 'select-title' : 'select-content';
+    const targets = scope === 'title'
+      ? Array.from(combo?.querySelectorAll?.('.editable-select-title > span') || [])
+      : Array.from(combo?.querySelectorAll?.('.editable-select-option > span') || []);
+    const optionButtons = scope === 'content'
+      ? Array.from(combo?.querySelectorAll?.('.editable-select-option') || [])
+      : [];
+
+    if (!data) {
+      [wrapper, combo].forEach(node => {
+        if (!node) return;
+        node.style.removeProperty(`--${prefix}-text-size-v121`);
+        node.style.removeProperty(`--${prefix}-text-color-v121`);
+        node.style.removeProperty(`--${prefix}-text-weight-v121`);
+        node.style.removeProperty(`--${prefix}-text-line-height-v121`);
+        node.style.removeProperty(`--${prefix}-text-letter-spacing-v121`);
+        node.style.removeProperty(`--${prefix}-text-align-v121`);
+      });
+      targets.forEach(span => {
+        ['font-size','color','font-weight','line-height','letter-spacing','text-align'].forEach(prop => span.style.removeProperty(prop));
+      });
+      optionButtons.forEach(btn => btn.style.removeProperty('text-align'));
+      return;
+    }
+
+    const values = {
+      size: `${data.size}px`,
+      color: data.color,
+      weight: data.weight,
+      lineHeight: `${data.lineHeight}%`,
+      letterSpacing: `${data.letterSpacing}px`,
+      align: data.align
+    };
+
+    [wrapper, combo].forEach(node => {
+      if (!node) return;
+      node.style.setProperty(`--${prefix}-text-size-v121`, values.size);
+      node.style.setProperty(`--${prefix}-text-color-v121`, values.color);
+      node.style.setProperty(`--${prefix}-text-weight-v121`, values.weight);
+      node.style.setProperty(`--${prefix}-text-line-height-v121`, values.lineHeight);
+      node.style.setProperty(`--${prefix}-text-letter-spacing-v121`, values.letterSpacing);
+      node.style.setProperty(`--${prefix}-text-align-v121`, values.align);
+    });
+
+    targets.forEach(span => {
+      setStyleOrRemoveV121(span, 'font-size', values.size);
+      setStyleOrRemoveV121(span, 'color', values.color);
+      setStyleOrRemoveV121(span, 'font-weight', values.weight);
+      setStyleOrRemoveV121(span, 'line-height', values.lineHeight);
+      setStyleOrRemoveV121(span, 'letter-spacing', values.letterSpacing);
+      setStyleOrRemoveV121(span, 'text-align', values.align);
+    });
+
+    optionButtons.forEach(btn => {
+      setStyleOrRemoveV121(btn, 'text-align', values.align);
+    });
+  }
+
+  function applySelectTextStylesV121(select) {
+    if (!select || !select.matches?.('.editable-select')) return;
+    applyScopeTextStyleV121(select, 'title');
+    applyScopeTextStyleV121(select, 'content');
+  }
+
+  window.applySelectTextStylesV121 = applySelectTextStylesV121;
+
+  function syncTextPanelValuesV121(scope) {
+    const select = getSelectedSelectHostV121();
+    if (!select) return;
+    if (typeof ensureEditableSelectCombo === 'function') ensureEditableSelectCombo(select);
+    const data = getTextStyleDataV121(select, scope, true);
+    const id = scope === 'title' ? 'selectTitleText' : 'selectContentText';
+    setValue(id + 'Size', data.size);
+    setValue(id + 'SizeInput', data.size);
+    setValue(id + 'Color', data.color);
+    setValue(id + 'Weight', data.weight);
+    setValue(id + 'LineHeight', data.lineHeight);
+    setValue(id + 'LineHeightInput', data.lineHeight);
+    setValue(id + 'LetterSpacing', data.letterSpacing);
+    setValue(id + 'LetterSpacingInput', data.letterSpacing);
+    setValue(id + 'Align', data.align);
+  }
+
+  function syncSelectTextStylePanelsV121() {
+    const select = getSelectedSelectHostV121();
+    const contentPanel = document.getElementById('selectContentTextStylePanel');
+    if (contentPanel) contentPanel.classList.toggle('d-none', !select);
+    if (!select) return;
+    if (typeof ensureEditableSelectCombo === 'function') ensureEditableSelectCombo(select);
+    applySelectTextStylesV121(select);
+    syncTextPanelValuesV121('title');
+    syncTextPanelValuesV121('content');
+  }
+
+  function applyTextStyleFromPanelV121(scope) {
+    const select = getSelectedSelectHostV121();
+    if (!select) return;
+    const id = scope === 'title' ? 'selectTitleText' : 'selectContentText';
+    const data = {
+      size: clampNumber(numberValue(id + 'Size', 16), 8, 120),
+      color: document.getElementById(id + 'Color')?.value || '#212529',
+      weight: document.getElementById(id + 'Weight')?.value || (scope === 'title' ? '700' : '400'),
+      lineHeight: clampNumber(numberValue(id + 'LineHeight', 135), 80, 300),
+      letterSpacing: clampNumber(numberValue(id + 'LetterSpacing', 0), -10, 30),
+      align: document.getElementById(id + 'Align')?.value || 'center'
+    };
+    writeTextStyleDataV121(select, scope, data);
+    setValue(id + 'SizeInput', data.size);
+    setValue(id + 'LineHeightInput', data.lineHeight);
+    setValue(id + 'LetterSpacingInput', data.letterSpacing);
+    applySelectTextStylesV121(select);
+    scheduleAutoSave?.();
+  }
+
+  function bindScopeControlsV121(scope) {
+    const id = scope === 'title' ? 'selectTitleText' : 'selectContentText';
+    [id + 'Size', id + 'Color', id + 'Weight', id + 'LineHeight', id + 'LetterSpacing', id + 'Align'].forEach(controlId => {
+      const el = document.getElementById(controlId);
+      el?.addEventListener('input', () => applyTextStyleFromPanelV121(scope));
+      el?.addEventListener('change', () => applyTextStyleFromPanelV121(scope));
+    });
+
+    bindNumberInput?.(id + 'SizeInput', () => {
+      const value = clampNumber(numberValue(id + 'SizeInput', 16), 8, 120);
+      setValue(id + 'Size', value);
+      setValue(id + 'SizeInput', value);
+      applyTextStyleFromPanelV121(scope);
+    });
+
+    bindNumberInput?.(id + 'LineHeightInput', () => {
+      const value = clampNumber(numberValue(id + 'LineHeightInput', 135), 80, 300);
+      setValue(id + 'LineHeight', value);
+      setValue(id + 'LineHeightInput', value);
+      applyTextStyleFromPanelV121(scope);
+    });
+
+    bindNumberInput?.(id + 'LetterSpacingInput', () => {
+      const value = clampNumber(numberValue(id + 'LetterSpacingInput', 0), -10, 30);
+      setValue(id + 'LetterSpacing', value);
+      setValue(id + 'LetterSpacingInput', value);
+      applyTextStyleFromPanelV121(scope);
+    });
+  }
+
+  bindScopeControlsV121('title');
+  bindScopeControlsV121('content');
+
+  if (typeof applyOptionStylesToHost === 'function' && !window.__selectTextApplyOptionStylesWrappedV121) {
+    window.__selectTextApplyOptionStylesWrappedV121 = true;
+    const originalApplyOptionStylesToHostV121 = applyOptionStylesToHost;
+    applyOptionStylesToHost = function(host) {
+      originalApplyOptionStylesToHostV121(host);
+      const select = host?.matches?.('.editable-select') ? host : null;
+      if (select) applySelectTextStylesV121(select);
+    };
+  }
+
+  if (typeof syncEditableSelectComboTitle === 'function' && !window.__selectTextSyncTitleWrappedV121) {
+    window.__selectTextSyncTitleWrappedV121 = true;
+    const originalSyncEditableSelectComboTitleV121 = syncEditableSelectComboTitle;
+    syncEditableSelectComboTitle = function(select) {
+      originalSyncEditableSelectComboTitleV121(select);
+      applySelectTextStylesV121(select);
+    };
+  }
+
+  if (typeof syncFormElementPanel === 'function' && !window.__selectTextPanelWrappedV121) {
+    window.__selectTextPanelWrappedV121 = true;
+    const originalSyncFormElementPanelV121 = syncFormElementPanel;
+    syncFormElementPanel = function() {
+      originalSyncFormElementPanelV121();
+      syncSelectTextStylePanelsV121();
+    };
+  }
+
+  if (typeof applySelectOptions === 'function' && !window.__selectTextApplyOptionsWrappedV121) {
+    window.__selectTextApplyOptionsWrappedV121 = true;
+    const originalApplySelectOptionsV121 = applySelectOptions;
+    applySelectOptions = function() {
+      originalApplySelectOptionsV121();
+      const select = getSelectedSelectHostV121();
+      if (select) applySelectTextStylesV121(select);
+    };
+  }
+
+  if (typeof initPageRuntimeAfterHTMLLoad === 'function' && !window.__selectTextRuntimeWrappedV121) {
+    window.__selectTextRuntimeWrappedV121 = true;
+    const originalInitPageRuntimeAfterHTMLLoadV121 = initPageRuntimeAfterHTMLLoad;
+    initPageRuntimeAfterHTMLLoad = function() {
+      originalInitPageRuntimeAfterHTMLLoadV121();
+      document.querySelectorAll('.editable-select').forEach(applySelectTextStylesV121);
+    };
+  }
+
+  if (typeof buildExportCSS === 'function' && !window.__selectTextExportCSSWrappedV121) {
+    window.__selectTextExportCSSWrappedV121 = true;
+    const originalBuildExportCSSV121 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV121() + '\n' + selectTextIndependentCSSV121;
+    };
+  }
+
+  if (typeof buildExportJS === 'function' && !window.__selectTextExportJSWrappedV121) {
+    window.__selectTextExportJSWrappedV121 = true;
+    const originalBuildExportJSV121 = buildExportJS;
+    buildExportJS = function(exportPagesJSON, currentPageIdJSON) {
+      return originalBuildExportJSV121(exportPagesJSON, currentPageIdJSON) + `
+(function(){
+  function qsa(root, selector){ return Array.prototype.slice.call((root || document).querySelectorAll(selector)); }
+  function readStyle(select, scope){
+    var wrapper = select && select.closest && select.closest('.free-element[data-type="select"]');
+    var prefix = scope === 'title' ? 'selectTitleText' : 'selectContentText';
+    function get(key){ return (select && select.getAttribute('data-' + prefix.replace(/[A-Z]/g, function(m){ return '-' + m.toLowerCase(); }) + '-' + key)) || (wrapper && wrapper.getAttribute('data-' + prefix.replace(/[A-Z]/g, function(m){ return '-' + m.toLowerCase(); }) + '-' + key)) || ''; }
+    var size = get('size'), color = get('color'), weight = get('weight'), lineHeight = get('line-height'), letterSpacing = get('letter-spacing'), align = get('align');
+    if (!size && !color && !weight && !lineHeight && !letterSpacing && !align) return null;
+    return { size:size, color:color, weight:weight, lineHeight:lineHeight, letterSpacing:letterSpacing, align:align || 'center' };
+  }
+  function apply(select){
+    if (!select) return;
+    var wrapper = select.closest && select.closest('.free-element[data-type="select"]');
+    var combo = select.closest && select.closest('.editable-select-combo');
+    var titleData = readStyle(select, 'title');
+    var contentData = readStyle(select, 'content');
+    function setVar(prefix, data){
+      if (!data) return;
+      [wrapper, combo].forEach(function(node){
+        if (!node) return;
+        if (data.size) node.style.setProperty('--' + prefix + '-text-size-v121', data.size + 'px');
+        if (data.color) node.style.setProperty('--' + prefix + '-text-color-v121', data.color);
+        if (data.weight) node.style.setProperty('--' + prefix + '-text-weight-v121', data.weight);
+        if (data.lineHeight) node.style.setProperty('--' + prefix + '-text-line-height-v121', data.lineHeight + '%');
+        if (data.letterSpacing) node.style.setProperty('--' + prefix + '-text-letter-spacing-v121', data.letterSpacing + 'px');
+        if (data.align) node.style.setProperty('--' + prefix + '-text-align-v121', data.align);
+      });
+    }
+    function setSpan(span, data){
+      if (!span || !data) return;
+      if (data.size) span.style.setProperty('font-size', data.size + 'px', 'important');
+      if (data.color) span.style.setProperty('color', data.color, 'important');
+      if (data.weight) span.style.setProperty('font-weight', data.weight, 'important');
+      if (data.lineHeight) span.style.setProperty('line-height', data.lineHeight + '%', 'important');
+      if (data.letterSpacing) span.style.setProperty('letter-spacing', data.letterSpacing + 'px', 'important');
+      if (data.align) span.style.setProperty('text-align', data.align, 'important');
+    }
+    setVar('select-title', titleData);
+    setVar('select-content', contentData);
+    qsa(combo, '.editable-select-title > span').forEach(function(span){ setSpan(span, titleData); });
+    qsa(combo, '.editable-select-option').forEach(function(btn){ if (contentData && contentData.align) btn.style.setProperty('text-align', contentData.align, 'important'); });
+    qsa(combo, '.editable-select-option > span').forEach(function(span){ setSpan(span, contentData); });
+  }
+  function init(){ qsa(document, '.editable-select').forEach(apply); }
+  document.addEventListener('change', function(event){ var select = event.target.closest && event.target.closest('.editable-select'); if (select) setTimeout(function(){ apply(select); }, 0); }, true);
+  document.addEventListener('click', function(event){ var root = event.target.closest && event.target.closest('.free-element[data-type="select"]'); if (root) setTimeout(function(){ qsa(root, '.editable-select').forEach(apply); }, 0); }, true);
+  if (window.MutationObserver) {
+    var timer = null;
+    new MutationObserver(function(){ clearTimeout(timer); timer = setTimeout(init, 40); }).observe(document.body, { childList:true, subtree:true });
+  }
+  init();
+})();`;
+    };
+  }
+
+  document.querySelectorAll('.editable-select').forEach(applySelectTextStylesV121);
+  syncSelectTextStylePanelsV121();
+})();
+
+/* v122：整理下拉式選項設定頁，補回內容選項圓角/間距/內距/高度，並保留標題與內容樣式分離 */
+const selectSettingsLayoutCSSV122 = `
+.free-element[data-type="select"] .editable-select-menu {
+  gap: var(--select-option-gap-v122, 0px) !important;
+  padding: var(--select-menu-padding-v122, 0px) !important;
+}
+
+.free-element[data-type="select"] .editable-select-option {
+  border-radius: var(--select-option-radius-v122, 0px) !important;
+  padding: var(--select-option-padding-v122, 12px) !important;
+  min-height: var(--select-option-height-v122, auto) !important;
+}
+
+.free-element[data-type="select"] .editable-select-title {
+  padding: var(--select-title-padding-v122, 10px calc(10px + 1.8em) 10px 10px) !important;
+}
+
+.nav-dropdown .nav-dropdown-menu {
+  gap: var(--select-option-gap-v122, 4px) !important;
+  padding: var(--select-menu-padding-v122, 8px) !important;
+}
+
+.nav-dropdown .nav-dropdown-option {
+  border-radius: var(--select-option-radius-v122, 8px) !important;
+  padding: var(--select-option-padding-v122, 9px 12px) !important;
+  min-height: var(--select-option-height-v122, auto) !important;
+}
+`;
+
+(function initSelectSettingsLayoutV122() {
+  if (!document.getElementById('selectSettingsLayoutCSSV122')) {
+    const style = document.createElement('style');
+    style.id = 'selectSettingsLayoutCSSV122';
+    style.textContent = selectSettingsLayoutCSSV122;
+    document.head.appendChild(style);
+  }
+
+  const clamp = (value, min, max, fallback) => {
+    const n = parseFloat(value);
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
+  };
+
+  const px = value => `${value}px`;
+
+  function normalizeOptionExtraDataV122(data) {
+    const safe = Object.assign({}, data || {});
+    safe.radius = clamp(safe.radius, 0, 100, 0);
+    safe.gap = clamp(safe.gap, 0, 60, 0);
+    safe.padding = clamp(safe.padding, 0, 80, 12);
+    safe.menuPadding = clamp(safe.menuPadding, 0, 80, 0);
+    safe.optionHeight = clamp(safe.optionHeight, 0, 240, 0);
+    return safe;
+  }
+
+  function applyExtraOptionStyleToButtonV122(button, data) {
+    if (!button) return;
+    const safe = normalizeOptionExtraDataV122(data);
+    button.style.setProperty('border-radius', px(safe.radius), 'important');
+    button.style.setProperty('padding', px(safe.padding), 'important');
+    if (safe.optionHeight > 0) {
+      button.style.setProperty('min-height', px(safe.optionHeight), 'important');
+      button.style.setProperty('height', px(safe.optionHeight), 'important');
+      button.style.setProperty('display', 'flex', 'important');
+      button.style.setProperty('align-items', 'center', 'important');
+      const align = button.style.textAlign || getComputedStyle(button).textAlign || 'center';
+      button.style.setProperty('justify-content', align === 'left' ? 'flex-start' : (align === 'right' ? 'flex-end' : 'center'), 'important');
+    } else {
+      button.style.removeProperty('height');
+      button.style.removeProperty('min-height');
+      button.style.removeProperty('display');
+      button.style.removeProperty('align-items');
+      button.style.removeProperty('justify-content');
+    }
+  }
+
+  function applySelectExtraLayoutToHostV122(host) {
+    if (!host) return;
+    const styles = typeof getOptionStyleData === 'function' ? getOptionStyleData(host) : {};
+
+    if (host.classList?.contains('editable-select') || host.tagName === 'SELECT') {
+      const combo = typeof ensureEditableSelectCombo === 'function' ? ensureEditableSelectCombo(host) : host.closest?.('.editable-select-combo');
+      Array.from(host.options || []).forEach((option, index) => {
+        const data = normalizeOptionExtraDataV122(Object.assign(typeof defaultOptionStyle === 'function' ? defaultOptionStyle(index) : {}, styles[String(index)] || {}));
+        const optionButton = combo?.querySelector?.(`.editable-select-option[data-option-index="${index}"]`);
+        applyExtraOptionStyleToButtonV122(optionButton, data);
+      });
+
+      const current = normalizeOptionExtraDataV122(Object.assign(typeof defaultOptionStyle === 'function' ? defaultOptionStyle(host.selectedIndex || 0) : {}, styles[String(host.selectedIndex || 0)] || {}));
+      const wrapper = host.closest?.('.free-element[data-type="select"]');
+      const menu = combo?.querySelector?.('.editable-select-menu');
+      [wrapper, combo].forEach(node => {
+        if (!node) return;
+        node.style.setProperty('--select-option-radius-v122', px(current.radius));
+        node.style.setProperty('--select-option-gap-v122', px(current.gap));
+        node.style.setProperty('--select-option-padding-v122', px(current.padding));
+        node.style.setProperty('--select-menu-padding-v122', px(current.menuPadding));
+        node.style.setProperty('--select-option-height-v122', current.optionHeight > 0 ? px(current.optionHeight) : 'auto');
+      });
+      if (menu) {
+        menu.style.setProperty('gap', px(current.gap), 'important');
+        menu.style.setProperty('padding', px(current.menuPadding), 'important');
+      }
+    }
+
+    if (host.dataset?.type === 'nav-dropdown') {
+      Array.from(host.querySelectorAll('.nav-dropdown-option')).forEach((option, index) => {
+        const data = normalizeOptionExtraDataV122(Object.assign(typeof defaultOptionStyle === 'function' ? defaultOptionStyle(index) : {}, styles[String(index)] || {}));
+        applyExtraOptionStyleToButtonV122(option, data);
+      });
+      const current = normalizeOptionExtraDataV122(Object.assign(typeof defaultOptionStyle === 'function' ? defaultOptionStyle(0) : {}, styles['0'] || {}));
+      host.style.setProperty('--select-option-radius-v122', px(current.radius));
+      host.style.setProperty('--select-option-gap-v122', px(current.gap));
+      host.style.setProperty('--select-option-padding-v122', px(current.padding));
+      host.style.setProperty('--select-menu-padding-v122', px(current.menuPadding));
+      host.style.setProperty('--select-option-height-v122', current.optionHeight > 0 ? px(current.optionHeight) : 'auto');
+      const menu = host.querySelector('.nav-dropdown-menu');
+      if (menu) {
+        menu.style.setProperty('gap', px(current.gap), 'important');
+        menu.style.setProperty('padding', px(current.menuPadding), 'important');
+      }
+    }
+  }
+
+  window.applySelectExtraLayoutToHostV122 = applySelectExtraLayoutToHostV122;
+
+
+  function syncOrganizedSectionsV122() {
+    const titlePanel = document.getElementById('selectTitleStylePanel');
+    const titleSection = document.getElementById('selectTitleStyleSectionV122');
+    if (titlePanel && titleSection) titleSection.classList.toggle('d-none', titlePanel.classList.contains('d-none'));
+
+    const contentPanel = document.getElementById('selectContentTextStylePanel');
+    const optionPanel = document.getElementById('selectOptionStylePanel');
+    const contentSection = document.getElementById('selectContentStyleSectionV122');
+    if (contentSection) {
+      const hasVisibleContent = (contentPanel && !contentPanel.classList.contains('d-none')) || (optionPanel && !optionPanel.classList.contains('d-none'));
+      contentSection.classList.toggle('d-none', !hasVisibleContent);
+    }
+
+    const actionPanel = document.getElementById('selectOptionActionPanel');
+    const advancedSection = document.getElementById('selectAdvancedSectionV122');
+    if (actionPanel && advancedSection) advancedSection.classList.toggle('d-none', actionPanel.classList.contains('d-none'));
+  }
+
+  function syncNavDropdownSectionV122() {
+    const panel = document.getElementById('navDropdownStylePanelV107');
+    const section = document.getElementById('navDropdownStyleSectionV122');
+    if (panel && section) section.classList.toggle('d-none', panel.classList.contains('d-none'));
+  }
+
+  if (typeof applyOptionStylesToHost === 'function' && !window.__selectOptionExtraLayoutWrappedV122) {
+    window.__selectOptionExtraLayoutWrappedV122 = true;
+    const originalApplyOptionStylesToHostV122 = applyOptionStylesToHost;
+    applyOptionStylesToHost = function(host) {
+      originalApplyOptionStylesToHostV122(host);
+      applySelectExtraLayoutToHostV122(host);
+    };
+  }
+
+  function getSelectedSelectForTitlePaddingV122() {
+    if (!selectedElement || selectedElement.dataset?.type !== 'select') return null;
+    return selectedElement.querySelector('.editable-select');
+  }
+
+  function readTitlePaddingV122(select) {
+    const wrapper = select?.closest?.('.free-element[data-type="select"]');
+    return clamp(select?.dataset?.selectTitlePadding || wrapper?.dataset?.selectTitlePadding || 10, 0, 80, 10);
+  }
+
+  function applyTitlePaddingV122(select) {
+    if (!select) return;
+    const wrapper = select.closest?.('.free-element[data-type="select"]');
+    const combo = typeof ensureEditableSelectCombo === 'function' ? ensureEditableSelectCombo(select) : select.closest?.('.editable-select-combo');
+    const title = combo?.querySelector?.('.editable-select-title');
+    const value = readTitlePaddingV122(select);
+    select.dataset.selectTitlePadding = String(value);
+    if (wrapper) wrapper.dataset.selectTitlePadding = String(value);
+    const padding = `${value}px calc(${value}px + 1.8em) ${value}px ${value}px`;
+    [wrapper, combo].forEach(node => node?.style?.setProperty('--select-title-padding-v122', padding));
+    title?.style?.setProperty('padding', padding, 'important');
+  }
+
+  function syncTitlePaddingPanelV122() {
+    const select = getSelectedSelectForTitlePaddingV122();
+    if (!select) return;
+    applyTitlePaddingV122(select);
+    const value = readTitlePaddingV122(select);
+    setValue('selectTitlePadding', value);
+    setValue('selectTitlePaddingInput', value);
+  }
+
+  function applyTitlePaddingFromPanelV122() {
+    const select = getSelectedSelectForTitlePaddingV122();
+    if (!select) return;
+    const value = clamp(numberValue('selectTitlePadding', 10), 0, 80, 10);
+    select.dataset.selectTitlePadding = String(value);
+    const wrapper = select.closest?.('.free-element[data-type="select"]');
+    if (wrapper) wrapper.dataset.selectTitlePadding = String(value);
+    setValue('selectTitlePaddingInput', value);
+    applyTitlePaddingV122(select);
+    scheduleAutoSave?.();
+  }
+
+  document.getElementById('selectTitlePadding')?.addEventListener('input', applyTitlePaddingFromPanelV122);
+  document.getElementById('selectTitlePadding')?.addEventListener('change', applyTitlePaddingFromPanelV122);
+  bindNumberInput?.('selectTitlePaddingInput', () => {
+    const value = clamp(numberValue('selectTitlePaddingInput', 10), 0, 80, 10);
+    setValue('selectTitlePadding', value);
+    setValue('selectTitlePaddingInput', value);
+    applyTitlePaddingFromPanelV122();
+  });
+
+  ['selectOptionRadius', 'selectOptionGap', 'selectOptionPadding', 'selectMenuPadding', 'selectOptionHeight'].forEach(id => {
+    const el = document.getElementById(id);
+    el?.addEventListener('input', () => applySelectedOptionStyleFromPanelV108?.());
+    el?.addEventListener('change', () => applySelectedOptionStyleFromPanelV108?.());
+  });
+
+  [
+    ['selectOptionRadiusInput', 'selectOptionRadius', 0, 100, 0],
+    ['selectOptionGapInput', 'selectOptionGap', 0, 60, 0],
+    ['selectOptionPaddingInput', 'selectOptionPadding', 0, 80, 12],
+    ['selectMenuPaddingInput', 'selectMenuPadding', 0, 80, 0],
+    ['selectOptionHeightInput', 'selectOptionHeight', 0, 240, 0]
+  ].forEach(([inputId, rangeId, min, max, fallback]) => {
+    bindNumberInput?.(inputId, () => {
+      const value = clamp(numberValue(inputId, fallback), min, max, fallback);
+      setValue(rangeId, value);
+      setValue(inputId, value);
+      applySelectedOptionStyleFromPanelV108?.();
+    });
+  });
+
+  if (typeof syncFormElementPanel === 'function' && !window.__selectSettingsLayoutSyncWrappedV122) {
+    window.__selectSettingsLayoutSyncWrappedV122 = true;
+    const originalSyncFormElementPanelV122 = syncFormElementPanel;
+    syncFormElementPanel = function() {
+      originalSyncFormElementPanelV122();
+      syncTitlePaddingPanelV122();
+      syncNavDropdownSectionV122();
+      syncOrganizedSectionsV122();
+      const host = typeof getSelectedOptionHost === 'function' ? getSelectedOptionHost() : null;
+      if (host) applySelectExtraLayoutToHostV122(host);
+    };
+  }
+
+  if (typeof applySelectOptions === 'function' && !window.__selectSettingsLayoutApplyOptionsWrappedV122) {
+    window.__selectSettingsLayoutApplyOptionsWrappedV122 = true;
+    const originalApplySelectOptionsV122 = applySelectOptions;
+    applySelectOptions = function() {
+      originalApplySelectOptionsV122();
+      const host = typeof getSelectedOptionHost === 'function' ? getSelectedOptionHost() : null;
+      if (host) applySelectExtraLayoutToHostV122(host);
+      const select = getSelectedSelectForTitlePaddingV122();
+      if (select) applyTitlePaddingV122(select);
+    };
+  }
+
+  if (typeof initPageRuntimeAfterHTMLLoad === 'function' && !window.__selectSettingsLayoutRuntimeWrappedV122) {
+    window.__selectSettingsLayoutRuntimeWrappedV122 = true;
+    const originalInitPageRuntimeAfterHTMLLoadV122 = initPageRuntimeAfterHTMLLoad;
+    initPageRuntimeAfterHTMLLoad = function() {
+      originalInitPageRuntimeAfterHTMLLoadV122();
+      document.querySelectorAll('.editable-select').forEach(select => {
+        applySelectExtraLayoutToHostV122(select);
+        applyTitlePaddingV122(select);
+      });
+      document.querySelectorAll('.nav-dropdown').forEach(applySelectExtraLayoutToHostV122);
+    };
+  }
+
+  if (typeof buildExportCSS === 'function' && !window.__selectSettingsLayoutExportCSSWrappedV122) {
+    window.__selectSettingsLayoutExportCSSWrappedV122 = true;
+    const originalBuildExportCSSV122 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV122() + '\n' + selectSettingsLayoutCSSV122;
+    };
+  }
+
+  document.querySelectorAll('.editable-select').forEach(select => {
+    applySelectExtraLayoutToHostV122(select);
+    applyTitlePaddingV122(select);
+  });
+  document.querySelectorAll('.nav-dropdown').forEach(applySelectExtraLayoutToHostV122);
+})();
+
+
+/* v124：下拉式選項元件 標題與內容選項間距 */
+const selectTitleContentGapCSSV124 = `
+.free-element[data-type="select"] {
+  --select-title-content-gap-v124: 0px;
+}
+.free-element[data-type="select"] .editable-select-menu {
+  margin-top: var(--select-title-content-gap-v124, 0px) !important;
+}
+`;
+
+(function initSelectTitleContentGapV124() {
+  if (!document.getElementById('selectTitleContentGapCSSV124')) {
+    const style = document.createElement('style');
+    style.id = 'selectTitleContentGapCSSV124';
+    style.textContent = selectTitleContentGapCSSV124;
+    document.head.appendChild(style);
+  }
+
+  function clampGapV124(value) {
+    if (typeof clampNumber === 'function') return clampNumber(parseFloat(value), 0, 120);
+    value = parseFloat(value);
+    if (!Number.isFinite(value)) value = 0;
+    return Math.max(0, Math.min(120, value));
+  }
+
+  function getSelectedSelectV124() {
+    if (!selectedElement || selectedElement.dataset?.type !== 'select') return null;
+    return selectedElement.querySelector('.editable-select');
+  }
+
+  function getSelectWrapperV124(select) {
+    return select?.closest?.('.free-element[data-type="select"]') || null;
+  }
+
+  function readTitleContentGapV124(select) {
+    const wrapper = getSelectWrapperV124(select);
+    const raw = select?.dataset?.selectTitleContentGap ?? wrapper?.dataset?.selectTitleContentGap ?? 0;
+    return clampGapV124(raw);
+  }
+
+  function writeTitleContentGapV124(select, value) {
+    if (!select) return;
+    const safe = String(clampGapV124(value));
+    const wrapper = getSelectWrapperV124(select);
+    select.dataset.selectTitleContentGap = safe;
+    if (wrapper) wrapper.dataset.selectTitleContentGap = safe;
+  }
+
+  function applyTitleContentGapV124(select) {
+    if (!select || !select.matches?.('.editable-select')) return;
+    const wrapper = getSelectWrapperV124(select);
+    const combo = typeof ensureEditableSelectCombo === 'function' ? ensureEditableSelectCombo(select) : select.closest?.('.editable-select-combo');
+    const menu = combo?.querySelector?.('.editable-select-menu');
+    const value = readTitleContentGapV124(select);
+    writeTitleContentGapV124(select, value);
+    const cssValue = `${value}px`;
+
+    [wrapper, combo].forEach(node => {
+      node?.style?.setProperty('--select-title-content-gap-v124', cssValue);
+    });
+
+    if (menu) {
+      menu.style.setProperty('margin-top', cssValue, 'important');
+    }
+  }
+
+  function syncTitleContentGapPanelV124() {
+    const range = document.getElementById('selectTitleContentGap');
+    const input = document.getElementById('selectTitleContentGapInput');
+    if (!range && !input) return;
+
+    const select = getSelectedSelectV124();
+    if (!select) {
+      if (range) range.value = '0';
+      if (input) input.value = '0';
+      return;
+    }
+
+    applyTitleContentGapV124(select);
+    const value = readTitleContentGapV124(select);
+    if (typeof setValue === 'function') {
+      setValue('selectTitleContentGap', value);
+      setValue('selectTitleContentGapInput', value);
+    } else {
+      if (range) range.value = String(value);
+      if (input) input.value = String(value);
+    }
+  }
+
+  function applyTitleContentGapFromPanelV124() {
+    const select = getSelectedSelectV124();
+    if (!select) return;
+    const value = typeof numberValue === 'function'
+      ? clampGapV124(numberValue('selectTitleContentGap', 0))
+      : clampGapV124(document.getElementById('selectTitleContentGap')?.value || 0);
+
+    writeTitleContentGapV124(select, value);
+    if (typeof setValue === 'function') {
+      setValue('selectTitleContentGap', value);
+      setValue('selectTitleContentGapInput', value);
+    }
+    applyTitleContentGapV124(select);
+    scheduleAutoSave?.();
+  }
+
+  document.getElementById('selectTitleContentGap')?.addEventListener('input', applyTitleContentGapFromPanelV124);
+  document.getElementById('selectTitleContentGap')?.addEventListener('change', applyTitleContentGapFromPanelV124);
+
+  if (typeof bindNumberInput === 'function') {
+    bindNumberInput('selectTitleContentGapInput', () => {
+      const value = clampGapV124(numberValue('selectTitleContentGapInput', 0));
+      setValue('selectTitleContentGap', value);
+      setValue('selectTitleContentGapInput', value);
+      applyTitleContentGapFromPanelV124();
+    });
+  } else {
+    document.getElementById('selectTitleContentGapInput')?.addEventListener('input', () => {
+      const value = clampGapV124(document.getElementById('selectTitleContentGapInput')?.value || 0);
+      const range = document.getElementById('selectTitleContentGap');
+      if (range) range.value = String(value);
+      applyTitleContentGapFromPanelV124();
+    });
+  }
+
+  if (typeof applyOptionStylesToHost === 'function' && !window.__selectTitleContentGapApplyOptionStylesWrappedV124) {
+    window.__selectTitleContentGapApplyOptionStylesWrappedV124 = true;
+    const originalApplyOptionStylesToHostV124 = applyOptionStylesToHost;
+    applyOptionStylesToHost = function(host) {
+      originalApplyOptionStylesToHostV124(host);
+      const select = host?.matches?.('.editable-select') ? host : null;
+      if (select) applyTitleContentGapV124(select);
+    };
+  }
+
+  if (typeof syncFormElementPanel === 'function' && !window.__selectTitleContentGapPanelWrappedV124) {
+    window.__selectTitleContentGapPanelWrappedV124 = true;
+    const originalSyncFormElementPanelV124 = syncFormElementPanel;
+    syncFormElementPanel = function() {
+      originalSyncFormElementPanelV124();
+      syncTitleContentGapPanelV124();
+    };
+  }
+
+  if (typeof applySelectOptions === 'function' && !window.__selectTitleContentGapApplyOptionsWrappedV124) {
+    window.__selectTitleContentGapApplyOptionsWrappedV124 = true;
+    const originalApplySelectOptionsV124 = applySelectOptions;
+    applySelectOptions = function() {
+      originalApplySelectOptionsV124();
+      const select = getSelectedSelectV124();
+      if (select) applyTitleContentGapV124(select);
+    };
+  }
+
+  if (typeof initPageRuntimeAfterHTMLLoad === 'function' && !window.__selectTitleContentGapRuntimeWrappedV124) {
+    window.__selectTitleContentGapRuntimeWrappedV124 = true;
+    const originalInitPageRuntimeAfterHTMLLoadV124 = initPageRuntimeAfterHTMLLoad;
+    initPageRuntimeAfterHTMLLoad = function() {
+      originalInitPageRuntimeAfterHTMLLoadV124();
+      document.querySelectorAll('.editable-select').forEach(applyTitleContentGapV124);
+    };
+  }
+
+  if (typeof buildExportCSS === 'function' && !window.__selectTitleContentGapExportCSSWrappedV124) {
+    window.__selectTitleContentGapExportCSSWrappedV124 = true;
+    const originalBuildExportCSSV124 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV124() + '\n' + selectTitleContentGapCSSV124;
+    };
+  }
+
+  if (typeof buildExportJS === 'function' && !window.__selectTitleContentGapExportJSWrappedV124) {
+    window.__selectTitleContentGapExportJSWrappedV124 = true;
+    const originalBuildExportJSV124 = buildExportJS;
+    buildExportJS = function(exportPagesJSON, currentPageIdJSON) {
+      return originalBuildExportJSV124(exportPagesJSON, currentPageIdJSON) + `
+(function(){
+  function clamp(n){ n = parseFloat(n); if (!isFinite(n)) n = 0; return Math.max(0, Math.min(120, n)); }
+  function applyGap(select){
+    if (!select) return;
+    var wrapper = select.closest && select.closest('.free-element[data-type="select"]');
+    var combo = select.closest && select.closest('.editable-select-combo');
+    var menu = combo && combo.querySelector('.editable-select-menu');
+    var value = clamp(select.getAttribute('data-select-title-content-gap') || (wrapper && wrapper.getAttribute('data-select-title-content-gap')) || 0);
+    var cssValue = value + 'px';
+    select.setAttribute('data-select-title-content-gap', String(value));
+    if (wrapper) { wrapper.setAttribute('data-select-title-content-gap', String(value)); wrapper.style.setProperty('--select-title-content-gap-v124', cssValue); }
+    if (combo) combo.style.setProperty('--select-title-content-gap-v124', cssValue);
+    if (menu) menu.style.setProperty('margin-top', cssValue, 'important');
+  }
+  function init(){ Array.prototype.forEach.call(document.querySelectorAll('.editable-select'), applyGap); }
+  document.addEventListener('change', function(event){ var select = event.target.closest && event.target.closest('.editable-select'); if (select) setTimeout(function(){ applyGap(select); }, 0); }, true);
+  document.addEventListener('click', function(event){ var root = event.target.closest && event.target.closest('.free-element[data-type="select"]'); if (root) setTimeout(function(){ Array.prototype.forEach.call(root.querySelectorAll('.editable-select'), applyGap); }, 0); }, true);
+  init();
+})();`;
+    };
+  }
+
+  document.querySelectorAll('.editable-select').forEach(applyTitleContentGapV124);
+  syncTitleContentGapPanelV124();
 })();
