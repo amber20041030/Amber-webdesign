@@ -1,3 +1,1 @@
-# v116
-
-修正線條漸層透明問題，形狀由內到外漸層先回復上一版效果。
+v118：新增 Sticky Header / Sticky Navbar（黏性導覽列）。可在 Header / 導覽列區塊設定中切換 Fixed 或 Sticky，預覽與匯出皆生效。

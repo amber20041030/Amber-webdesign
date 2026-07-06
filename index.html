@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>自訂網站編輯器 V115</title>
+  <title>自訂網站編輯器 V118</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
@@ -426,7 +426,14 @@
         <div id="blockFixedTopControl" class="form-check form-switch mb-2 d-none">
           <input class="form-check-input" type="checkbox" role="switch" id="blockFixedTopToggle">
           <label class="form-check-label small" for="blockFixedTopToggle">
-            Header / 導覽列置頂在網站
+            固定在視窗上方（Fixed Header / Navbar）
+          </label>
+        </div>
+
+        <div id="blockStickyTopControl" class="form-check form-switch mb-2 d-none">
+          <input class="form-check-input" type="checkbox" role="switch" id="blockStickyTopToggle">
+          <label class="form-check-label small" for="blockStickyTopToggle">
+            黏性導覽列（Sticky Header / Sticky Navbar）
           </label>
         </div>
 
@@ -438,7 +445,7 @@
         </div>
 
         <div class="small text-muted">
-          置頂 / 置底只會在預覽與匯出網站時生效，編輯時維持原本排版。
+          Fixed 會直接固定在視窗上方；Sticky 會先照原本位置顯示，頁面滑動到上方後黏住。置頂 / 置底只會在預覽與匯出網站時生效，編輯時維持原本排版。
         </div>
       </div>
 

@@ -10146,6 +10146,9 @@ sitePage.addEventListener('pointerdown', e => {
   const switcherControlElement = e.target.closest('.free-element[data-type="select-switcher-control"]');
   const directDragElement = switcherControlElement || youtubeElement || lineElement || groupElement;
 
+  // v117：按 Ctrl / Command 點線條等可直接拖曳元件時，不先啟動拖曳，交給 click 做加選/取消加選，避免線條無法多選。
+  if ((e.ctrlKey || e.metaKey) && !moveHandle && directDragElement) return;
+
   // v54：圖片與形狀移動方式一致，都不能直接拖曳本體，必須用上方「移動」鍵
   if (!moveHandle && (imageElement || shapeElement)) return;
 
@@ -16058,4 +16061,178 @@ const lineShapeGradientPolishCSSV115 = `
     }
     if (typeof applyLineStyleToElement === 'function') applyLineStyleToElement(el);
   });
+})();
+
+
+/* v118：Sticky Header / Sticky Navbar（黏性導覽列） */
+(function initStickyHeaderNavbarV118() {
+  const stickyHeaderNavbarCSSV118 = `
+/* v118：Sticky Header / Sticky Navbar（黏性導覽列） */
+body.preview-mode .html-zone.zone-sticky-top,
+body.exported-site header.site-sticky-top-wrap {
+  position: sticky !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 2300 !important;
+  overflow: visible !important;
+}
+
+body.preview-mode .html-block.site-sticky-top:not(.site-fixed-top),
+body.exported-site .html-block.site-sticky-top:not(.site-fixed-top) {
+  position: sticky !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  z-index: 2300 !important;
+}
+
+body.preview-mode .html-zone.zone-sticky-top > .html-block.site-sticky-top,
+body.exported-site header.site-sticky-top-wrap > .html-block.site-sticky-top {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  width: 100% !important;
+  z-index: inherit !important;
+}
+
+body.preview-mode .html-zone.zone-sticky-top,
+body.exported-site header.site-sticky-top-wrap,
+body.preview-mode .html-block.site-sticky-top,
+body.exported-site .html-block.site-sticky-top {
+  transform: translateZ(0);
+}
+`;
+
+  function updateStickyZoneClassesV118(scope = sitePage) {
+    const root = scope || document;
+    root.querySelectorAll('.html-zone').forEach(zone => {
+      const hasStickyTop = Array.from(zone.children).some(child =>
+        child.classList && child.classList.contains('html-block') && child.classList.contains('site-sticky-top')
+      );
+      zone.classList.toggle('zone-sticky-top', hasStickyTop);
+    });
+  }
+
+  const originalSyncBlockFixedClassV118 = syncBlockFixedClass;
+  syncBlockFixedClass = function(block) {
+    if (typeof originalSyncBlockFixedClassV118 === 'function') {
+      originalSyncBlockFixedClassV118(block);
+    }
+
+    if (block) {
+      if (block.dataset.fixedTop === 'true') {
+        block.dataset.stickyTop = 'false';
+      }
+      block.classList.toggle('site-sticky-top', block.dataset.stickyTop === 'true');
+    }
+
+    updateStickyZoneClassesV118(sitePage);
+  };
+
+  const originalSyncBlockFixedPanelV118 = syncBlockFixedPanel;
+  syncBlockFixedPanel = function() {
+    if (typeof originalSyncBlockFixedPanelV118 === 'function') {
+      originalSyncBlockFixedPanelV118();
+    }
+
+    if (!selectedBlock) return;
+
+    const canTop = isHeaderOrNavBlock(selectedBlock);
+    const stickyControl = document.getElementById('blockStickyTopControl');
+    const stickyToggle = document.getElementById('blockStickyTopToggle');
+    const fixedToggle = document.getElementById('blockFixedTopToggle');
+
+    stickyControl?.classList.toggle('d-none', !canTop);
+
+    if (stickyToggle) {
+      stickyToggle.checked = selectedBlock.dataset.stickyTop === 'true' && selectedBlock.dataset.fixedTop !== 'true';
+      stickyToggle.disabled = !canTop;
+    }
+
+    if (fixedToggle) {
+      fixedToggle.disabled = !canTop;
+    }
+  };
+
+  function applyStickyHeaderNavbarSettingV118() {
+    if (!selectedBlock || selectedElement) return;
+
+    const canTop = isHeaderOrNavBlock(selectedBlock);
+    const stickyToggle = document.getElementById('blockStickyTopToggle');
+    const fixedToggle = document.getElementById('blockFixedTopToggle');
+
+    if (!canTop) {
+      selectedBlock.dataset.stickyTop = 'false';
+      syncBlockFixedClass(selectedBlock);
+      syncBlockFixedPanel();
+      return;
+    }
+
+    const stickyOn = !!stickyToggle?.checked;
+
+    if (stickyOn) {
+      selectedBlock.dataset.stickyTop = 'true';
+      selectedBlock.dataset.fixedTop = 'false';
+      if (fixedToggle) fixedToggle.checked = false;
+    } else {
+      selectedBlock.dataset.stickyTop = 'false';
+    }
+
+    syncBlockFixedClass(selectedBlock);
+    syncBlockFixedPanel();
+  }
+
+  document.getElementById('blockStickyTopToggle')?.addEventListener('change', applyStickyHeaderNavbarSettingV118);
+
+  document.getElementById('blockFixedTopToggle')?.addEventListener('change', () => {
+    if (!selectedBlock || selectedElement) return;
+
+    const fixedToggle = document.getElementById('blockFixedTopToggle');
+    const stickyToggle = document.getElementById('blockStickyTopToggle');
+
+    if (fixedToggle?.checked) {
+      selectedBlock.dataset.stickyTop = 'false';
+      if (stickyToggle) stickyToggle.checked = false;
+    }
+
+    syncBlockFixedClass(selectedBlock);
+    syncBlockFixedPanel();
+  });
+
+  if (typeof initPageRuntimeAfterHTMLLoad === 'function' && !window.__stickyInitRuntimeWrappedV118) {
+    window.__stickyInitRuntimeWrappedV118 = true;
+    const originalInitPageRuntimeAfterHTMLLoadV118 = initPageRuntimeAfterHTMLLoad;
+    initPageRuntimeAfterHTMLLoad = function() {
+      originalInitPageRuntimeAfterHTMLLoadV118();
+      document.querySelectorAll('.html-block').forEach(block => syncBlockFixedClass(block));
+      updateStickyZoneClassesV118(sitePage);
+    };
+  }
+
+  if (typeof cleanPageCloneForExport === 'function' && !window.__stickyExportCleanWrappedV118) {
+    window.__stickyExportCleanWrappedV118 = true;
+    const originalCleanPageCloneForExportV118 = cleanPageCloneForExport;
+    cleanPageCloneForExport = function(clone) {
+      originalCleanPageCloneForExportV118(clone);
+      clone.querySelectorAll('header').forEach(header => {
+        const hasStickyTop = Array.from(header.children).some(child =>
+          child.classList && child.classList.contains('html-block') && child.classList.contains('site-sticky-top')
+        );
+        header.classList.toggle('site-sticky-top-wrap', hasStickyTop);
+      });
+    };
+  }
+
+  if (typeof buildExportCSS === 'function' && !window.__stickyExportCSSWrappedV118) {
+    window.__stickyExportCSSWrappedV118 = true;
+    const originalBuildExportCSSV118 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV118() + '\n' + stickyHeaderNavbarCSSV118;
+    };
+  }
+
+  document.querySelectorAll('.html-block').forEach(block => syncBlockFixedClass(block));
+  updateStickyZoneClassesV118(sitePage);
 })();
