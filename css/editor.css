@@ -4221,3 +4221,116 @@ body:not(.preview-mode) .block-canvas > .alignment-guide.center-guide {
 .free-element textarea {
   font-family: inherit;
 }
+
+/* v82：下拉選項回到 V78 + 新增多樣式 */
+.free-element[data-dropdown-style-mode="v78"] .editable-select,
+.editable-select[data-dropdown-style-mode="v78"] {
+  appearance: auto;
+}
+
+.free-element[data-dropdown-style-mode="hover-title"] .editable-select,
+.editable-select.dropdown-style-hover-title {
+  cursor: pointer;
+}
+
+.free-element[data-dropdown-style-mode="vertical-list"] .editable-select,
+.editable-select.dropdown-style-vertical-list {
+  min-height: 120px;
+}
+
+/* v82：導覽列標題型下拉材質與垂直並排 */
+.nav-dropdown[data-nav-style-mode="vertical-list"] .nav-dropdown-menu {
+  position: relative;
+  top: 8px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
+
+.nav-dropdown[data-nav-style-mode="hover-title"] .nav-dropdown-menu {
+  position: absolute;
+}
+
+/* v82：文字透明度由 rgba 寫入，避免繼承失效 */
+.free-element > .inner,
+.free-element > .inner * {
+  color: inherit;
+}
+
+/* v82：區塊獨立圖層表拖拉 */
+.layer-item[draggable="true"] {
+  cursor: grab;
+}
+
+.layer-item[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* v82：鎖定 / 解鎖更直覺 */
+.free-element.is-locked {
+  outline: 2px dashed rgba(25,135,84,.55) !important;
+}
+
+.free-element.is-locked > .move-handle span:first-child::after {
+  content: " 🔒";
+}
+
+/* v82：選色效能 */
+.editor-inspector input[type="color"] {
+  contain: layout paint;
+}
+
+/* v83：多選平均分配功能只在 3 個以上出現 */
+.multi-distribute-tools.d-none {
+  display: none !important;
+}
+
+/* v83：圖層表左側拖拉把手 */
+.layer-item {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+}
+
+.layer-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  color: #6c757d;
+  background: rgba(108,117,125,.12);
+  cursor: grab;
+  user-select: none;
+  font-size: 12px;
+}
+
+.layer-drag-placeholder {
+  background: transparent;
+  cursor: default;
+}
+
+.layer-item.dragging {
+  opacity: .55;
+}
+
+.layer-item.drag-over {
+  outline: 2px solid rgba(13,110,253,.5);
+  background: rgba(13,110,253,.08);
+}
+
+.layer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* v83：多選鎖定時每個元件都顯示鎖定狀態 */
+.free-element.is-locked {
+  outline: 2px dashed rgba(25,135,84,.65) !important;
+}

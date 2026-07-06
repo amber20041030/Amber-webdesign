@@ -272,6 +272,7 @@
 
       <div class="setting-card" id="layerPanelCard">
         <div class="setting-title">圖層表</div>
+        <div class="small text-muted mb-2">選取區塊後，會顯示該區塊的圖層，可拖拉排序。</div>
         <div class="layer-list" id="layerList">
           <div class="small text-muted">尚無圖層</div>
         </div>
@@ -508,6 +509,13 @@
         <label class="simple-label">文字顏色</label>
         <input type="color" class="form-control form-control-color mb-3" id="elementTextColor" value="#212529">
 
+        <label class="simple-label">文字透明度</label>
+        <input type="range" class="form-range" id="elementTextOpacity" min="0" max="100" step="1" value="100">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="elementTextOpacityPercent" min="0" max="100" step="1" value="100">
+        </div>
+
         <label class="simple-label">背景顏色</label>
         <input type="color" class="form-control form-control-color mb-3" id="elementBgColor" value="#ffffff">
 
@@ -654,6 +662,20 @@
         <label class="simple-label">或使用圖片網址</label>
         <input type="text" class="form-control form-control-sm mb-2" id="imageUrlInput" placeholder="貼上圖片網址">
         <button class="btn btn-primary btn-sm w-100 mb-3" id="applyImageBtn">套用圖片網址</button>
+
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="imageClickSwapToggle">
+          <label class="form-check-label small" for="imageClickSwapToggle">
+            點擊後切換成另一張圖
+          </label>
+        </div>
+
+        <label class="simple-label">第二張圖片網址</label>
+        <input type="text" class="form-control form-control-sm mb-2" id="imageSwapUrlInput" placeholder="貼上第二張圖片網址">
+        <button class="btn btn-outline-primary btn-sm w-100 mb-2" id="applyImageSwapBtn">套用第二張圖片</button>
+
+        <label class="simple-label">或上傳第二張圖片</label>
+        <input type="file" class="form-control form-control-sm mb-3" id="imageSwapUploadInput" accept="image/*">
 
         <hr>
 
@@ -1184,6 +1206,13 @@
           <div class="small text-muted mb-2 d-none" id="selectSwitcherControlHint">
             這裡編輯的是下拉換組元件的每個選項名稱，每行一個名稱。
           </div>
+          <label class="simple-label">選取多樣式</label>
+          <select class="form-select form-select-sm mb-3" id="dropdownStyleModeSelect">
+            <option value="v78">V78 一般下拉樣式</option>
+            <option value="hover-title">選項標題：滑鼠移上去自動下拉</option>
+            <option value="vertical-list">下拉垂直並排選項</option>
+          </select>
+
           <label class="simple-label" id="selectOptionsLabel">下拉選項</label>
           <textarea class="form-control form-control-sm mb-2" id="selectOptionsInput" rows="5" placeholder="每行一個選項"></textarea>
           <button class="btn btn-outline-primary btn-sm w-100 mb-3" id="applySelectOptionsBtn">套用選項</button>
@@ -1373,6 +1402,14 @@
 
       <div class="setting-card d-none" id="actionCard">
         <div class="setting-title">操作</div>
+        <div class="multi-distribute-tools d-none" id="multiDistributeTools">
+          <div class="small text-muted mb-2">選取 3 個以上元件後可使用。</div>
+          <div class="quick-grid mb-3">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="distributeHorizontalBtn">水平平均分配</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="distributeVerticalBtn">垂直平均分配</button>
+          </div>
+        </div>
+
         <div class="d-grid gap-2">
           <button class="btn btn-outline-secondary btn-sm" id="cloneBtn">複製</button>
           <button class="btn btn-outline-secondary btn-sm" id="moveUpBtn">區塊上移</button>
