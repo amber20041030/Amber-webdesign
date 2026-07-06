@@ -115,6 +115,7 @@ function restoreHistorySnapshot(snapshot) {
   normalizeAllGroupCanvases(sitePage);
   normalizeAllGroupCanvases(sitePage);
   sitePage.querySelectorAll('[data-type="image"]').forEach(syncImageHoverZoomElementStyle);
+  sitePage.querySelectorAll('[data-type="line"]').forEach(line => applyLineStyleToElement(line));
   initCardCarouselRuntime(sitePage, false);
   syncAllCarouselPeekLayouts(sitePage);
   initSelectSwitchers(sitePage);
@@ -156,6 +157,7 @@ function getLayerDisplayName(el) {
   if (name) return name;
   if (type === 'group') return '群組';
   if (type === 'shape') return '形狀';
+  if (type === 'line') return '線條';
   if (type === 'image') return '圖片';
 
   return type || '圖層';
@@ -665,6 +667,7 @@ function initPageRuntimeAfterHTMLLoad() {
   initEditableText(sitePage);
   normalizeAllGroupCanvases(sitePage);
   sitePage.querySelectorAll('[data-type="image"]').forEach(syncImageHoverZoomElementStyle);
+  sitePage.querySelectorAll('[data-type="line"]').forEach(line => applyLineStyleToElement(line));
   initCardCarouselRuntime(sitePage, false);
   initSelectSwitchers(sitePage);
   initSideDrawerRuntime(sitePage);
@@ -2414,6 +2417,24 @@ function elementTemplate(type) {
       ${commonEnd}
     `,
 
+    line: `
+      ${commonStart('線條', 'left: 8%; top: 80px; width: 36%; height: 52px; z-index: 10; background: transparent; border-radius: 0;')}
+        <div class="inner line-inner">
+          <svg class="editable-line" viewBox="0 0 1000 100" preserveAspectRatio="none" aria-label="線條">
+            <line class="line-main" x1="24" y1="50" x2="976" y2="50"></line>
+            <polygon class="line-endpoint line-start-arrow" points="24,50 58,32 58,68"></polygon>
+            <polygon class="line-endpoint line-end-arrow" points="976,50 942,32 942,68"></polygon>
+            <circle class="line-endpoint line-start-circle" cx="24" cy="50" r="16"></circle>
+            <circle class="line-endpoint line-end-circle" cx="976" cy="50" r="16"></circle>
+            <rect class="line-endpoint line-start-square" x="8" y="34" width="32" height="32"></rect>
+            <rect class="line-endpoint line-end-square" x="960" y="34" width="32" height="32"></rect>
+            <polygon class="line-endpoint line-start-diamond" points="24,28 46,50 24,72 2,50"></polygon>
+            <polygon class="line-endpoint line-end-diamond" points="976,28 998,50 976,72 954,50"></polygon>
+          </svg>
+        </div>
+      ${commonEnd}
+    `,
+
     'shape-square': `
       ${commonStart('正方形', 'left: 8%; top: 40px; width: 12%; height: 150px; z-index: 10; background: rgba(13, 110, 253, 1); border-radius: 0;')}
         <div class="inner">
@@ -2675,6 +2696,10 @@ function addElement(type) {
 
   if (el.dataset.type === 'shape') {
     applyShapeMaterial(el);
+  }
+
+  if (el.dataset.type === 'line') {
+    applyLineStyleToElement(el);
   }
 
   initEditableText(el);
@@ -4629,6 +4654,7 @@ function refreshInspector() {
   const isImageElement = hasElement && selectedElement.dataset.type === 'image';
   const isYoutubeElement = hasElement && selectedElement.dataset.type === 'youtube';
   const isShapeElement = hasElement && selectedElement.dataset.type === 'shape';
+  const isLineElement = hasElement && selectedElement.dataset.type === 'line';
   const isGroupElement = hasElement && selectedElement.dataset.type === 'group';
   const isMediaElement = isImageElement || isYoutubeElement || isShapeElement || isGroupElement;
 
@@ -4643,7 +4669,8 @@ function refreshInspector() {
   toggle('linkSettingCard', hasElement);
   toggle('youtubeSettingCard', hasElement && selectedElement.dataset.type === 'youtube');
   toggle('shapeSettingCard', hasElement && selectedElement.dataset.type === 'shape');
-  toggle('elementShadowSettingCard', hasElement && ['image', 'shape'].includes(selectedElement.dataset.type));
+  toggle('lineSettingCard', hasElement && selectedElement.dataset.type === 'line');
+  toggle('elementShadowSettingCard', hasElement && ['image', 'shape', 'line'].includes(selectedElement.dataset.type));
   toggle('elementContentTextCard', hasElement && selectedElementHasEditableText());
   toggle('elementHoverColorCard', hasElement);
   toggle('elementCssFunctionCard', hasElement);
@@ -4729,6 +4756,7 @@ function refreshInspector() {
       syncImageGrayscaleHoverPanel();
     }
     if (selectedElement.dataset.type === 'shape') openSettingCard('shapeSettingCard');
+    if (selectedElement.dataset.type === 'line') openSettingCard('lineSettingCard');
     if (selectedElement.dataset.type === 'card-carousel') {
       openSettingCard('carouselSettingCard');
       syncCarouselSettingPanel();
@@ -4774,7 +4802,7 @@ function refreshInspector() {
     setValue('elementFontSize', Math.round(fontSize));
     setValue('elementFontSizePx', Math.round(fontSize));
 
-    setValue('elementFontFamily', selectedElement.style.fontFamily || '');
+    setValue('elementFontFamily', getElementFontFamilyValue(selectedElement));
 
     setValue('elementLineHeight', lineHeightPx);
     setValue('elementLineHeightPx', lineHeightPx);
@@ -4788,9 +4816,12 @@ function refreshInspector() {
     setValue('elementZIndex', values.zIndex);
     setValue('elementZIndexInput', values.zIndex);
 
-    applyElementTextColorDeep(selectedElement, selectedElement.dataset.elementTextColor || values.color);
+    // v88：選取元件時只同步面板，不主動重寫文字顏色，避免選色或切換元件時把上傳字體/文字樣式洗掉。
+    if (selectedElement.dataset.textColor || selectedElement.dataset.textOpacity !== undefined) {
+      applyElementTextColorOpacity(selectedElement);
+    }
 
-    if (!['image', 'youtube', 'shape'].includes(selectedElement.dataset.type)) {
+    if (!['image', 'youtube', 'shape', 'line'].includes(selectedElement.dataset.type)) {
       syncTextStyleButtons();
     }
 
@@ -4811,6 +4842,7 @@ function refreshInspector() {
     syncElementHyperlinkPanel();
     syncElementShadowPanel();
     syncShapeMaterialPanel();
+    syncLineStylePanel();
     syncImageHoverZoomPanel();
     syncFormElementPanel();
     syncDropdownStyleModePanel();
@@ -5890,6 +5922,132 @@ function applyShapeGradientDepthFromManualInput() {
   applyShapeStyle();
 }
 
+/* v87：Canva 風格線條元件 */
+function lineSettingValue(id, fallback = '') {
+  const el = document.getElementById(id);
+  return el ? el.value : fallback;
+}
+
+function setLineEndpointVisibility(lineEl, prefix, value) {
+  if (!lineEl) return;
+  ['arrow', 'circle', 'square', 'diamond'].forEach(type => {
+    const endpoint = lineEl.querySelector(`.line-${prefix}-${type}`);
+    if (endpoint) endpoint.style.display = value === type ? 'inline' : 'none';
+  });
+}
+
+function applyLineStyleToElement(el = selectedElement) {
+  if (!el || el.dataset.type !== 'line') return;
+
+  const color = el.dataset.lineColor || '#212529';
+  const weight = clampNumber(parseFloat(el.dataset.lineWeight || '6') || 6, 1, 80);
+  const opacity = clampNumber(parseFloat(el.dataset.lineOpacity || '100') || 100, 0, 100);
+  const style = el.dataset.lineStyle || 'solid';
+  const cap = el.dataset.lineCap || 'round';
+  const start = el.dataset.lineStart || 'none';
+  const end = el.dataset.lineEnd || 'none';
+
+  const svg = el.querySelector('svg.editable-line');
+  const line = el.querySelector('.line-main');
+  if (!svg || !line) return;
+
+  const startInset = start === 'none' ? 24 : start === 'arrow' ? 60 : 52;
+  const endInset = end === 'none' ? 976 : end === 'arrow' ? 940 : 948;
+  line.setAttribute('x1', String(startInset));
+  line.setAttribute('x2', String(endInset));
+  line.setAttribute('stroke', color);
+  line.setAttribute('stroke-width', String(weight));
+  line.setAttribute('stroke-linecap', style === 'dotted' ? 'round' : cap);
+  line.setAttribute('vector-effect', 'non-scaling-stroke');
+
+  if (style === 'dashed') {
+    line.setAttribute('stroke-dasharray', `${Math.max(weight * 4, 18)} ${Math.max(weight * 2.4, 12)}`);
+  } else if (style === 'dotted') {
+    line.setAttribute('stroke-dasharray', `1 ${Math.max(weight * 3, 12)}`);
+  } else {
+    line.removeAttribute('stroke-dasharray');
+  }
+
+  svg.style.opacity = String(opacity / 100);
+  svg.style.overflow = 'visible';
+
+  el.querySelectorAll('.line-endpoint').forEach(endpoint => {
+    endpoint.setAttribute('fill', color);
+    endpoint.setAttribute('stroke', color);
+    endpoint.setAttribute('vector-effect', 'non-scaling-stroke');
+  });
+
+  setLineEndpointVisibility(el, 'start', start);
+  setLineEndpointVisibility(el, 'end', end);
+  applyElementTransformState(el);
+}
+
+function applyLineStyleFromPanel() {
+  if (!selectedElement || selectedElement.dataset.type !== 'line') return;
+
+  const color = lineSettingValue('lineColor', '#212529') || '#212529';
+  const weight = clampNumber(parseFloat(lineSettingValue('lineWeight', 6)) || 6, 1, 80);
+  const opacity = clampNumber(parseFloat(lineSettingValue('lineOpacity', 100)) || 100, 0, 100);
+  const angle = ((parseInt(lineSettingValue('lineAngle', 0), 10) || 0) % 360 + 360) % 360;
+
+  selectedElement.dataset.lineColor = color;
+  selectedElement.dataset.lineWeight = String(weight);
+  selectedElement.dataset.lineOpacity = String(opacity);
+  selectedElement.dataset.lineStyle = lineSettingValue('lineStyle', 'solid') || 'solid';
+  selectedElement.dataset.lineCap = lineSettingValue('lineCap', 'round') || 'round';
+  selectedElement.dataset.lineStart = lineSettingValue('lineStart', 'none') || 'none';
+  selectedElement.dataset.lineEnd = lineSettingValue('lineEnd', 'none') || 'none';
+  selectedElement.dataset.rotateDeg = String(angle);
+
+  setValue('lineWeightInput', weight);
+  setValue('lineOpacityInput', opacity);
+  setValue('lineAngleInput', angle);
+  setValue('lineWeight', weight);
+  setValue('lineOpacity', opacity);
+  setValue('lineAngle', angle);
+
+  applyLineStyleToElement(selectedElement);
+  scheduleAutoSave();
+}
+
+function syncLineStylePanel() {
+  if (!selectedElement || selectedElement.dataset.type !== 'line') return;
+
+  if (!selectedElement.dataset.lineColor) selectedElement.dataset.lineColor = '#212529';
+  if (!selectedElement.dataset.lineWeight) selectedElement.dataset.lineWeight = '6';
+  if (!selectedElement.dataset.lineOpacity) selectedElement.dataset.lineOpacity = '100';
+  if (!selectedElement.dataset.lineStyle) selectedElement.dataset.lineStyle = 'solid';
+  if (!selectedElement.dataset.lineCap) selectedElement.dataset.lineCap = 'round';
+  if (!selectedElement.dataset.lineStart) selectedElement.dataset.lineStart = 'none';
+  if (!selectedElement.dataset.lineEnd) selectedElement.dataset.lineEnd = 'none';
+
+  const angle = ((parseInt(selectedElement.dataset.rotateDeg || '0', 10) || 0) % 360 + 360) % 360;
+
+  setValue('lineColor', selectedElement.dataset.lineColor);
+  setValue('lineWeight', selectedElement.dataset.lineWeight);
+  setValue('lineWeightInput', selectedElement.dataset.lineWeight);
+  setValue('lineOpacity', selectedElement.dataset.lineOpacity);
+  setValue('lineOpacityInput', selectedElement.dataset.lineOpacity);
+  setValue('lineStyle', selectedElement.dataset.lineStyle);
+  setValue('lineCap', selectedElement.dataset.lineCap);
+  setValue('lineStart', selectedElement.dataset.lineStart);
+  setValue('lineEnd', selectedElement.dataset.lineEnd);
+  setValue('lineAngle', angle);
+  setValue('lineAngleInput', angle);
+
+  applyLineStyleToElement(selectedElement);
+}
+
+function applyLineNumberInput(inputId, rangeId, min, max) {
+  let value = parseFloat(lineSettingValue(inputId, min));
+  if (Number.isNaN(value)) value = min;
+  value = clampNumber(value, min, max);
+
+  setValue(inputId, value);
+  setValue(rangeId, value);
+  applyLineStyleFromPanel();
+}
+
 function clamp(num, min, max) {
   return Math.min(Math.max(num, min), max);
 }
@@ -6480,19 +6638,106 @@ function syncElementMaterialPanel() {
   setValue('elementMaterial', selectedElement.dataset.elementMaterial || 'none');
 }
 
+function getElementFontFamilyValue(el) {
+  if (!el) return '';
+
+  const select = document.getElementById('elementFontFamily');
+  const candidates = [
+    el.dataset.elementFontFamily,
+    el.style.fontFamily,
+    el.querySelector(':scope > .inner')?.style.fontFamily,
+    el.querySelector(':scope > .inner *')?.style.fontFamily
+  ].map(value => String(value || '').trim()).filter(Boolean);
+
+  const uploadedValues = new Set((uploadedFonts || []).map(font => font.familyValue));
+  const optionValues = select ? new Set(Array.from(select.options).map(option => option.value)) : new Set();
+
+  return candidates.find(value => uploadedValues.has(value)) ||
+    candidates.find(value => optionValues.has(value)) ||
+    candidates[0] || '';
+}
+
 function applyFontToElementDeep(el, fontFamily) {
   if (!el) return;
 
-  el.style.fontFamily = fontFamily || '';
+  const safeFontFamily = String(fontFamily || '').trim();
+
+  if (safeFontFamily) {
+    el.dataset.elementFontFamily = safeFontFamily;
+  } else {
+    delete el.dataset.elementFontFamily;
+  }
+
+  el.style.fontFamily = safeFontFamily;
 
   el.querySelectorAll(':scope > .inner, :scope > .inner *').forEach(child => {
     if (child.closest('.element-toolbar') || child.closest('.editor-actions') || child.closest('.no-export')) return;
-    child.style.fontFamily = fontFamily || '';
+    child.style.fontFamily = safeFontFamily;
   });
 }
 
-function updateSelectedStyle() {
+function applySelectedTextColorFromPanel() {
   if (!selectedElement) return;
+
+  const elementTextColor = document.getElementById('elementTextColor')?.value || selectedElement.dataset.textColor || '#212529';
+  const elementTextOpacity = clampNumber(numberValue('elementTextOpacity', 100), 0, 100);
+
+  selectedElement.dataset.textColor = elementTextColor;
+  selectedElement.dataset.textOpacity = elementTextOpacity;
+  applyElementTextColorDeep(selectedElement, textColorWithOpacity(elementTextColor, elementTextOpacity));
+
+  setValue('elementTextOpacityPercent', elementTextOpacity);
+  syncTextStyleButtons();
+}
+
+function applySelectedBackgroundFromPanel() {
+  if (!selectedElement) return;
+
+  const elementBgColor = document.getElementById('elementBgColor')?.value || selectedElement.dataset.elementBgColor || '#ffffff';
+  const elementBgOpacity = clampNumber(numberValue('elementBgOpacity', 100), 0, 100);
+  const material = document.getElementById('elementMaterial')?.value || selectedElement.dataset.elementMaterial || 'none';
+  const bg = colorWithOpacity(elementBgColor, elementBgOpacity);
+
+  selectedElement.style.background = bg;
+  selectedElement.dataset.elementBgColor = elementBgColor;
+  selectedElement.dataset.elementBgOpacity = elementBgOpacity;
+  selectedElement.dataset.elementMaterial = material;
+  selectedElement.style.setProperty('--element-bg-color', bg);
+
+  applyElementMaterial(selectedElement);
+  applyAccordionBackgroundStyles(selectedElement);
+
+  setValue('elementBgOpacityPercent', elementBgOpacity);
+}
+
+function applySelectedFontFromPanel() {
+  if (!selectedElement) return;
+
+  const fontFamily = document.getElementById('elementFontFamily')?.value || '';
+  applyFontToElementDeep(selectedElement, fontFamily);
+  setValue('elementFontFamily', fontFamily);
+}
+
+function updateSelectedStyle(event) {
+  if (!selectedElement) return;
+
+  const targetId = event?.target?.id || '';
+
+  // v88：選色只改顏色，不重新套字體、字級、行高、座標，避免上傳字體文字跑版。
+  if (['elementTextColor', 'elementTextOpacity'].includes(targetId)) {
+    applySelectedTextColorFromPanel();
+    return;
+  }
+
+  if (['elementBgColor', 'elementBgOpacity', 'elementMaterial'].includes(targetId)) {
+    applySelectedBackgroundFromPanel();
+    return;
+  }
+
+  if (targetId === 'elementFontFamily') {
+    applySelectedFontFromPanel();
+    return;
+  }
 
   const fontSize = numberValue('elementFontSize', 0);
   const lineHeight = numberValue('elementLineHeight', 0);
@@ -6501,36 +6746,17 @@ function updateSelectedStyle() {
   const zIndex = parseInt(String(document.getElementById('elementZIndex')?.value ?? '0'), 10);
   const safeZIndex = Number.isNaN(zIndex) ? 0 : zIndex;
 
-  const elementTextColor = document.getElementById('elementTextColor').value;
-  const elementTextOpacity = clampNumber(numberValue('elementTextOpacity', 100), 0, 100);
-  const elementBgColor = document.getElementById('elementBgColor').value;
-  const elementBgOpacity = clampNumber(numberValue('elementBgOpacity', 100), 0, 100);
-  const fontFamily = document.getElementById('elementFontFamily').value || '';
-  const material = document.getElementById('elementMaterial')?.value || 'none';
-
-  selectedElement.dataset.textColor = elementTextColor;
-  selectedElement.dataset.textOpacity = elementTextOpacity;
-  applyElementTextColorDeep(selectedElement, textColorWithOpacity(elementTextColor, elementTextOpacity));
-  selectedElement.style.background = colorWithOpacity(elementBgColor, elementBgOpacity);
-  selectedElement.dataset.elementBgColor = elementBgColor;
-  selectedElement.dataset.elementBgOpacity = elementBgOpacity;
-  selectedElement.dataset.elementMaterial = material;
-  selectedElement.style.setProperty('--element-bg-color', colorWithOpacity(elementBgColor, elementBgOpacity));
   selectedElement.style.fontSize = fontSize + 'px';
-  applyFontToElementDeep(selectedElement, fontFamily);
   selectedElement.style.lineHeight = lineHeight + 'px';
   selectedElement.style.letterSpacing = letterSpacing + 'px';
   selectedElement.style.borderRadius = radius + 'px';
   selectedElement.style.zIndex = safeZIndex;
-  applyElementMaterial(selectedElement);
   applyAccordionBackgroundStyles(selectedElement);
 
   setValue('elementFontSizePx', fontSize);
   setValue('elementLineHeightPx', lineHeight);
   setValue('elementLetterSpacingPx', letterSpacing);
   setValue('elementRadiusPx', radius);
-  setValue('elementTextOpacityPercent', elementTextOpacity);
-  setValue('elementBgOpacityPercent', elementBgOpacity);
   setValue('elementZIndexInput', safeZIndex);
 
   syncTextStyleButtons();
@@ -7643,27 +7869,47 @@ async function exportHTML() {
   URL.revokeObjectURL(url);
 }
 
-/* v84：GitHub Pages / 其他電腦儲存穩定性修正 */
+/* v86：瀏覽器儲存空間不足修正
+   - 不再把同一份專案重複寫入多個 localStorage key
+   - 優先清除舊版重複存檔，必要時改存 IndexedDB
+   - 手動存檔即使 localStorage 爆滿，也會優先改存 IndexedDB；失敗時不下載 JSON 備份 */
 const MAIN_SAVE_KEY_V84 = 'bootstrap-editor-v84-pages';
 const LEGACY_SAVE_KEY_V33 = 'bootstrap-editor-v33-pages';
+const AUTO_SAVE_KEY = 'bootstrap-editor-v77-autosave';
+const INDEXED_DB_NAME_V86 = 'bootstrap-editor-project-db';
+const INDEXED_DB_STORE_V86 = 'projectStore';
+const INDEXED_DB_RECORD_KEY_V86 = 'latestProject';
 
 function getSerializableProjectPayload(includeFonts = false) {
   captureCurrentPage();
 
   return {
-    version: 'v84',
+    version: 'v86',
     pages,
     currentPageId,
     pageCounter,
     currentDeviceMode,
+    // 字體 dataURL 很大，瀏覽器儲存空間不足時最容易爆掉，所以專案存檔預設不塞字體。
     uploadedFonts: includeFonts ? (uploadedFonts || []) : [],
     savedAt: Date.now()
   };
 }
 
-function getProjectPayloadForLocalStorage() {
-  // localStorage 容量通常很小，字體 dataURL 常造成其他電腦儲存失敗，所以預設不塞字體
+function getProjectPayloadForBrowserStorage() {
   return getSerializableProjectPayload(false);
+}
+
+// 保留舊函式名稱，避免其他版本呼叫時中斷。
+function getProjectPayloadForLocalStorage() {
+  return getProjectPayloadForBrowserStorage();
+}
+
+function getTextByteLength(text) {
+  try {
+    return new Blob([text]).size;
+  } catch (error) {
+    return String(text || '').length;
+  }
 }
 
 function downloadTextFile(filename, content, mime = 'application/json') {
@@ -7683,33 +7929,164 @@ function downloadTextFile(filename, content, mime = 'application/json') {
 }
 
 function downloadProjectBackup(reason = '') {
-  try {
-    const payload = getSerializableProjectPayload(false);
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    downloadTextFile(`自訂網站編輯器-備份-${stamp}.json`, JSON.stringify(payload, null, 2));
+  // v87：依需求取消儲存失敗時自動下載 JSON 備份。
+  if (reason) alert(reason);
+}
 
-    if (reason) {
-      alert(reason + '\n已自動下載備份檔，請保留這個 JSON 檔，下次可用「匯入備份」載入。');
-    }
-  } catch (error) {
-    alert('備份下載失敗，請先匯出 HTML ZIP，避免資料遺失。');
+function removeLocalStorageKeySafely(key) {
+  try {
+    if (key) localStorage.removeItem(key);
+  } catch (error) {}
+}
+
+function cleanupDuplicateLocalStorageSaves(removeLargeOptionalData = false) {
+  // 只保留主要 key，避免同一份頁面資料被 v33 / v77 / v84 重複塞滿 localStorage。
+  removeLocalStorageKeySafely(LEGACY_SAVE_KEY_V33);
+  removeLocalStorageKeySafely(AUTO_SAVE_KEY);
+
+  // 舊版單頁存檔也會佔容量，已不再需要。
+  removeLocalStorageKeySafely('bootstrap-editor-v11-html');
+  removeLocalStorageKeySafely('bootstrap-editor-v11-bg');
+
+  // 上傳字體通常是最大來源；只有在容量不足時才移除，避免影響一般情況。
+  if (removeLargeOptionalData) {
+    removeLocalStorageKeySafely(UPLOADED_FONT_PERMANENT_KEY);
   }
 }
 
-function trySetLocalStorage(key, value) {
+function trySetLocalStorage(key, value, options = {}) {
   try {
+    if (options.cleanup) cleanupDuplicateLocalStorageSaves(false);
     localStorage.setItem(key, value);
     return true;
-  } catch (error) {
-    console.warn('localStorage 儲存失敗：', error);
-    return false;
+  } catch (firstError) {
+    try {
+      if (options.cleanup) cleanupDuplicateLocalStorageSaves(true);
+      localStorage.setItem(key, value);
+      return true;
+    } catch (secondError) {
+      console.warn('localStorage 儲存失敗：', secondError);
+      return false;
+    }
   }
+}
+
+function openProjectIndexedDB() {
+  return new Promise(resolve => {
+    if (!window.indexedDB) {
+      resolve(null);
+      return;
+    }
+
+    const request = indexedDB.open(INDEXED_DB_NAME_V86, 1);
+
+    request.onupgradeneeded = event => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(INDEXED_DB_STORE_V86)) {
+        db.createObjectStore(INDEXED_DB_STORE_V86, { keyPath: 'id' });
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+    request.onblocked = () => resolve(null);
+  });
+}
+
+async function saveProjectToIndexedDB(payload) {
+  const db = await openProjectIndexedDB();
+  if (!db) return false;
+
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction(INDEXED_DB_STORE_V86, 'readwrite');
+      const store = tx.objectStore(INDEXED_DB_STORE_V86);
+      store.put({ id: INDEXED_DB_RECORD_KEY_V86, payload });
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve(true);
+      };
+      tx.onerror = () => {
+        db.close();
+        resolve(false);
+      };
+      tx.onabort = () => {
+        db.close();
+        resolve(false);
+      };
+    } catch (error) {
+      try { db.close(); } catch (closeError) {}
+      resolve(false);
+    }
+  });
+}
+
+async function loadProjectFromIndexedDB() {
+  const db = await openProjectIndexedDB();
+  if (!db) return null;
+
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction(INDEXED_DB_STORE_V86, 'readonly');
+      const store = tx.objectStore(INDEXED_DB_STORE_V86);
+      const request = store.get(INDEXED_DB_RECORD_KEY_V86);
+
+      request.onsuccess = () => {
+        db.close();
+        resolve(request.result && request.result.payload ? request.result.payload : null);
+      };
+      request.onerror = () => {
+        db.close();
+        resolve(null);
+      };
+    } catch (error) {
+      try { db.close(); } catch (closeError) {}
+      resolve(null);
+    }
+  });
+}
+
+function parseSavedPayloadRaw(raw) {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && parsed.pages && Object.keys(parsed.pages).length ? parsed : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function getBestLocalSavedPayload() {
+  try {
+    const candidates = [
+      parseSavedPayloadRaw(localStorage.getItem(MAIN_SAVE_KEY_V84)),
+      parseSavedPayloadRaw(localStorage.getItem(AUTO_SAVE_KEY)),
+      parseSavedPayloadRaw(localStorage.getItem(LEGACY_SAVE_KEY_V33))
+    ].filter(Boolean);
+
+    if (!candidates.length) return null;
+    candidates.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+    return candidates[0];
+  } catch (error) {
+    return null;
+  }
+}
+
+async function getBestSavedPayload() {
+  const localPayload = getBestLocalSavedPayload();
+  const dbPayload = await loadProjectFromIndexedDB();
+
+  if (dbPayload && (!localPayload || (dbPayload.savedAt || 0) >= (localPayload.savedAt || 0))) {
+    return dbPayload;
+  }
+
+  return localPayload;
 }
 
 function getBestSavedPayloadRaw() {
-  return localStorage.getItem(MAIN_SAVE_KEY_V84) ||
-    localStorage.getItem(AUTO_SAVE_KEY) ||
-    localStorage.getItem(LEGACY_SAVE_KEY_V33);
+  const localPayload = getBestLocalSavedPayload();
+  return localPayload ? JSON.stringify(localPayload) : '';
 }
 
 function applySavedPayload(saved, silent = false) {
@@ -7748,7 +8125,7 @@ function importProjectBackupFile(file) {
 
   const reader = new FileReader();
 
-  reader.onload = () => {
+  reader.onload = async () => {
     try {
       const saved = JSON.parse(reader.result);
       if (!applySavedPayload(saved, true)) {
@@ -7756,10 +8133,12 @@ function importProjectBackupFile(file) {
         return;
       }
 
-      const localPayload = JSON.stringify(getProjectPayloadForLocalStorage());
-      trySetLocalStorage(MAIN_SAVE_KEY_V84, localPayload);
-      trySetLocalStorage(LEGACY_SAVE_KEY_V33, localPayload);
-      alert('已匯入備份檔');
+      const payload = getProjectPayloadForBrowserStorage();
+      const json = JSON.stringify(payload);
+      const okDB = await saveProjectToIndexedDB(payload);
+      const okLocal = trySetLocalStorage(MAIN_SAVE_KEY_V84, json, { cleanup: true });
+
+      alert(okDB || okLocal ? '已匯入備份檔，並完成瀏覽器存檔。' : '已匯入備份檔，但瀏覽器儲存空間不足，請使用「匯出 HTML ZIP」保留網站成果。');
     } catch (error) {
       alert('匯入失敗，JSON 格式錯誤。');
     }
@@ -7768,8 +8147,7 @@ function importProjectBackupFile(file) {
   reader.readAsText(file);
 }
 
-
-/* v85：手動存檔獨立於自動存檔，Auto Save 失敗也不影響手動存檔 */
+/* v85/v86：手動存檔獨立於自動存檔，Auto Save 失敗也不影響手動存檔 */
 let lastManualSaveResult = null;
 
 function setManualSaveStatus(text, mode = '') {
@@ -7784,20 +8162,14 @@ function setManualSaveStatus(text, mode = '') {
     ? 'bi-hourglass-split'
     : mode === 'is-error'
       ? 'bi-exclamation-triangle'
-      : mode === 'is-backup'
-        ? 'bi-download'
-        : 'bi-check-circle';
+      : 'bi-check-circle';
 
   status.innerHTML = `<i class="bi ${icon}"></i> ${text}`;
 }
 
 function downloadProjectBackupForManualSave() {
-  const payload = getSerializableProjectPayload(false);
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `自訂網站編輯器-手動存檔-${stamp}.json`;
-  downloadTextFile(filename, JSON.stringify(payload, null, 2));
-
-  return filename;
+  // v87：失敗時不用下載 JSON 備份，保留函式名稱避免舊事件呼叫中斷。
+  return '';
 }
 
 function clearAutosaveFailureState() {
@@ -7809,43 +8181,33 @@ function clearAutosaveFailureState() {
   }
 }
 
-function saveEditor() {
+async function saveEditor() {
   setManualSaveStatus('手動存檔中…', 'is-saving');
 
   try {
-    const payload = getProjectPayloadForLocalStorage();
+    const payload = getProjectPayloadForBrowserStorage();
     const json = JSON.stringify(payload);
+    const okDB = await saveProjectToIndexedDB(payload);
+    const okLocal = trySetLocalStorage(MAIN_SAVE_KEY_V84, json, { cleanup: true });
 
-    const okMain = trySetLocalStorage(MAIN_SAVE_KEY_V84, json);
-    const okLegacy = trySetLocalStorage(LEGACY_SAVE_KEY_V33, json);
-
-    if (okMain || okLegacy) {
+    if (okDB || okLocal) {
       clearAutosaveFailureState();
-      setManualSaveStatus('手動存檔成功', 'is-saved');
-      alert('手動存檔成功，已儲存到此瀏覽器。');
+      setManualSaveStatus(okLocal ? '手動存檔成功' : '手動存檔成功（大型儲存）', 'is-saved');
+      alert(okLocal
+        ? '手動存檔成功，已儲存到此瀏覽器。'
+        : '手動存檔成功，已改存到瀏覽器大型儲存區。');
       return true;
     }
 
-    const backupFile = downloadProjectBackupForManualSave();
-    clearAutosaveFailureState();
-    setManualSaveStatus('已下載備份檔', 'is-backup');
-    alert('瀏覽器儲存空間不足或被封鎖，因此已改用備份檔完成手動存檔：\n' + backupFile + '\n\n下次可用「匯入備份」載入。');
-    return true;
+    setManualSaveStatus('手動存檔失敗', 'is-error');
+    alert('手動存檔失敗：瀏覽器儲存空間不足或被封鎖。系統不會自動下載 JSON 備份，請改用「匯出 HTML ZIP」保留網站成果。');
+    return false;
   } catch (error) {
-    try {
-      const backupFile = downloadProjectBackupForManualSave();
-      clearAutosaveFailureState();
-      setManualSaveStatus('已下載備份檔', 'is-backup');
-      alert('瀏覽器儲存失敗，但已改用備份檔完成手動存檔：\n' + backupFile + '\n\n下次可用「匯入備份」載入。');
-      return true;
-    } catch (backupError) {
-      setManualSaveStatus('手動存檔失敗', 'is-error');
-      alert('手動存檔失敗。請先使用「匯出 HTML ZIP」備份網站，避免資料遺失。');
-      return false;
-    }
+    setManualSaveStatus('手動存檔失敗', 'is-error');
+    alert('手動存檔失敗：瀏覽器儲存發生錯誤。系統不會自動下載 JSON 備份，請改用「匯出 HTML ZIP」保留網站成果。');
+    return false;
   }
 }
-
 
 function restoreUploadedFonts(fonts = []) {
   uploadedFonts = Array.isArray(fonts) ? fonts : [];
@@ -7864,24 +8226,21 @@ function restoreUploadedFonts(fonts = []) {
   });
 }
 
-function loadEditor() {
-  const rawPages = getBestSavedPayloadRaw();
+async function loadEditor() {
+  const saved = await getBestSavedPayload();
 
-  if (rawPages) {
-    try {
-      const saved = JSON.parse(rawPages);
-
-      if (applySavedPayload(saved, true)) {
-        alert('已載入所有頁面');
-        return;
-      }
-    } catch (error) {
-      alert('載入失敗，儲存資料格式錯誤，請改用「匯入備份」。');
-      return;
-    }
+  if (saved && applySavedPayload(saved, true)) {
+    alert('已載入所有頁面');
+    return;
   }
 
-  const html = localStorage.getItem('bootstrap-editor-v11-html');
+  let html = '';
+  let bg = '#ffffff';
+
+  try {
+    html = localStorage.getItem('bootstrap-editor-v11-html');
+    bg = localStorage.getItem('bootstrap-editor-v11-bg') || '#ffffff';
+  } catch (error) {}
 
   if (!html) {
     alert('目前沒有儲存資料。若你有備份 JSON，請按「匯入備份」。');
@@ -7892,7 +8251,7 @@ function loadEditor() {
     home: {
       name: '首頁',
       html,
-      bg: localStorage.getItem('bootstrap-editor-v11-bg') || '#ffffff'
+      bg
     }
   };
   currentPageId = 'home';
@@ -7925,14 +8284,12 @@ function clearEditor() {
   scheduleAutoSave();
 }
 
-
-
-/* v77：即時存檔 */
-const AUTO_SAVE_KEY = 'bootstrap-editor-v77-autosave';
 let autosaveTimer = null;
 let autosaveObserver = null;
 let autosaveReady = false;
 let autosaveStatusTimer = null;
+let autosaveSaving = false;
+let autosaveQueued = false;
 
 function setAutosaveStatus(text, mode = '') {
   const status = document.getElementById('autosaveStatus');
@@ -7947,30 +8304,47 @@ function setAutosaveStatus(text, mode = '') {
   status.innerHTML = `<i class="bi ${mode === 'is-saving' ? 'bi-cloud-arrow-up' : mode === 'is-error' ? 'bi-exclamation-triangle' : 'bi-cloud-check'}"></i> ${text}`;
 }
 
-function saveEditorSilently() {
+async function saveEditorSilently() {
   if (!autosaveReady) return;
 
+  if (autosaveSaving) {
+    autosaveQueued = true;
+    return;
+  }
+
+  autosaveSaving = true;
+
   try {
-    const payload = getProjectPayloadForLocalStorage();
+    const payload = getProjectPayloadForBrowserStorage();
     const json = JSON.stringify(payload);
+    const okLocal = trySetLocalStorage(MAIN_SAVE_KEY_V84, json, { cleanup: true });
+    let okDB = false;
 
-    const okMain = trySetLocalStorage(MAIN_SAVE_KEY_V84, json);
-    const okAuto = trySetLocalStorage(AUTO_SAVE_KEY, json);
-    const okLegacy = trySetLocalStorage(LEGACY_SAVE_KEY_V33, json);
+    // 專案較大或 localStorage 失敗時，改用 IndexedDB，避免跳出「瀏覽器儲存空間不足」。
+    if (!okLocal || getTextByteLength(json) > 1200000) {
+      okDB = await saveProjectToIndexedDB(payload);
+    }
 
-    if (!okMain && !okAuto && !okLegacy) {
-      setAutosaveStatus('自動存檔失敗，可按「儲存」手動存檔', 'is-error');
+    if (!okLocal && !okDB) {
+      setAutosaveStatus('自動存檔失敗，請按「儲存」重試', 'is-error');
       return;
     }
 
-    setAutosaveStatus('已自動存檔', 'is-saved');
+    setAutosaveStatus(okLocal ? '已自動存檔' : '已自動存到大型儲存區', 'is-saved');
 
     window.clearTimeout(autosaveStatusTimer);
     autosaveStatusTimer = window.setTimeout(() => {
-      setAutosaveStatus('自動存檔', '');
+      setAutosaveStatus('即時存檔', '');
     }, 1600);
   } catch (error) {
-    setAutosaveStatus('自動存檔失敗，可按「儲存」手動存檔', 'is-error');
+    const okDB = await saveProjectToIndexedDB(getProjectPayloadForBrowserStorage());
+    setAutosaveStatus(okDB ? '已自動存到大型儲存區' : '自動存檔失敗，請按「儲存」重試', okDB ? 'is-saved' : 'is-error');
+  } finally {
+    autosaveSaving = false;
+    if (autosaveQueued) {
+      autosaveQueued = false;
+      scheduleAutoSave();
+    }
   }
 }
 
@@ -7982,37 +8356,13 @@ function scheduleAutoSave() {
   autosaveTimer = window.setTimeout(saveEditorSilently, 1800);
 }
 
-function loadAutoSavedEditor() {
-  const raw = getBestSavedPayloadRaw();
+async function loadAutoSavedEditor() {
+  const saved = await getBestSavedPayload();
 
-  if (!raw) return false;
+  if (!saved || !saved.pages || !Object.keys(saved.pages).length) return false;
 
   try {
-    const saved = JSON.parse(raw);
-
-    if (!saved || !saved.pages || !Object.keys(saved.pages).length) return false;
-
-    pages = saved.pages || {};
-    currentPageId = saved.currentPageId || 'home';
-    pageCounter = saved.pageCounter || Object.keys(pages).length || 1;
-
-    if (saved.currentDeviceMode && responsiveModes.includes(saved.currentDeviceMode)) {
-      currentDeviceMode = saved.currentDeviceMode;
-      document.body.classList.remove('device-desktop', 'device-tablet', 'device-mobile');
-      document.body.classList.add('device-' + currentDeviceMode);
-      document.querySelectorAll('[data-device-mode]').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.deviceMode === currentDeviceMode);
-      });
-    }
-
-    restoreUploadedFonts(saved.uploadedFonts || []);
-    normalizeAllResponsivePages();
-
-    if (!pages[currentPageId]) {
-      currentPageId = Object.keys(pages)[0] || 'home';
-    }
-
-    loadPage(currentPageId, false);
+    applySavedPayload(saved, true);
     setAutosaveStatus('已載入即時存檔', 'is-saved');
     return true;
   } catch (error) {
@@ -8783,14 +9133,15 @@ sitePage.addEventListener('pointerdown', e => {
   const imageElement = e.target.closest('.free-element[data-type="image"]');
   const youtubeElement = e.target.closest('.free-element[data-type="youtube"]');
   const shapeElement = e.target.closest('.free-element[data-type="shape"]');
+  const lineElement = e.target.closest('.free-element[data-type="line"]');
   const groupElement = e.target.closest('.free-element[data-type="group"]');
   const switcherControlElement = e.target.closest('.free-element[data-type="select-switcher-control"]');
-  const directDragElement = switcherControlElement || youtubeElement || groupElement;
+  const directDragElement = switcherControlElement || youtubeElement || lineElement || groupElement;
 
   // v54：圖片與形狀移動方式一致，都不能直接拖曳本體，必須用上方「移動」鍵
   if (!moveHandle && (imageElement || shapeElement)) return;
 
-  // 其他文字元件仍只能拖「移動」把手；下拉換組元件 / YouTube / 群組可直接拖曳
+  // 其他文字元件仍只能拖「移動」把手；下拉換組元件 / YouTube / 線條 / 群組可直接拖曳
   if (!moveHandle && !directDragElement) return;
 
   let el = moveHandle
@@ -9264,16 +9615,16 @@ document.getElementById('imageRadius')?.addEventListener('input', applyImageRadi
 bindNumberInput('imageRadiusPx', applyImageRadiusSettingFromInput);
 
 // v78：所有元件背景材質
-document.getElementById('elementMaterial')?.addEventListener('change', updateSelectedStyle);
+document.getElementById('elementMaterial')?.addEventListener('change', applySelectedBackgroundFromPanel);
 
 
 // v82：文字透明度
-document.getElementById('elementTextOpacity')?.addEventListener('input', updateSelectedStyle);
+document.getElementById('elementTextOpacity')?.addEventListener('input', applySelectedTextColorFromPanel);
 bindNumberInput('elementTextOpacityPercent', () => {
   const value = clampNumber(numberValue('elementTextOpacityPercent', 100), 0, 100);
   setValue('elementTextOpacity', value);
   setValue('elementTextOpacityPercent', value);
-  updateSelectedStyle();
+  applySelectedTextColorFromPanel();
 });
 
 // v82：圖片點擊切換
@@ -9505,6 +9856,40 @@ document.querySelectorAll('[data-gradient-opacity-input]').forEach(input => {
 document.getElementById('shapeGradientDepth').addEventListener('input', applyShapeStyle);
 bindNumberInput('shapeGradientDepthPercent', applyShapeGradientDepthFromManualInput);
 
+// v87：線條元件設定
+['lineColor', 'lineStyle', 'lineCap', 'lineStart', 'lineEnd'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', applyLineStyleFromPanel);
+  document.getElementById(id)?.addEventListener('change', applyLineStyleFromPanel);
+});
+
+document.getElementById('lineWeight')?.addEventListener('input', e => {
+  setValue('lineWeightInput', e.target.value);
+  applyLineStyleFromPanel();
+});
+
+document.getElementById('lineOpacity')?.addEventListener('input', e => {
+  setValue('lineOpacityInput', e.target.value);
+  applyLineStyleFromPanel();
+});
+
+document.getElementById('lineAngle')?.addEventListener('input', e => {
+  setValue('lineAngleInput', e.target.value);
+  applyLineStyleFromPanel();
+});
+
+bindNumberInput('lineWeightInput', () => applyLineNumberInput('lineWeightInput', 'lineWeight', 1, 80));
+bindNumberInput('lineOpacityInput', () => applyLineNumberInput('lineOpacityInput', 'lineOpacity', 0, 100));
+bindNumberInput('lineAngleInput', () => applyLineNumberInput('lineAngleInput', 'lineAngle', 0, 359));
+
+document.querySelectorAll('[data-line-angle-preset]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const angle = clampNumber(parseInt(btn.dataset.lineAnglePreset || '0', 10) || 0, 0, 359);
+    setValue('lineAngle', angle);
+    setValue('lineAngleInput', angle);
+    applyLineStyleFromPanel();
+  });
+});
+
 // 自由元件位置
 ['elX', 'elY', 'elW', 'elH'].forEach(id => {
   document.getElementById(id).addEventListener('input', updateSelectedPosition);
@@ -9521,7 +9906,12 @@ bindNumberInput('shapeGradientDepthPercent', applyShapeGradientDepthFromManualIn
 });
 
 // 自由元件樣式
-['elementTextColor', 'elementBgColor', 'elementBgOpacity', 'elementFontSize', 'elementFontFamily', 'elementLineHeight', 'elementLetterSpacing', 'elementRadius', 'elementZIndex'].forEach(id => {
+document.getElementById('elementTextColor')?.addEventListener('input', applySelectedTextColorFromPanel);
+document.getElementById('elementBgColor')?.addEventListener('input', applySelectedBackgroundFromPanel);
+document.getElementById('elementBgOpacity')?.addEventListener('input', applySelectedBackgroundFromPanel);
+document.getElementById('elementFontFamily')?.addEventListener('input', applySelectedFontFromPanel);
+document.getElementById('elementFontFamily')?.addEventListener('change', applySelectedFontFromPanel);
+['elementFontSize', 'elementLineHeight', 'elementLetterSpacing', 'elementRadius', 'elementZIndex'].forEach(id => {
   document.getElementById(id).addEventListener('input', updateSelectedStyle);
 });
 
@@ -9533,7 +9923,7 @@ bindNumberInput('elementBgOpacityPercent', () => {
   const value = Math.max(0, Math.min(100, parseFloat(document.getElementById('elementBgOpacityPercent').value) || 0));
   setValue('elementBgOpacity', value);
   setValue('elementBgOpacityPercent', value);
-  updateSelectedStyle();
+  applySelectedBackgroundFromPanel();
 });
 
 document.querySelectorAll('[data-text-align]').forEach(btn => {
@@ -10608,8 +10998,14 @@ document.addEventListener('input', event => {
   window.clearTimeout(colorApplyTimerV82);
   colorApplyTimerV82 = window.setTimeout(() => {
     try {
-      if (selectedElement) refreshInspector();
+      // v88：選色後不重新 refreshInspector，避免面板同步時重寫文字/字體造成跑版。
       scheduleAutoSave();
     } catch (error) {}
   }, 350);
 }, true);
+
+
+const originalBuildExportCSSV87 = buildExportCSS;
+buildExportCSS = function() {
+  return originalBuildExportCSSV87() + "\n/* v87：線條元件匯出 */\n.free-element[data-type=\"line\"] {\n  background: transparent !important;\n  overflow: visible !important;\n  cursor: default;\n}\n\n.free-element[data-type=\"line\"] .line-inner,\n.free-element[data-type=\"line\"] .editable-line {\n  width: 100%;\n  height: 100%;\n  overflow: visible;\n}\n\n.free-element[data-type=\"line\"] .line-endpoint {\n  display: none;\n}\n";
+};

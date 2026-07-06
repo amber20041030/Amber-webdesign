@@ -132,6 +132,10 @@
         <i class="bi bi-image"></i> 圖片
       </button>
 
+      <button class="btn btn-outline-success component-btn" data-add-element="line">
+        <i class="bi bi-slash-lg"></i> 線條
+      </button>
+
       <button class="btn btn-outline-success component-btn" data-add-element="shape-square">
         <i class="bi bi-square"></i> 正方形
       </button>
@@ -909,6 +913,79 @@
       </div>
 
 
+
+
+
+      <div class="setting-card d-none" id="lineSettingCard">
+        <div class="setting-title">線條設定</div>
+
+        <label class="simple-label">線條顏色</label>
+        <input type="color" class="form-control form-control-color mb-3" id="lineColor" value="#212529">
+
+        <label class="simple-label">線條粗細</label>
+        <input type="range" class="form-range" id="lineWeight" min="1" max="80" step="1" value="6">
+        <div class="px-input-row mb-3">
+          <span>px</span>
+          <input type="number" class="form-control form-control-sm" id="lineWeightInput" min="1" max="80" step="1" value="6">
+        </div>
+
+        <label class="simple-label">線條透明度</label>
+        <input type="range" class="form-range" id="lineOpacity" min="0" max="100" step="1" value="100">
+        <div class="px-input-row mb-3">
+          <span>%</span>
+          <input type="number" class="form-control form-control-sm" id="lineOpacityInput" min="0" max="100" step="1" value="100">
+        </div>
+
+        <label class="simple-label">線條樣式</label>
+        <select class="form-select form-select-sm mb-3" id="lineStyle">
+          <option value="solid">實線</option>
+          <option value="dashed">虛線</option>
+          <option value="dotted">點線</option>
+        </select>
+
+        <label class="simple-label">線條端點</label>
+        <select class="form-select form-select-sm mb-3" id="lineCap">
+          <option value="round">圓角端點</option>
+          <option value="butt">平切端點</option>
+          <option value="square">方形端點</option>
+        </select>
+
+        <label class="simple-label">左側端點造型</label>
+        <select class="form-select form-select-sm mb-3" id="lineStart">
+          <option value="none">無</option>
+          <option value="arrow">箭頭</option>
+          <option value="circle">圓點</option>
+          <option value="square">方塊</option>
+          <option value="diamond">菱形</option>
+        </select>
+
+        <label class="simple-label">右側端點造型</label>
+        <select class="form-select form-select-sm mb-3" id="lineEnd">
+          <option value="none">無</option>
+          <option value="arrow">箭頭</option>
+          <option value="circle">圓點</option>
+          <option value="square">方塊</option>
+          <option value="diamond">菱形</option>
+        </select>
+
+        <label class="simple-label">線條角度</label>
+        <input type="range" class="form-range" id="lineAngle" min="0" max="359" step="1" value="0">
+        <div class="px-input-row mb-2">
+          <span>度</span>
+          <input type="number" class="form-control form-control-sm" id="lineAngleInput" min="0" max="359" step="1" value="0">
+        </div>
+
+        <div class="line-preset-grid mb-3">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-line-angle-preset="0">0°</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-line-angle-preset="45">45°</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-line-angle-preset="90">90°</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-line-angle-preset="135">135°</button>
+        </div>
+
+        <div class="small text-muted">
+          可像 Canva 一樣調整粗細、顏色、實線/虛線/點線、左右端點、箭頭與角度；拖拉外框可調整長度。
+        </div>
+      </div>
 
       <div class="setting-card d-none" id="elementShadowSettingCard">
         <div class="setting-title">陰影設定</div>
