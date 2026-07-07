@@ -1,4 +1,4 @@
-/* v167: lock element layout to a design width, then scale the whole site for preview/export. */
+/* v168: lock element layout to a design width without transform, keeping preview/export identical. */
 (function fixedLayoutScaleV167() {
   if (window.__fixedLayoutScaleV167) return;
   window.__fixedLayoutScaleV167 = true;
@@ -36,7 +36,7 @@ body.exported-site.preview-mode.export-mode-mobile {
 body.preview-mode,
 body.exported-site,
 body.exported-site.preview-mode {
-  overflow-x: hidden !important;
+  overflow-x: auto !important;
   background-size: cover !important;
   background-position: center center !important;
   background-repeat: no-repeat !important;
@@ -60,8 +60,8 @@ body.exported-site.preview-mode .canvas-area,
 body.exported-site .export-preview-canvas-v161,
 body.exported-site.preview-mode .export-preview-canvas-v161 {
   width: 100vw !important;
-  max-width: 100vw !important;
-  overflow-x: hidden !important;
+  max-width: none !important;
+  overflow-x: auto !important;
   display: flex !important;
   justify-content: center !important;
   align-items: flex-start !important;
@@ -79,12 +79,24 @@ body.exported-site.preview-mode .site-page {
   width: var(--fixed-layout-design-width-v167) !important;
   min-width: var(--fixed-layout-design-width-v167) !important;
   max-width: var(--fixed-layout-design-width-v167) !important;
-  transform: scale(var(--fixed-layout-scale-v167)) !important;
+  transform: none !important;
   transform-origin: top center !important;
   flex: 0 0 var(--fixed-layout-design-width-v167) !important;
   box-sizing: border-box !important;
   margin-left: auto !important;
   margin-right: auto !important;
+}
+
+body.preview-mode img,
+body.preview-mode picture,
+body.preview-mode canvas,
+body.preview-mode iframe,
+body.exported-site img,
+body.exported-site picture,
+body.exported-site canvas,
+body.exported-site iframe {
+  visibility: visible !important;
+  opacity: 1;
 }
 
 body.preview-mode .html-zone,
@@ -122,15 +134,6 @@ body:not(.preview-mode):not(.exported-site) #sitePage.site-page {
     return WIDTHS[mode] || WIDTHS.desktop;
   }
 
-  function getViewportWidth() {
-    return Math.max(320, window.innerWidth || document.documentElement.clientWidth || designWidthForMode());
-  }
-
-  function getScale(mode = modeFromBody()) {
-    const designWidth = designWidthForMode(mode);
-    return Math.min(1, getViewportWidth() / designWidth);
-  }
-
   function getPage() {
     return document.getElementById('sitePage') || document.querySelector('.site-page');
   }
@@ -153,20 +156,18 @@ body:not(.preview-mode):not(.exported-site) #sitePage.site-page {
 
     const mode = modeFromBody();
     const designWidth = designWidthForMode(mode);
-    const scale = getScale(mode);
     const pageHeight = Math.max(page.scrollHeight, page.offsetHeight, window.innerHeight || 0);
-    const scaledHeight = Math.ceil(pageHeight * scale);
     const canvas = getCanvas();
 
     document.documentElement.style.setProperty('--fixed-layout-design-width-v167', designWidth + 'px');
-    document.documentElement.style.setProperty('--fixed-layout-scale-v167', String(scale));
+    document.documentElement.style.setProperty('--fixed-layout-scale-v167', '1');
     document.body.style.setProperty('--fixed-layout-design-width-v167', designWidth + 'px');
-    document.body.style.setProperty('--fixed-layout-scale-v167', String(scale));
+    document.body.style.setProperty('--fixed-layout-scale-v167', '1');
     page.style.setProperty('--fixed-layout-design-width-v167', designWidth + 'px');
-    page.style.setProperty('--fixed-layout-scale-v167', String(scale));
+    page.style.setProperty('--fixed-layout-scale-v167', '1');
 
     if (canvas) {
-      canvas.style.minHeight = Math.max(window.innerHeight || 0, scaledHeight) + 'px';
+      canvas.style.minHeight = Math.max(window.innerHeight || 0, pageHeight) + 'px';
     }
   }
 
@@ -221,19 +222,18 @@ body:not(.preview-mode):not(.exported-site) #sitePage.site-page {
   var WIDTHS = { desktop: 1440, tablet: 768, mobile: 390 };
   function mode(){ if (document.body.classList.contains('export-mode-mobile') || document.body.classList.contains('device-mobile')) return 'mobile'; if (document.body.classList.contains('export-mode-tablet') || document.body.classList.contains('device-tablet')) return 'tablet'; return 'desktop'; }
   function width(){ return WIDTHS[mode()] || WIDTHS.desktop; }
-  function scale(){ return Math.min(1, Math.max(320, window.innerWidth || document.documentElement.clientWidth || width()) / width()); }
   function page(){ return document.getElementById('sitePage') || document.querySelector('.site-page'); }
   function canvas(){ return document.querySelector('.canvas-area') || document.querySelector('.export-preview-canvas-v161') || document.body; }
   function apply(){
     var p = page(); if (!p) return;
-    var w = width(); var s = scale(); var c = canvas();
+    var w = width(); var c = canvas();
     document.documentElement.style.setProperty('--fixed-layout-design-width-v167', w + 'px');
-    document.documentElement.style.setProperty('--fixed-layout-scale-v167', String(s));
+    document.documentElement.style.setProperty('--fixed-layout-scale-v167', '1');
     document.body.style.setProperty('--fixed-layout-design-width-v167', w + 'px');
-    document.body.style.setProperty('--fixed-layout-scale-v167', String(s));
+    document.body.style.setProperty('--fixed-layout-scale-v167', '1');
     p.style.setProperty('--fixed-layout-design-width-v167', w + 'px');
-    p.style.setProperty('--fixed-layout-scale-v167', String(s));
-    if (c) c.style.minHeight = Math.max(window.innerHeight || 0, Math.ceil(Math.max(p.scrollHeight, p.offsetHeight, window.innerHeight || 0) * s)) + 'px';
+    p.style.setProperty('--fixed-layout-scale-v167', '1');
+    if (c) c.style.minHeight = Math.max(window.innerHeight || 0, Math.max(p.scrollHeight, p.offsetHeight, window.innerHeight || 0)) + 'px';
   }
   function schedule(){ requestAnimationFrame(function(){ apply(); setTimeout(apply, 80); setTimeout(apply, 260); }); }
   window.addEventListener('resize', schedule);
