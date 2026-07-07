@@ -3365,7 +3365,53 @@ function selectElement(el, additive = false) {
 
 
 function getElementPositionContext(el) {
+  if (!el || !el.closest) return null;
+
+  // v134：下拉式換組模板的控制下拉元件以模板本體為定位範圍，
+  // 不使用外層區塊，也不把浮動工具列納入邊界。
+  const switcherControl = el.classList?.contains('select-switcher-select-element')
+    ? el
+    : el.closest('.select-switcher-select-element[data-select-switcher-control="true"]');
+
+  if (switcherControl && switcherControl.closest('.js-css-select-switcher[data-type="select-switcher"]')) {
+    const switcherBlock = switcherControl.closest('.js-css-select-switcher[data-type="select-switcher"]');
+    return switcherBlock.querySelector(':scope > .select-switcher-block') || switcherBlock.querySelector('.select-switcher-block') || switcherBlock;
+  }
+
   return el.closest('.group-inner') || el.closest('.block-canvas');
+}
+
+function isSelectSwitcherTemplateControlV134(el) {
+  return !!(
+    el &&
+    el.classList &&
+    el.classList.contains('select-switcher-select-element') &&
+    el.closest &&
+    el.closest('.js-css-select-switcher[data-type="select-switcher"]')
+  );
+}
+
+function canElementOverflowDragV134(el) {
+  // 工具列是浮動 UI，不參與拖移邊界；只有原本允許溢出的形狀維持自由溢出。
+  // 下拉式換組模板的控制下拉元件改由模板本體邊界限制。
+  return !!(el && el.dataset && el.dataset.type === 'shape');
+}
+
+function clampSelectSwitcherTemplatePositionV134(el, leftPercent, topPx) {
+  if (!isSelectSwitcherTemplateControlV134(el)) return { left: leftPercent, top: topPx };
+
+  const context = getElementPositionContext(el);
+  if (!context) return { left: Math.max(0, leftPercent), top: Math.max(0, topPx) };
+
+  const contextRect = context.getBoundingClientRect();
+  const values = getElementValues(el);
+  const maxLeft = Math.max(0, 100 - (parseFloat(values.width) || 0));
+  const maxTop = Math.max(0, contextRect.height - (parseFloat(values.height) || el.getBoundingClientRect().height || 0));
+
+  return {
+    left: clamp(leftPercent, 0, maxLeft),
+    top: clamp(topPx, 0, maxTop)
+  };
 }
 
 
@@ -3551,12 +3597,14 @@ function applyDragAlignmentSnap(el, rawLeftPercent, rawTopPx) {
     showAlignmentGuide(canvas, 'y', ySnap.guide, ySnap.center);
   }
 
-  const allowOverflowSnap = el.dataset.type === 'shape';
+  const allowOverflowSnap = canElementOverflowDragV134(el);
 
-  return {
+  const next = {
     left: allowOverflowSnap ? (leftPx / canvasRect.width * 100) : clamp(leftPx / canvasRect.width * 100, 0, 100),
     top: allowOverflowSnap ? topPx : Math.max(0, topPx)
   };
+
+  return clampSelectSwitcherTemplatePositionV134(el, next.left, next.top);
 }
 
 function applyTextAlignToSelected(align) {
@@ -10280,7 +10328,7 @@ sitePage.addEventListener('pointermove', e => {
   const dxPercent = (e.clientX - dragState.startX) / dragState.canvasWidth * 100;
   const dyPx = e.clientY - dragState.startY;
 
-  const allowOverflowMove = el.dataset.type === 'shape';
+  const allowOverflowMove = canElementOverflowDragV134(el);
   const rawLeft = allowOverflowMove
     ? (dragState.startLeft + dxPercent)
     : clamp(dragState.startLeft + dxPercent, 0, 100);
@@ -10295,11 +10343,16 @@ sitePage.addEventListener('pointermove', e => {
     const deltaTop = snapped.top - dragState.startTop;
 
     dragState.items.forEach(item => {
-      const itemAllowOverflow = item.element.dataset.type === 'shape';
-      item.element.style.left = (itemAllowOverflow ? (item.startLeft + deltaLeft) : clamp(item.startLeft + deltaLeft, 0, 100)) + '%';
-      item.element.style.top = (itemAllowOverflow ? (item.startTop + deltaTop) : Math.max(0, item.startTop + deltaTop)) + 'px';
+      const itemAllowOverflow = canElementOverflowDragV134(item.element);
+      const itemNext = clampSelectSwitcherTemplatePositionV134(
+        item.element,
+        itemAllowOverflow ? (item.startLeft + deltaLeft) : clamp(item.startLeft + deltaLeft, 0, 100),
+        itemAllowOverflow ? (item.startTop + deltaTop) : Math.max(0, item.startTop + deltaTop)
+      );
+      item.element.style.left = itemNext.left + '%';
+      item.element.style.top = itemNext.top + 'px';
 
-      if (item.element.dataset.type === 'select-switcher-control') {
+      if (item.element.dataset.type === 'select-switcher-control' || item.element.dataset.selectSwitcherControl === 'true') {
         item.element.style.width = item.startWidth + '%';
         item.element.style.height = item.startHeight + 'px';
       }
@@ -10308,7 +10361,7 @@ sitePage.addEventListener('pointermove', e => {
     el.style.left = snapped.left + '%';
     el.style.top = snapped.top + 'px';
 
-    if (el.dataset.type === 'select-switcher-control') {
+    if (el.dataset.type === 'select-switcher-control' || el.dataset.selectSwitcherControl === 'true') {
       el.style.width = dragState.startWidth + '%';
       el.style.height = dragState.startHeight + 'px';
     }
@@ -19516,4 +19569,832 @@ body.exported-site [data-select-switcher-toolbar="true"] {
   buildExportCSS = function(){
     return originalBuildExportCSSV131.apply(this, arguments) + '\n' + cssV131;
   };
+})();
+
+
+/* v132：下拉式選項元件 / 下拉導覽列功能列表綁定修正：先選項目，再將功能獨立接到該項目 */
+(function initDropdownActionBindingV132() {
+  if (window.__dropdownActionBindingInstalledV132) return;
+  window.__dropdownActionBindingInstalledV132 = true;
+
+  const NAV_TITLE_KEY = '__title';
+  const ACTIONS_BY_ID_ATTR = 'optionActionsById';
+  const OPTION_IDS_ATTR = 'optionIds';
+  const RECENT_MS = 480;
+  let lastRun = { signature: '', time: 0 };
+
+  function qs(selector, root = document) { return root.querySelector(selector); }
+  function qsa(selector, root = document) { return Array.from(root.querySelectorAll(selector)); }
+  function isNavHost(host) { return !!(host && host.dataset && host.dataset.type === 'nav-dropdown'); }
+  function isSelectHost(host) { return !!(host && (host.matches?.('.editable-select') || host.tagName === 'SELECT')); }
+  function escapeHtml(value) {
+    if (typeof escapeHTML === 'function') return escapeHTML(value);
+    return String(value ?? '').replace(/[&<>"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[m]));
+  }
+  function uid() {
+    return 'opt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+  }
+  function readJSON(host, key, fallback) {
+    if (!host) return fallback;
+    try {
+      const raw = host.dataset?.[key] ?? host.getAttribute?.('data-' + key.replace(/[A-Z]/g, m => '-' + m.toLowerCase()));
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw);
+      return parsed || fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+  function writeJSON(host, key, value) {
+    if (!host) return;
+    host.dataset[key] = JSON.stringify(value || (Array.isArray(value) ? [] : {}));
+  }
+  function getActions(host) {
+    if (!host) return {};
+    try {
+      if (typeof getSelectOptionActions === 'function') return getSelectOptionActions(host) || {};
+    } catch (error) {}
+    return readJSON(host, 'optionActions', {});
+  }
+  function setActions(host, actions) {
+    if (!host) return;
+    try {
+      if (typeof setSelectOptionActions === 'function') {
+        setSelectOptionActions(host, actions || {});
+      } else {
+        host.dataset.optionActions = JSON.stringify(actions || {});
+      }
+    } catch (error) {
+      host.dataset.optionActions = JSON.stringify(actions || {});
+    }
+  }
+  function getActionsById(host) { return readJSON(host, ACTIONS_BY_ID_ATTR, {}); }
+  function setActionsById(host, actions) { writeJSON(host, ACTIONS_BY_ID_ATTR, actions || {}); }
+  function getIds(host) {
+    const ids = readJSON(host, OPTION_IDS_ATTR, []);
+    return Array.isArray(ids) ? ids : [];
+  }
+  function setIds(host, ids) { writeJSON(host, OPTION_IDS_ATTR, ids || []); }
+
+  function getOptionNodes(host) {
+    if (!host) return [];
+    if (isSelectHost(host)) return Array.from(host.options || []);
+    if (isNavHost(host)) return qsa('.nav-dropdown-option', host);
+    return [];
+  }
+  function optionLabel(node) {
+    return (node?.innerText || node?.textContent || '').trim();
+  }
+  function ensureOptionIds(host) {
+    if (!host) return [];
+    const nodes = getOptionNodes(host);
+    const ids = getIds(host);
+    const nextIds = [];
+
+    nodes.forEach((node, index) => {
+      let id = node.dataset?.optionId || ids[index];
+      if (!id) id = uid();
+      // 避免重複 ID 造成功能接錯。
+      if (nextIds.includes(id)) id = uid();
+      nextIds[index] = id;
+      if (node.dataset) node.dataset.optionId = id;
+      if (isNavHost(host) && node.dataset) node.dataset.optionIndex = String(index);
+      if (isNavHost(host)) node.type = 'button';
+    });
+
+    setIds(host, nextIds);
+    migrateLegacyActionsToIds(host, nextIds);
+    return nextIds;
+  }
+  function getOptionId(host, index) {
+    const ids = ensureOptionIds(host);
+    return ids[index] || '';
+  }
+  function getSelectedHost() {
+    try {
+      if (typeof getSelectedOptionHost === 'function') return getSelectedOptionHost();
+    } catch (error) {}
+    if (window.selectedElement?.dataset?.type === 'select') return window.selectedElement.querySelector('.editable-select');
+    if (window.selectedElement?.dataset?.type === 'nav-dropdown') return window.selectedElement;
+    return null;
+  }
+  function getLabelList(host) {
+    if (!host) return [];
+    try {
+      if (typeof getOptionLabelsFromHost === 'function') return getOptionLabelsFromHost(host);
+    } catch (error) {}
+    return getOptionNodes(host).map(optionLabel);
+  }
+  function getTargetName(host, value) {
+    if (value === NAV_TITLE_KEY) {
+      const title = (qs('.nav-dropdown-title', host)?.innerText || qs('.nav-dropdown-title', host)?.textContent || '').trim() || '標題';
+      return '標題：' + title;
+    }
+    const index = parseInt(value, 10);
+    const labels = getLabelList(host);
+    return '選項：' + (labels[index] || ('選項 ' + (index + 1)));
+  }
+  function isValidAction(data) {
+    if (!data) return false;
+    return !!(
+      (data.functionEnabled && ((data.pageEnabled && data.pageTarget) || (data.scrollEnabled && data.scrollTarget))) ||
+      (data.linkEnabled && data.linkUrl)
+    );
+  }
+  function normalizeActionDataFromPanel() {
+    return {
+      itemId: '',
+      functionEnabled: !!qs('#selectOptionFunctionEnabled')?.checked,
+      scrollEnabled: !!qs('#selectOptionScrollEnabled')?.checked,
+      scrollTarget: qs('#selectOptionScrollTarget')?.value || '',
+      pageEnabled: !!qs('#selectOptionPageEnabled')?.checked,
+      pageTarget: qs('#selectOptionPageTarget')?.value || '',
+      linkEnabled: !!qs('#selectOptionLinkEnabled')?.checked,
+      linkUrl: (qs('#selectOptionLinkUrl')?.value || '').trim()
+    };
+  }
+  function fillPanelFromData(data) {
+    data = data || {};
+    const functionToggle = qs('#selectOptionFunctionEnabled');
+    const scrollToggle = qs('#selectOptionScrollEnabled');
+    const pageToggle = qs('#selectOptionPageEnabled');
+    const linkToggle = qs('#selectOptionLinkEnabled');
+    if (functionToggle) functionToggle.checked = data.functionEnabled === true;
+    if (scrollToggle) scrollToggle.checked = data.scrollEnabled === true;
+    if (pageToggle) pageToggle.checked = data.pageEnabled === true;
+    if (typeof setValue === 'function') {
+      setValue('selectOptionScrollTarget', data.scrollTarget || '');
+      setValue('selectOptionPageTarget', data.pageTarget || '');
+      setValue('selectOptionLinkUrl', data.linkUrl || '');
+    } else {
+      if (qs('#selectOptionScrollTarget')) qs('#selectOptionScrollTarget').value = data.scrollTarget || '';
+      if (qs('#selectOptionPageTarget')) qs('#selectOptionPageTarget').value = data.pageTarget || '';
+      if (qs('#selectOptionLinkUrl')) qs('#selectOptionLinkUrl').value = data.linkUrl || '';
+    }
+    if (linkToggle) linkToggle.checked = data.linkEnabled === true;
+  }
+  function migrateLegacyActionsToIds(host, ids) {
+    if (!host) return;
+    const legacy = getActions(host);
+    const byId = getActionsById(host);
+    let changed = false;
+
+    ids.forEach((id, index) => {
+      if (!id) return;
+      const legacyData = legacy[String(index)];
+      if (legacyData && !byId[id]) {
+        byId[id] = Object.assign({}, legacyData, { itemId: id });
+        changed = true;
+      }
+    });
+
+    if (changed) setActionsById(host, byId);
+    syncLegacyActionsFromIds(host);
+  }
+  function getActionForIndex(host, index) {
+    if (!host) return null;
+    const ids = ensureOptionIds(host);
+    const id = ids[index];
+    const byId = getActionsById(host);
+    const legacy = getActions(host);
+    const data = (id && byId[id]) || legacy[String(index)] || null;
+    if (data && id && !data.itemId) data.itemId = id;
+    return data;
+  }
+  function getActionForTarget(host, value) {
+    if (!host || value === '') return null;
+    const actions = getActions(host);
+    if (value === NAV_TITLE_KEY) return actions[NAV_TITLE_KEY] || null;
+    const index = parseInt(value, 10);
+    if (Number.isNaN(index)) return null;
+    return getActionForIndex(host, index);
+  }
+  function syncLegacyActionsFromIds(host) {
+    if (!host) return;
+    const ids = ensureOptionIdsNoMigrate(host);
+    const byId = getActionsById(host);
+    const legacy = getActions(host);
+    const next = {};
+
+    if (legacy[NAV_TITLE_KEY]) next[NAV_TITLE_KEY] = legacy[NAV_TITLE_KEY];
+    ids.forEach((id, index) => {
+      const data = (id && byId[id]) || legacy[String(index)];
+      if (data) next[String(index)] = Object.assign({}, data, { itemId: id || data.itemId || '' });
+    });
+
+    setActions(host, next);
+  }
+  function ensureOptionIdsNoMigrate(host) {
+    if (!host) return [];
+    const nodes = getOptionNodes(host);
+    const ids = getIds(host);
+    const nextIds = [];
+    nodes.forEach((node, index) => {
+      let id = node.dataset?.optionId || ids[index] || uid();
+      if (nextIds.includes(id)) id = uid();
+      nextIds[index] = id;
+      if (node.dataset) node.dataset.optionId = id;
+      if (isNavHost(host) && node.dataset) node.dataset.optionIndex = String(index);
+      if (isNavHost(host)) node.type = 'button';
+    });
+    setIds(host, nextIds);
+    return nextIds;
+  }
+
+  function captureOptionBindings(host) {
+    if (!host) return null;
+    const ids = ensureOptionIds(host);
+    const labels = getLabelList(host);
+    const legacy = getActions(host);
+    const byId = getActionsById(host);
+    const styles = (() => {
+      try { return typeof getOptionStyleData === 'function' ? getOptionStyleData(host) : readJSON(host, 'optionStyles', {}); }
+      catch(error) { return {}; }
+    })();
+    const items = labels.map((label, index) => {
+      const id = ids[index] || uid();
+      return {
+        id,
+        label,
+        index,
+        action: (id && byId[id]) || legacy[String(index)] || null,
+        style: styles[String(index)] || styles[id] || null
+      };
+    });
+    return { isNav: isNavHost(host), titleAction: legacy[NAV_TITLE_KEY] || null, items };
+  }
+  function pickMatch(before, label, index, used) {
+    if (!before || !before.items) return null;
+    let found = before.items.find(item => !used.has(item) && item.label === label);
+    if (!found) found = before.items.find(item => !used.has(item) && item.index === index);
+    if (found) used.add(found);
+    return found || null;
+  }
+  function restoreOptionBindings(host, before) {
+    if (!host || !before) return;
+    const labels = getLabelList(host);
+    const used = new Set();
+    const ids = [];
+    const nextActionsById = {};
+    const nextLegacyActions = {};
+    const nextStyles = {};
+
+    if (before.titleAction && isNavHost(host)) nextLegacyActions[NAV_TITLE_KEY] = before.titleAction;
+
+    const nodes = getOptionNodes(host);
+    labels.forEach((label, index) => {
+      const match = pickMatch(before, label, index, used);
+      const id = match?.id || nodes[index]?.dataset?.optionId || uid();
+      ids[index] = id;
+      if (nodes[index]?.dataset) nodes[index].dataset.optionId = id;
+      if (isNavHost(host) && nodes[index]?.dataset) nodes[index].dataset.optionIndex = String(index);
+
+      const action = match?.action;
+      if (action) {
+        const normalized = Object.assign({}, action, { itemId: id });
+        nextActionsById[id] = normalized;
+        // 保留索引格式給舊版 runtime，但每次依目前 ID 重新同步，避免排序後接錯。
+        nextLegacyActions[String(index)] = normalized;
+      }
+      if (match?.style) nextStyles[String(index)] = match.style;
+    });
+
+    setIds(host, ids);
+    setActionsById(host, nextActionsById);
+    setActions(host, nextLegacyActions);
+    try {
+      if (typeof setOptionStyleData === 'function') setOptionStyleData(host, nextStyles);
+      else host.dataset.optionStyles = JSON.stringify(nextStyles);
+    } catch (error) {}
+  }
+
+  function refreshActionOptionsV132() {
+    const actionSelect = qs('#selectOptionActionSelect');
+    if (!actionSelect) return;
+    const current = actionSelect.value || '';
+    const host = getSelectedHost();
+    actionSelect.innerHTML = '';
+
+    if (!host) {
+      actionSelect.insertAdjacentHTML('beforeend', '<option value="">請先選擇選項</option>');
+      updateActionTextV132();
+      return;
+    }
+
+    ensureOptionIds(host);
+    if (isNavHost(host)) {
+      actionSelect.insertAdjacentHTML('beforeend', '<option value="">請先選擇標題或選項</option>');
+      const title = (qs('.nav-dropdown-title', host)?.innerText || qs('.nav-dropdown-title', host)?.textContent || '').trim() || '標題';
+      actionSelect.insertAdjacentHTML('beforeend', `<option value="${NAV_TITLE_KEY}">標題：${escapeHtml(title)}</option>`);
+      getLabelList(host).forEach((label, index) => {
+        actionSelect.insertAdjacentHTML('beforeend', `<option value="${index}">選項 ${index + 1}：${escapeHtml(label || ('選項 ' + (index + 1)))}</option>`);
+      });
+    } else {
+      actionSelect.insertAdjacentHTML('beforeend', '<option value="">請先選擇內容選項</option>');
+      getLabelList(host).forEach((label, index) => {
+        actionSelect.insertAdjacentHTML('beforeend', `<option value="${index}">選項 ${index + 1}：${escapeHtml(label || ('選項 ' + (index + 1)))}</option>`);
+      });
+    }
+
+    if (Array.from(actionSelect.options).some(option => option.value === current)) actionSelect.value = current;
+    updateActionTextV132();
+  }
+  function ensureHintV132() {
+    const actionSelect = qs('#selectOptionActionSelect');
+    if (!actionSelect) return null;
+    let hint = qs('#selectOptionActionHintV132');
+    if (!hint) {
+      const oldHint = qs('#selectOptionActionHintV130');
+      if (oldHint) oldHint.id = 'selectOptionActionHintV132';
+      hint = qs('#selectOptionActionHintV132');
+    }
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.id = 'selectOptionActionHintV132';
+      hint.className = 'small text-primary mb-2';
+      actionSelect.insertAdjacentElement('afterend', hint);
+    }
+    return hint;
+  }
+  function updateActionTextV132() {
+    const host = getSelectedHost();
+    const actionSelect = qs('#selectOptionActionSelect');
+    const hint = ensureHintV132();
+    const selectedValue = actionSelect?.value || '';
+    const isNav = isNavHost(host);
+    const labelEl = actionSelect?.closest?.('.settings-section-body')?.querySelector?.('label[for="selectOptionActionSelect"]');
+    const note = actionSelect?.parentElement?.querySelector?.('#selectOptionActionHintV132 + .small.text-muted, #selectOptionActionSelect + .small.text-muted');
+    const title = qs('#selectAdvancedSectionV122 .setting-subtitle');
+    const applyBtn = qs('#applySelectOptionActionBtn');
+    const functionLabel = qs('label[for="selectOptionFunctionEnabled"]');
+    const linkLabel = qs('label[for="selectOptionLinkEnabled"]');
+
+    const labels = getLabelList(host);
+    const hasOptions = labels.length > 0;
+    const targetName = selectedValue ? getTargetName(host, selectedValue) : (isNav ? (hasOptions ? '標題或 XX 選項' : '標題') : '內容選項');
+
+    if (labelEl) {
+      labelEl.textContent = isNav
+        ? (hasOptions ? '請先選擇標題或內容選項' : '請先選擇標題')
+        : '請先選擇內容選項';
+    }
+    if (hint) {
+      hint.textContent = isNav
+        ? (hasOptions ? '請先選擇標題或 XX 選項，再選擇哪項連結功能（跳轉區塊／頁面／外部連結）。' : '請先選擇標題，再選擇哪項連結功能（跳轉區塊／頁面／外部連結）。')
+        : '請先選擇內容選項，再選擇哪項連結功能（跳轉區塊／頁面／外部連結）。';
+    }
+    if (note) {
+      note.textContent = selectedValue
+        ? `目前功能會只接到「${targetName}」，不會套用到其他選項。`
+        : (isNav ? '先選標題或單一選項後，再到「進階設定」選擇跳轉區塊、頁面或外部連結。' : '先選單一內容選項後，再到「進階設定」選擇跳轉區塊、頁面或外部連結。');
+    }
+    if (title) title.textContent = '功能列表：請先選擇目標，再選擇連結功能';
+    if (applyBtn) applyBtn.textContent = selectedValue ? `套用到${targetName}` : '請先選擇目標';
+    if (functionLabel) functionLabel.textContent = `開啟${targetName}的跳轉功能`;
+    if (linkLabel) linkLabel.textContent = `開啟${targetName}的外部連結 / 錨點連結`;
+  }
+  function panelVisibleV132() {
+    try {
+      if (typeof setSelectOptionPanelsVisible === 'function') setSelectOptionPanelsVisible();
+    } catch (error) {}
+    updateActionTextV132();
+  }
+  function syncActionPanelV132() {
+    const host = getSelectedHost();
+    const actionSelect = qs('#selectOptionActionSelect');
+    if (!actionSelect) return;
+    try { if (typeof refreshSelectOptionTargetOptions === 'function') refreshSelectOptionTargetOptions(); } catch (error) {}
+    const selected = actionSelect.value || '';
+    const data = getActionForTarget(host, selected) || {};
+    fillPanelFromData(data);
+    panelVisibleV132();
+  }
+  function applyActionV132() {
+    const host = getSelectedHost();
+    const actionSelect = qs('#selectOptionActionSelect');
+    if (!host || !actionSelect) return;
+    const value = actionSelect.value || '';
+    if (!value) {
+      alert(isNavHost(host) ? '請先選擇要設定的標題或內容選項。' : '請先選擇要設定的內容選項。');
+      return;
+    }
+
+    ensureOptionIds(host);
+    const actions = getActions(host);
+    const byId = getActionsById(host);
+    const data = normalizeActionDataFromPanel();
+
+    if (value === NAV_TITLE_KEY && isNavHost(host)) {
+      data.itemId = NAV_TITLE_KEY;
+      actions[NAV_TITLE_KEY] = data;
+    } else {
+      const index = parseInt(value, 10);
+      if (Number.isNaN(index)) return;
+      const id = getOptionId(host, index);
+      data.itemId = id;
+      byId[id] = data;
+      actions[String(index)] = data;
+      setActionsById(host, byId);
+    }
+
+    setActions(host, actions);
+    syncLegacyActionsFromIds(host);
+    updateActionTextV132();
+    try { if (typeof scheduleAutoSave === 'function') scheduleAutoSave(); } catch (error) {}
+    alert(`已套用到${getTargetName(host, value)}。`);
+  }
+  function runData(data) {
+    if (!isValidAction(data)) return false;
+    let sig = '';
+    try { sig = JSON.stringify(data); } catch(error) { sig = String(Date.now()); }
+    if (lastRun.signature === sig && Date.now() - lastRun.time < RECENT_MS) return false;
+    lastRun = { signature: sig, time: Date.now() };
+    if (typeof runOptionActionData === 'function') return runOptionActionData(data);
+    if (typeof window.runOptionActionData === 'function') return window.runOptionActionData(data);
+    if (typeof runExportOptionActionData === 'function') return runExportOptionActionData(data);
+    if (typeof window.runExportOptionActionData === 'function') return window.runExportOptionActionData(data);
+    return false;
+  }
+  function runSelectOptionByIndex(select, index, event) {
+    if (!select) return false;
+    ensureOptionIds(select);
+    const data = getActionForIndex(select, index);
+    if (!isValidAction(data)) return false;
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+    }
+    return runData(data);
+  }
+  function runNavOption(option, event) {
+    const root = option?.closest?.('.nav-dropdown');
+    if (!root) return false;
+    ensureOptionIds(root);
+    const index = parseInt(option.dataset.optionIndex || '0', 10) || 0;
+    const data = getActionForIndex(root, index);
+    if (!isValidAction(data)) return false;
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+    }
+    return runData(data);
+  }
+  function runNavTitle(title, event) {
+    const root = title?.closest?.('.nav-dropdown');
+    if (!root) return false;
+    const data = getActions(root)[NAV_TITLE_KEY];
+    if (!isValidAction(data)) return false;
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+    }
+    return runData(data);
+  }
+
+  // 讓既有的 change / pointerup 舊邏輯也會優先讀取「選項 ID」綁定，數字索引僅保留相容。
+  if (typeof handleSelectOptionAction === 'function' && !window.__handleSelectOptionActionWrappedV132) {
+    window.__handleSelectOptionActionWrappedV132 = true;
+    const originalHandleSelectOptionActionV132 = handleSelectOptionAction;
+    handleSelectOptionAction = function(select) {
+      const index = parseInt(select?.selectedIndex ?? '0', 10) || 0;
+      const data = getActionForIndex(select, index);
+      if (isValidAction(data)) return runData(data);
+      return originalHandleSelectOptionActionV132.apply(this, arguments);
+    };
+    window.handleSelectOptionAction = handleSelectOptionAction;
+  }
+
+  if (typeof refreshSelectOptionActionOptions === 'function') {
+    refreshSelectOptionActionOptions = refreshActionOptionsV132;
+    window.refreshSelectOptionActionOptions = refreshActionOptionsV132;
+  }
+  if (typeof syncSelectedOptionActionPanel === 'function') {
+    syncSelectedOptionActionPanel = syncActionPanelV132;
+    window.syncSelectedOptionActionPanel = syncActionPanelV132;
+  }
+  if (typeof applySelectOptionAction === 'function') {
+    applySelectOptionAction = applyActionV132;
+    window.applySelectOptionAction = applyActionV132;
+  }
+
+  if (typeof applySelectOptions === 'function' && !window.__applySelectOptionsWrappedV132) {
+    window.__applySelectOptionsWrappedV132 = true;
+    const originalApplySelectOptionsV132 = applySelectOptions;
+    applySelectOptions = function() {
+      const beforeHost = getSelectedHost();
+      const before = captureOptionBindings(beforeHost);
+      const result = originalApplySelectOptionsV132.apply(this, arguments);
+      const afterHost = getSelectedHost();
+      restoreOptionBindings(afterHost, before);
+      ensureOptionIds(afterHost);
+      try { if (typeof applyOptionStylesToHost === 'function') applyOptionStylesToHost(afterHost); } catch (error) {}
+      refreshActionOptionsV132();
+      panelVisibleV132();
+      return result;
+    };
+  }
+
+  if (typeof rebuildNavDropdownOptions === 'function' && !window.__rebuildNavDropdownOptionsWrappedV132) {
+    window.__rebuildNavDropdownOptionsWrappedV132 = true;
+    const originalRebuildNavDropdownOptionsV132 = rebuildNavDropdownOptions;
+    rebuildNavDropdownOptions = function(root, labels) {
+      const before = captureOptionBindings(root);
+      const result = originalRebuildNavDropdownOptionsV132.apply(this, arguments);
+      restoreOptionBindings(root, before);
+      ensureOptionIds(root);
+      return result;
+    };
+  }
+
+  if (typeof syncFormElementPanel === 'function' && !window.__syncFormElementPanelWrappedV132) {
+    window.__syncFormElementPanelWrappedV132 = true;
+    const originalSyncFormElementPanelV132 = syncFormElementPanel;
+    syncFormElementPanel = function() {
+      const result = originalSyncFormElementPanelV132.apply(this, arguments);
+      const host = getSelectedHost();
+      ensureOptionIds(host);
+      refreshActionOptionsV132();
+      updateActionTextV132();
+      return result;
+    };
+  }
+
+  // 事件：導覽標題與選項在預覽/匯出時用各自資料執行，互不影響。
+  document.addEventListener('click', event => {
+    const navTitle = event.target?.closest?.('.nav-dropdown-title');
+    if (navTitle && (document.body.classList.contains('preview-mode') || document.body.classList.contains('exported-site'))) {
+      runNavTitle(navTitle, event);
+      return;
+    }
+    const navOption = event.target?.closest?.('.nav-dropdown-option');
+    if (navOption && (document.body.classList.contains('preview-mode') || document.body.classList.contains('exported-site'))) {
+      runNavOption(navOption, event);
+    }
+  }, true);
+
+  // 自由下拉式選項：點擊內容選項時只執行該選項功能；標題仍只負責開合。
+  document.addEventListener('pointerup', event => {
+    const option = event.target?.closest?.('.free-element[data-type="select"] .editable-select-option');
+    if (!option) return;
+    const root = option.closest('.free-element[data-type="select"]');
+    const select = root?.querySelector?.('.editable-select');
+    if (!select) return;
+    const index = parseInt(option.dataset.optionIndex || '0', 10) || 0;
+    window.setTimeout(() => runSelectOptionByIndex(select, index, null), 0);
+  }, true);
+
+  document.addEventListener('change', event => {
+    if (event.target?.id === 'selectOptionActionSelect') {
+      syncActionPanelV132();
+      updateActionTextV132();
+    }
+  }, true);
+
+  document.addEventListener('input', event => {
+    if (event.target?.id === 'selectOptionsInput') {
+      window.setTimeout(() => {
+        refreshActionOptionsV132();
+        updateActionTextV132();
+      }, 0);
+    }
+  }, true);
+
+  if (window.MutationObserver && document.body) {
+    let timer = null;
+    new MutationObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        qsa('.editable-select, .nav-dropdown').forEach(ensureOptionIds);
+      }, 80);
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-option-actions', 'data-option-actions-by-id', 'data-option-ids'] });
+  }
+
+  qsa('.editable-select, .nav-dropdown').forEach(ensureOptionIds);
+  refreshActionOptionsV132();
+  updateActionTextV132();
+
+  if (typeof buildExportJS === 'function' && !window.__dropdownActionBindingExportJSWrappedV132) {
+    window.__dropdownActionBindingExportJSWrappedV132 = true;
+    const originalBuildExportJSV132 = buildExportJS;
+    buildExportJS = function(exportPagesJSON, currentPageIdJSON) {
+      return originalBuildExportJSV132(exportPagesJSON, currentPageIdJSON) + `
+(function(){
+  if (window.__dropdownActionBindingRuntimeInstalledV132) return;
+  window.__dropdownActionBindingRuntimeInstalledV132 = true;
+  var TITLE_KEY = '__title';
+  var RECENT_MS = 480;
+  var lastRun = { signature: '', time: 0 };
+  function qsa(root, selector){ return Array.prototype.slice.call((root || document).querySelectorAll(selector)); }
+  function readJSON(el, attr, fallback){ try { var raw = el && (el.getAttribute(attr) || el.dataset && el.dataset[attr.replace(/^data-/, '').replace(/-([a-z])/g, function(_, c){ return c.toUpperCase(); })]); return raw ? (JSON.parse(raw) || fallback) : fallback; } catch(e){ return fallback; } }
+  function getIds(host){ var ids = readJSON(host, 'data-option-ids', []); return Array.isArray(ids) ? ids : []; }
+  function getActions(host){ return readJSON(host, 'data-option-actions', {}); }
+  function getActionsById(host){ return readJSON(host, 'data-option-actions-by-id', {}); }
+  function isValid(data){ return !!(data && ((data.functionEnabled && ((data.pageEnabled && data.pageTarget) || (data.scrollEnabled && data.scrollTarget))) || (data.linkEnabled && data.linkUrl))); }
+  function run(data){
+    if (!isValid(data)) return false;
+    var sig = ''; try { sig = JSON.stringify(data); } catch(e){ sig = String(Date.now()); }
+    if (lastRun.signature === sig && Date.now() - lastRun.time < RECENT_MS) return false;
+    lastRun = { signature: sig, time: Date.now() };
+    if (typeof runExportOptionActionData === 'function') return runExportOptionActionData(data);
+    if (typeof window.runExportOptionActionData === 'function') return window.runExportOptionActionData(data);
+    if (typeof runOptionActionData === 'function') return runOptionActionData(data);
+    if (typeof window.runOptionActionData === 'function') return window.runOptionActionData(data);
+    return false;
+  }
+  function actionForIndex(host, index){
+    var id = (host.querySelectorAll && host.matches && host.matches('.nav-dropdown')) ? ((host.querySelectorAll('.nav-dropdown-option')[index] || {}).getAttribute && host.querySelectorAll('.nav-dropdown-option')[index].getAttribute('data-option-id')) : '';
+    if (!id) id = getIds(host)[index] || '';
+    var byId = getActionsById(host);
+    var legacy = getActions(host);
+    return (id && byId[id]) || legacy[String(index)] || null;
+  }
+  document.addEventListener('click', function(event){
+    var title = event.target.closest && event.target.closest('.nav-dropdown-title');
+    if (title) {
+      var root = title.closest && title.closest('.nav-dropdown');
+      var titleData = root && getActions(root)[TITLE_KEY];
+      if (isValid(titleData)) { event.preventDefault(); event.stopPropagation(); if (event.stopImmediatePropagation) event.stopImmediatePropagation(); run(titleData); return; }
+    }
+    var navOption = event.target.closest && event.target.closest('.nav-dropdown-option');
+    if (navOption) {
+      var navRoot = navOption.closest && navOption.closest('.nav-dropdown');
+      var navIndex = parseInt(navOption.getAttribute('data-option-index') || '0', 10) || 0;
+      var navData = navRoot && actionForIndex(navRoot, navIndex);
+      if (isValid(navData)) { event.preventDefault(); event.stopPropagation(); if (event.stopImmediatePropagation) event.stopImmediatePropagation(); run(navData); return; }
+    }
+  }, true);
+  document.addEventListener('pointerup', function(event){
+    var option = event.target.closest && event.target.closest('.free-element[data-type="select"] .editable-select-option');
+    if (!option) return;
+    var root = option.closest && option.closest('.free-element[data-type="select"]');
+    var select = root && root.querySelector && root.querySelector('.editable-select');
+    if (!select) return;
+    var index = parseInt(option.getAttribute('data-option-index') || '0', 10) || 0;
+    var id = (select.options[index] && select.options[index].getAttribute('data-option-id')) || getIds(select)[index] || '';
+    var data = (id && getActionsById(select)[id]) || getActions(select)[String(index)];
+    if (!isValid(data)) return;
+    setTimeout(function(){ run(data); }, 0);
+  }, true);
+})();`;
+    };
+  }
+})();
+
+
+/* v133：下拉式換組模板工具列改成點擊模板後固定顯示，並保留內部元件自由位置 */
+(function initSelectSwitcherClickToolbarV133() {
+  if (window.__selectSwitcherClickToolbarInstalledV133) return;
+  window.__selectSwitcherClickToolbarInstalledV133 = true;
+
+  const ACTIVE_CLASS = 'select-switcher-toolbar-active';
+
+  function qsa(root, selector) {
+    return Array.prototype.slice.call((root || document).querySelectorAll(selector));
+  }
+
+  function isPreviewLike() {
+    return document.body.classList.contains('preview-mode') || document.body.classList.contains('exported-site');
+  }
+
+  function isSelectSwitcherBlock(block) {
+    return !!(block && block.classList && block.classList.contains('js-css-select-switcher') && block.dataset && block.dataset.type === 'select-switcher');
+  }
+
+  function getSwitcherFromTarget(target) {
+    if (!target || !target.closest) return null;
+
+    const toolbar = target.closest('.select-switcher-editor-panel, [data-select-switcher-toolbar="true"]');
+    if (toolbar) {
+      const owner = toolbar.closest('.js-css-select-switcher[data-type="select-switcher"]');
+      if (owner) return owner;
+    }
+
+    return target.closest('.js-css-select-switcher[data-type="select-switcher"]');
+  }
+
+  function setActiveSwitcher(block) {
+    qsa(document, '.js-css-select-switcher[data-type="select-switcher"]').forEach(item => {
+      item.classList.toggle(ACTIVE_CLASS, !!block && item === block);
+    });
+  }
+
+  function activateFromBlock(block) {
+    if (isPreviewLike()) return;
+    if (isSelectSwitcherBlock(block)) setActiveSwitcher(block);
+    else setActiveSwitcher(null);
+  }
+
+  document.addEventListener('pointerdown', event => {
+    if (isPreviewLike()) return;
+    const block = getSwitcherFromTarget(event.target);
+    if (block) {
+      setActiveSwitcher(block);
+      return;
+    }
+    setActiveSwitcher(null);
+  }, true);
+
+  document.addEventListener('click', event => {
+    if (isPreviewLike()) return;
+    const block = getSwitcherFromTarget(event.target);
+    if (block) setActiveSwitcher(block);
+  }, true);
+
+  if (typeof selectBlock === 'function' && !window.__selectBlockSwitcherToolbarWrappedV133) {
+    window.__selectBlockSwitcherToolbarWrappedV133 = true;
+    const originalSelectBlockV133 = selectBlock;
+    selectBlock = function(block) {
+      const result = originalSelectBlockV133.apply(this, arguments);
+      activateFromBlock(block);
+      return result;
+    };
+  }
+
+  if (typeof selectElement === 'function' && !window.__selectElementSwitcherToolbarWrappedV133) {
+    window.__selectElementSwitcherToolbarWrappedV133 = true;
+    const originalSelectElementV133 = selectElement;
+    selectElement = function(el) {
+      const result = originalSelectElementV133.apply(this, arguments);
+      const block = el && el.closest ? el.closest('.js-css-select-switcher[data-type="select-switcher"]') : null;
+      activateFromBlock(block);
+      return result;
+    };
+  }
+
+  if (typeof handleSelectSwitcherAction === 'function' && !window.__handleSelectSwitcherActionClickToolbarWrappedV133) {
+    window.__handleSelectSwitcherActionClickToolbarWrappedV133 = true;
+    const originalHandleSelectSwitcherActionV133 = handleSelectSwitcherAction;
+    handleSelectSwitcherAction = function(block, action) {
+      setActiveSwitcher(block);
+      const result = originalHandleSelectSwitcherActionV133.apply(this, arguments);
+      setActiveSwitcher(block);
+      return result;
+    };
+  }
+})();
+
+
+/* v133：匯出 CSS 保留下拉式換組模板 overflow visible，避免自由位置與展開選單被裁切 */
+(function installSelectSwitcherOverflowExportCSSV133(){
+  if (typeof buildExportCSS !== 'function' || window.__selectSwitcherOverflowExportCSSWrappedV133) return;
+  window.__selectSwitcherOverflowExportCSSWrappedV133 = true;
+  const originalBuildExportCSSV133 = buildExportCSS;
+  const cssV133 = `
+.js-css-select-switcher,
+.js-css-select-switcher .select-switcher-block,
+.js-css-select-switcher .select-switcher-groups,
+.js-css-select-switcher .select-switcher-group,
+.js-css-select-switcher .select-switcher-group.active,
+.js-css-select-switcher .select-switcher-group-canvas,
+.js-css-select-switcher .select-switcher-select-element,
+.js-css-select-switcher .select-switcher-select-element .editable-select-combo,
+.js-css-select-switcher .select-switcher-select-element .editable-select-menu {
+  overflow: visible !important;
+}
+`;
+  buildExportCSS = function(){
+    return originalBuildExportCSSV133.apply(this, arguments) + '\n' + cssV133;
+  };
+})();
+
+
+/* v134：下拉式換組模板邊界修正：工具列浮動，不列入模板/區塊範圍；控制下拉元件限制在模板本體內 */
+(function installSelectSwitcherTemplateBoundaryV134(){
+  if (window.__selectSwitcherTemplateBoundaryInstalledV134) return;
+  window.__selectSwitcherTemplateBoundaryInstalledV134 = true;
+
+  function normalizeSwitcherControlPosition(block) {
+    const control = block && block.querySelector && block.querySelector('.select-switcher-select-element[data-select-switcher-control="true"]');
+    if (!control || typeof clampSelectSwitcherTemplatePositionV134 !== 'function') return;
+    const left = parseFloat(control.style.left || '0') || 0;
+    const top = parseFloat(control.style.top || '0') || 0;
+    const next = clampSelectSwitcherTemplatePositionV134(control, left, top);
+    control.style.left = next.left + '%';
+    control.style.top = next.top + 'px';
+  }
+
+  function normalizeAllSwitcherControls() {
+    document.querySelectorAll('.js-css-select-switcher[data-type="select-switcher"]').forEach(normalizeSwitcherControlPosition);
+  }
+
+  document.addEventListener('pointerup', normalizeAllSwitcherControls, true);
+  document.addEventListener('change', event => {
+    const block = event.target && event.target.closest && event.target.closest('.js-css-select-switcher[data-type="select-switcher"]');
+    if (block) normalizeSwitcherControlPosition(block);
+  }, true);
+
+  if (typeof setSelectSwitcherIndex === 'function' && !window.__setSelectSwitcherIndexBoundaryWrappedV134) {
+    window.__setSelectSwitcherIndexBoundaryWrappedV134 = true;
+    const originalSetSelectSwitcherIndexV134 = setSelectSwitcherIndex;
+    setSelectSwitcherIndex = function(block, nextIndex) {
+      const result = originalSetSelectSwitcherIndexV134.apply(this, arguments);
+      normalizeSwitcherControlPosition(block);
+      return result;
+    };
+  }
+
+  window.addEventListener('load', normalizeAllSwitcherControls);
 })();

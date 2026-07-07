@@ -5939,3 +5939,97 @@ body.exported-site .select-switcher-editor-panel {
     max-width: calc(100vw - 24px) !important;
   }
 }
+
+
+/* v133：下拉式換組模板工具列改為「點擊模板後固定顯示」，滑鼠移入/移出不影響 */
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher.select-switcher-toolbar-active > .editor-actions,
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher.select-switcher-toolbar-active > .select-switcher-editor-panel {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher.select-switcher-toolbar-active > .editor-actions {
+  top: -96px !important;
+  right: 12px !important;
+  left: auto !important;
+  z-index: 180 !important;
+}
+
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher.select-switcher-toolbar-active > .select-switcher-editor-panel {
+  top: -52px !important;
+  left: 12px !important;
+  right: auto !important;
+  z-index: 170 !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  width: max-content !important;
+  max-width: calc(100vw - 32px) !important;
+  overflow: visible !important;
+}
+
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher:not(.selected):not(.select-switcher-toolbar-active):not(:has(.select-switcher-select-element.selected)):not(:has(.select-switcher-group.active .free-element.selected)) > .select-switcher-editor-panel,
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher:not(.selected):not(.select-switcher-toolbar-active):not(:has(.select-switcher-select-element.selected)):not(:has(.select-switcher-group.active .free-element.selected)) > .editor-actions {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* v133：下拉式換組模板內部元件可移出原本模板範圍，展開選單不被模板邊界裁切 */
+.js-css-select-switcher,
+.js-css-select-switcher .select-switcher-block,
+.js-css-select-switcher .select-switcher-groups,
+.js-css-select-switcher .select-switcher-group,
+.js-css-select-switcher .select-switcher-group.active,
+.js-css-select-switcher .select-switcher-group-canvas,
+.js-css-select-switcher .select-switcher-select-element,
+.js-css-select-switcher .select-switcher-select-element .editable-select-combo,
+.js-css-select-switcher .select-switcher-select-element .editable-select-menu {
+  overflow: visible !important;
+}
+
+
+/* v134：下拉式換組模板邊界只看模板本體；工具列維持浮動，不佔用區塊/模板範圍 */
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher {
+  margin-top: 16px !important;
+  overflow: visible !important;
+}
+
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher > .editor-actions,
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher > .select-switcher-editor-panel {
+  position: absolute !important;
+  transform: none !important;
+  margin: 0 !important;
+  width: max-content !important;
+  max-width: calc(100vw - 32px) !important;
+  overflow: visible !important;
+  contain: layout paint;
+}
+
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher.select-switcher-toolbar-active > .editor-actions,
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher.selected > .editor-actions {
+  top: -96px !important;
+  right: 12px !important;
+  left: auto !important;
+  z-index: 180 !important;
+}
+
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher.select-switcher-toolbar-active > .select-switcher-editor-panel,
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher.selected > .select-switcher-editor-panel {
+  top: -52px !important;
+  left: 12px !important;
+  right: auto !important;
+  z-index: 170 !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+}
+
+.js-css-select-switcher > .select-switcher-block {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"] {
+  max-width: 100%;
+}
