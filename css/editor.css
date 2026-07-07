@@ -5675,3 +5675,267 @@ body.right-sidebar-collapsed .editor-inspector {
 .free-element[data-type="select"] .editable-select-menu {
   margin-top: var(--select-title-content-gap-v124, 0px) !important;
 }
+
+/* v126：下拉式選項標題 / 內容選項 hover 文字與 icon 顏色分開設定；開合只由標題區塊控制 */
+.free-element[data-type="select"] {
+  --select-title-text-hover-color-v126: var(--select-title-text-color-v121, inherit);
+  --dropdown-icon-hover-color-v126: var(--dropdown-icon-color, currentColor);
+  --select-content-text-hover-color-v126: var(--select-content-text-color-v121, inherit);
+  --select-content-icon-color-v126: var(--dropdown-icon-color, currentColor);
+  --select-content-icon-hover-color-v126: var(--select-content-icon-color-v126, currentColor);
+}
+
+.free-element[data-type="select"] .editable-select-title:hover > span {
+  color: var(--select-title-text-hover-color-v126, var(--select-title-text-color-v121, inherit)) !important;
+}
+
+.free-element[data-type="select"] .editable-select-title:hover::before,
+.free-element[data-type="select"] .editable-select-title:hover::after {
+  color: var(--dropdown-icon-hover-color-v126, var(--dropdown-icon-color, currentColor)) !important;
+  border-top-color: var(--dropdown-icon-hover-color-v126, var(--dropdown-icon-color, currentColor)) !important;
+}
+
+.free-element[data-type="select"] .editable-select-option:hover > span,
+.free-element[data-type="select"] .editable-select-option:focus > span {
+  color: var(--select-content-text-hover-color-v126, var(--select-content-text-color-v121, inherit)) !important;
+}
+
+.free-element[data-type="select"] .editable-select-option i,
+.free-element[data-type="select"] .editable-select-option .select-option-icon,
+.free-element[data-type="select"] .editable-select-option .option-icon,
+.free-element[data-type="select"] .editable-select-option svg {
+  color: var(--select-content-icon-color-v126, currentColor) !important;
+  fill: var(--select-content-icon-color-v126, currentColor) !important;
+  stroke: var(--select-content-icon-color-v126, currentColor) !important;
+}
+
+.free-element[data-type="select"] .editable-select-option:hover i,
+.free-element[data-type="select"] .editable-select-option:hover .select-option-icon,
+.free-element[data-type="select"] .editable-select-option:hover .option-icon,
+.free-element[data-type="select"] .editable-select-option:hover svg,
+.free-element[data-type="select"] .editable-select-option:focus i,
+.free-element[data-type="select"] .editable-select-option:focus .select-option-icon,
+.free-element[data-type="select"] .editable-select-option:focus .option-icon,
+.free-element[data-type="select"] .editable-select-option:focus svg {
+  color: var(--select-content-icon-hover-color-v126, var(--select-content-icon-color-v126, currentColor)) !important;
+  fill: var(--select-content-icon-hover-color-v126, var(--select-content-icon-color-v126, currentColor)) !important;
+  stroke: var(--select-content-icon-hover-color-v126, var(--select-content-icon-color-v126, currentColor)) !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"] .editable-select-title:hover::after {
+  background: var(--dropdown-icon-hover-color-v126, var(--dropdown-icon-color, currentColor)) !important;
+}
+
+/* v127：下拉式選項 hover 偵測範圍修正、文字與 icon 連動、內容選項點擊不收合 */
+.free-element[data-type="select"] .editable-select-title,
+.free-element[data-type="select"] .editable-select-option {
+  pointer-events: auto !important;
+  position: relative !important;
+}
+
+.free-element[data-type="select"] .editable-select-title > span,
+.free-element[data-type="select"] .editable-select-option > span {
+  pointer-events: none !important;
+}
+
+.free-element[data-type="select"] .editable-select-title.select-title-hover-v127 > span,
+.free-element[data-type="select"] .editable-select-title:hover > span {
+  color: var(--select-title-text-hover-color-v126, var(--select-title-text-color-v121, inherit)) !important;
+}
+
+.free-element[data-type="select"] .editable-select-title.select-title-hover-v127::before,
+.free-element[data-type="select"] .editable-select-title.select-title-hover-v127::after,
+.free-element[data-type="select"] .editable-select-title:hover::before,
+.free-element[data-type="select"] .editable-select-title:hover::after {
+  color: var(--dropdown-icon-hover-color-v126, var(--dropdown-icon-color, currentColor)) !important;
+  border-top-color: var(--dropdown-icon-hover-color-v126, var(--dropdown-icon-color, currentColor)) !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"] .editable-select-title.select-title-hover-v127::before,
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"] .editable-select-title:hover::before {
+  border-top-color: var(--dropdown-icon-hover-color-v126, var(--dropdown-icon-color, currentColor)) !important;
+}
+
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"] .editable-select-title.select-title-hover-v127::after,
+.free-element[data-type="select"][data-dropdown-icon-style="triangle-line"] .editable-select-title:hover::after {
+  background: var(--dropdown-icon-hover-color-v126, var(--dropdown-icon-color, currentColor)) !important;
+}
+
+.free-element[data-type="select"] .editable-select-option.select-option-hover-v127 > span,
+.free-element[data-type="select"] .editable-select-option:hover > span,
+.free-element[data-type="select"] .editable-select-option:focus > span {
+  color: var(--select-content-text-hover-color-v126, var(--select-content-text-color-v121, inherit)) !important;
+}
+
+.free-element[data-type="select"] .editable-select-option i,
+.free-element[data-type="select"] .editable-select-option .select-option-icon,
+.free-element[data-type="select"] .editable-select-option .option-icon,
+.free-element[data-type="select"] .editable-select-option svg,
+.free-element[data-type="select"] .editable-select-option::before,
+.free-element[data-type="select"] .editable-select-option::after {
+  color: var(--select-content-icon-color-v126, currentColor) !important;
+  fill: var(--select-content-icon-color-v126, currentColor) !important;
+  stroke: var(--select-content-icon-color-v126, currentColor) !important;
+}
+
+.free-element[data-type="select"] .editable-select-option.select-option-hover-v127 i,
+.free-element[data-type="select"] .editable-select-option.select-option-hover-v127 .select-option-icon,
+.free-element[data-type="select"] .editable-select-option.select-option-hover-v127 .option-icon,
+.free-element[data-type="select"] .editable-select-option.select-option-hover-v127 svg,
+.free-element[data-type="select"] .editable-select-option.select-option-hover-v127::before,
+.free-element[data-type="select"] .editable-select-option.select-option-hover-v127::after,
+.free-element[data-type="select"] .editable-select-option:hover i,
+.free-element[data-type="select"] .editable-select-option:hover .select-option-icon,
+.free-element[data-type="select"] .editable-select-option:hover .option-icon,
+.free-element[data-type="select"] .editable-select-option:hover svg,
+.free-element[data-type="select"] .editable-select-option:hover::before,
+.free-element[data-type="select"] .editable-select-option:hover::after,
+.free-element[data-type="select"] .editable-select-option:focus i,
+.free-element[data-type="select"] .editable-select-option:focus .select-option-icon,
+.free-element[data-type="select"] .editable-select-option:focus .option-icon,
+.free-element[data-type="select"] .editable-select-option:focus svg,
+.free-element[data-type="select"] .editable-select-option:focus::before,
+.free-element[data-type="select"] .editable-select-option:focus::after {
+  color: var(--select-content-icon-hover-color-v126, var(--select-content-icon-color-v126, currentColor)) !important;
+  fill: var(--select-content-icon-hover-color-v126, var(--select-content-icon-color-v126, currentColor)) !important;
+  stroke: var(--select-content-icon-hover-color-v126, var(--select-content-icon-color-v126, currentColor)) !important;
+}
+
+.free-element[data-type="select"].select-hover-open-v127[data-dropdown-style-mode="hover-title"] .editable-select-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+
+.free-element[data-type="select"].select-hover-open-v127[data-dropdown-style-mode="hover-title"] .editable-select-title::before {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-50%) scale(.7) !important;
+}
+
+.free-element[data-type="select"].select-hover-open-v127[data-dropdown-style-mode="hover-title"] .editable-select-title::after {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(-50%) scale(1) !important;
+}
+
+
+/* v129：下拉式換組模板自由下拉元件與導覽下拉選項連結 */
+.select-switcher-select-element[data-select-switcher-control="true"] {
+  overflow: visible !important;
+}
+.select-switcher-select-element[data-select-switcher-control="true"] .editable-select-combo,
+.select-switcher-select-element[data-select-switcher-control="true"] .editable-select-title,
+.select-switcher-select-element[data-select-switcher-control="true"] .editable-select-menu {
+  pointer-events: auto !important;
+}
+.nav-dropdown .nav-dropdown-option {
+  pointer-events: auto !important;
+}
+
+
+/* v131：下拉式換組模板組別工具列恢復、橫向並排、不與移動工具列重疊 */
+.js-css-select-switcher {
+  overflow: visible !important;
+}
+
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher {
+  margin-top: 72px;
+}
+
+.js-css-select-switcher > .editor-actions {
+  position: absolute !important;
+  top: -96px !important;
+  right: 12px !important;
+  left: auto !important;
+  z-index: 180 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 6px !important;
+  white-space: nowrap !important;
+  width: max-content !important;
+  max-width: calc(100vw - 32px) !important;
+  overflow: visible !important;
+}
+
+.select-switcher-editor-panel {
+  position: absolute !important;
+  left: 12px !important;
+  right: auto !important;
+  top: -52px !important;
+  transform: none !important;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  white-space: nowrap !important;
+  width: max-content !important;
+  max-width: calc(100vw - 32px) !important;
+  overflow: visible !important;
+  padding: 8px 10px !important;
+  border: 1px solid #dfe5ef !important;
+  border-radius: 999px !important;
+  background: rgba(255,255,255,.98) !important;
+  box-shadow: 0 12px 28px rgba(15,23,42,.12) !important;
+  z-index: 170 !important;
+  pointer-events: auto !important;
+}
+
+.select-switcher-editor-panel .btn {
+  flex: 0 0 auto !important;
+  height: 28px !important;
+  padding: 0 9px !important;
+  font-size: 12px !important;
+  line-height: 26px !important;
+  white-space: nowrap !important;
+}
+
+.select-switcher-editor-panel .select-switcher-info {
+  flex: 0 0 auto !important;
+  min-width: 50px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #495057;
+  padding: 0 6px;
+}
+
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher > .select-switcher-editor-panel,
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher:not(.selected) > .select-switcher-editor-panel,
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher:not(.selected) > .editor-actions {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher.selected > .select-switcher-editor-panel,
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher:has(.select-switcher-select-element.selected) > .select-switcher-editor-panel,
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher:has(.select-switcher-group.active .free-element.selected) > .select-switcher-editor-panel,
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher.selected > .editor-actions,
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher:has(.select-switcher-select-element.selected) > .editor-actions,
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher:has(.select-switcher-group.active .free-element.selected) > .editor-actions {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+body.preview-mode .select-switcher-editor-panel,
+body.exported-site .select-switcher-editor-panel {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+@media (max-width: 900px) {
+  .js-css-select-switcher > .editor-actions,
+  .select-switcher-editor-panel {
+    left: 8px !important;
+    right: auto !important;
+    max-width: calc(100vw - 24px) !important;
+  }
+}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>自訂網站編輯器 V125</title>
+  <title>自訂網站編輯器 V131</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
@@ -654,7 +654,7 @@
         <div class="form-check form-switch mb-3">
           <input class="form-check-input" type="checkbox" role="switch" id="accordionIconVisibleToggle" checked>
           <label class="form-check-label small" for="accordionIconVisibleToggle">
-            顯示選項旁邊 ICON
+            顯示標題 icon
           </label>
         </div>
 
@@ -1150,7 +1150,7 @@
         <div class="form-check form-switch mb-2">
           <input class="form-check-input" type="checkbox" role="switch" id="elementCssFunctionEnabled">
           <label class="form-check-label small" for="elementCssFunctionEnabled">
-            開啟功能列表
+            開啟目前選取目標的跳轉功能
           </label>
         </div>
 
@@ -1420,12 +1420,12 @@
               <textarea class="form-control form-control-sm mb-2" id="selectOptionsInput" rows="5" placeholder="每行一個選項"></textarea>
               <button class="btn btn-outline-primary btn-sm w-100 mb-3" id="applySelectOptionsBtn">套用選項</button>
 
-              <label class="simple-label">選擇要設定的內容選項</label>
+              <label class="simple-label" for="selectOptionActionSelect">請先選擇內容選項</label>
               <select class="form-select form-select-sm mb-2" id="selectOptionActionSelect">
                 <option value="">請先選擇選項</option>
               </select>
               <div class="small text-muted mb-1">
-                選到單一選項後，下方「內容選項樣式」與「進階設定」會顯示該選項的設定。
+                請先選擇標題或內容選項，再於「進階設定」選擇連結功能（跳轉區塊／頁面／外部連結）。
               </div>
             </div>
           </details>
@@ -1487,6 +1487,9 @@
 
               <label class="simple-label">標題文字顏色</label>
               <input type="color" class="form-control form-control-color mb-3" id="selectTitleTextColor" value="#212529">
+
+              <label class="simple-label">標題 hover 文字顏色</label>
+              <input type="color" class="form-control form-control-color mb-3" id="selectTitleTextHoverColor" value="#0d6efd">
 
               <label class="simple-label">標題文字字重</label>
               <select class="form-select form-select-sm mb-3" id="selectTitleTextWeight">
@@ -1666,6 +1669,9 @@
                 <label class="simple-label">內容選項文字顏色</label>
                 <input type="color" class="form-control form-control-color mb-3" id="selectContentTextColor" value="#212529">
 
+                <label class="simple-label">內容選項 hover 文字顏色</label>
+                <input type="color" class="form-control form-control-color mb-3" id="selectContentTextHoverColor" value="#0d6efd">
+
                 <label class="simple-label">內容選項文字字重</label>
                 <select class="form-select form-select-sm mb-3" id="selectContentTextWeight">
                   <option value="300">細體 300</option>
@@ -1707,7 +1713,7 @@
               <div class="form-check form-switch mb-3">
                 <input class="form-check-input" type="checkbox" role="switch" id="dropdownIconVisibleToggle" checked>
                 <label class="form-check-label small" for="dropdownIconVisibleToggle">
-                  顯示選項旁邊 ICON
+                  顯示標題 icon
                 </label>
               </div>
 
@@ -1719,8 +1725,17 @@
                 <option value="none">取消 ICON</option>
               </select>
 
-              <label class="simple-label">icon 顏色</label>
+              <label class="simple-label">標題 icon 顏色</label>
               <input type="color" class="form-control form-control-color mb-3" id="dropdownIconColor" value="#6c757d">
+
+              <label class="simple-label">標題 hover icon 顏色</label>
+              <input type="color" class="form-control form-control-color mb-3" id="dropdownIconHoverColor" value="#0d6efd">
+
+              <label class="simple-label">內容選項 icon 顏色</label>
+              <input type="color" class="form-control form-control-color mb-3" id="selectContentIconColor" value="#6c757d">
+
+              <label class="simple-label">內容選項 hover icon 顏色</label>
+              <input type="color" class="form-control form-control-color mb-3" id="selectContentIconHoverColor" value="#0d6efd">
 
               <label class="simple-label">icon 大小</label>
               <input type="range" class="form-range" id="dropdownIconSize" min="8" max="80" step="1" value="18">
@@ -1794,13 +1809,13 @@
           <details class="settings-section" id="selectAdvancedSectionV122">
             <summary>進階設定</summary>
             <div class="settings-section-body">
-              <div class="setting-subtitle">單一選項功能</div>
+              <div class="setting-subtitle">功能列表：先選目標，再選連結功能</div>
 
               <div class="select-option-action-panel d-none" id="selectOptionActionPanel">
                 <div class="form-check form-switch mb-2">
                   <input class="form-check-input" type="checkbox" role="switch" id="selectOptionFunctionEnabled">
                   <label class="form-check-label small" for="selectOptionFunctionEnabled">
-                    開啟功能列表
+                    開啟目前選取目標的跳轉功能
                   </label>
                 </div>
 
@@ -1829,7 +1844,7 @@
                 <div class="form-check form-switch mb-2">
                   <input class="form-check-input" type="checkbox" role="switch" id="selectOptionLinkEnabled">
                   <label class="form-check-label small" for="selectOptionLinkEnabled">
-                    開啟元件超連結
+                    開啟目前選取目標的外部連結 / 錨點連結
                   </label>
                 </div>
 
@@ -1838,7 +1853,7 @@
                   <input type="text" class="form-control form-control-sm mb-3" id="selectOptionLinkUrl" placeholder="https://... 或 #about-us">
                 </div>
 
-                <button class="btn btn-outline-primary btn-sm w-100" id="applySelectOptionActionBtn">套用此選項功能</button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="applySelectOptionActionBtn">套用到目前選取目標</button>
               </div>
             </div>
           </details>
