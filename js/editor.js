@@ -28758,3 +28758,261 @@ body.exported-site.preview-mode .block-canvas {
     document.title = '自訂網站編輯器 V162';
   });
 })();
+
+/* v163: nav-dropdown title/options share editable page + section actions in preview/export. */
+(function patchNavDropdownActionParityV163(){
+  if (window.__patchNavDropdownActionParityV163) return;
+  window.__patchNavDropdownActionParityV163 = true;
+
+  const TITLE_KEY = '__title';
+  const RECENT_MS = 420;
+  let recentSignature = '';
+  let recentTime = 0;
+
+  function qsa(root, selector) {
+    return Array.from((root || document).querySelectorAll(selector));
+  }
+
+  function readJSON(el, attr, fallback) {
+    try {
+      const datasetKey = attr.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      const raw = el && (el.getAttribute(attr) || (el.dataset && el.dataset[datasetKey]));
+      return raw ? (JSON.parse(raw) || fallback) : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function writeJSON(el, attr, value) {
+    if (!el) return;
+    const text = JSON.stringify(value || {});
+    el.setAttribute(attr, text);
+    const datasetKey = attr.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    if (el.dataset) el.dataset[datasetKey] = text;
+  }
+
+  function isPreviewLike() {
+    return document.body.classList.contains('preview-mode') || document.body.classList.contains('exported-site');
+  }
+
+  function normalizeNav(root) {
+    if (!root || root.dataset?.type !== 'nav-dropdown') return;
+    const options = qsa(root, '.nav-dropdown-option');
+    const ids = readJSON(root, 'data-option-ids', []);
+    let changed = false;
+
+    options.forEach((option, index) => {
+      option.type = 'button';
+      option.dataset.optionIndex = String(index);
+      if (!option.dataset.optionId) {
+        option.dataset.optionId = ids[index] || (typeof uid === 'function' ? uid() : ('nav-option-' + Date.now() + '-' + index));
+        changed = true;
+      }
+      ids[index] = option.dataset.optionId;
+    });
+
+    if (changed || options.length !== ids.length) {
+      const nextIds = ids.slice(0, options.length);
+      root.setAttribute('data-option-ids', JSON.stringify(nextIds));
+      if (root.dataset) root.dataset.optionIds = JSON.stringify(nextIds);
+    }
+    if (!root.getAttribute('data-option-actions')) writeJSON(root, 'data-option-actions', {});
+  }
+
+  function actionForTarget(root, target) {
+    normalizeNav(root);
+    const actions = readJSON(root, 'data-option-actions', {});
+    if (target === TITLE_KEY) return actions[TITLE_KEY] || null;
+
+    const index = parseInt(target, 10);
+    if (Number.isNaN(index)) return null;
+
+    const options = qsa(root, '.nav-dropdown-option');
+    const id = options[index]?.dataset?.optionId || readJSON(root, 'data-option-ids', [])[index] || '';
+    const byId = readJSON(root, 'data-option-actions-by-id', {});
+    return (id && byId[id]) || actions[String(index)] || null;
+  }
+
+  function hasAction(data) {
+    return !!(
+      data &&
+      (
+        (data.functionEnabled && (
+          (data.pageEnabled && data.pageTarget) ||
+          (data.scrollEnabled && data.scrollTarget)
+        )) ||
+        (data.linkEnabled && data.linkUrl)
+      )
+    );
+  }
+
+  function scrollToSection(sectionId) {
+    if (!sectionId) return false;
+    const normalized = String(sectionId).replace(/^#/, '');
+    let target = document.getElementById(normalized);
+    if (!target && window.CSS && CSS.escape) {
+      target = document.querySelector(`[data-id="${CSS.escape(normalized)}"], [data-block-id="${CSS.escape(normalized)}"]`);
+    }
+    if (!target) return false;
+    try {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (error) {
+      target.scrollIntoView();
+    }
+    return true;
+  }
+
+  function fallbackRun(data) {
+    if (!hasAction(data)) return false;
+    if (data.functionEnabled && data.pageEnabled && data.pageTarget) {
+      if (typeof renderExportPage === 'function') {
+        renderExportPage(data.pageTarget, () => {
+          if (data.scrollEnabled && data.scrollTarget) {
+            setTimeout(() => scrollToSection(data.scrollTarget), 80);
+          }
+        });
+        return true;
+      }
+      if (typeof loadPage === 'function') {
+        loadPage(data.pageTarget);
+        if (data.scrollEnabled && data.scrollTarget) {
+          setTimeout(() => scrollToSection(data.scrollTarget), 120);
+        }
+        return true;
+      }
+    }
+    if (data.functionEnabled && data.scrollEnabled && data.scrollTarget) {
+      return scrollToSection(data.scrollTarget);
+    }
+    if (data.linkEnabled && data.linkUrl) {
+      if (data.linkUrl.startsWith('#')) return scrollToSection(data.linkUrl.slice(1));
+      window.location.href = data.linkUrl;
+      return true;
+    }
+    return false;
+  }
+
+  function runAction(data) {
+    if (!hasAction(data)) return false;
+    let signature = '';
+    try { signature = JSON.stringify(data); } catch (error) { signature = String(Date.now()); }
+    if (signature === recentSignature && Date.now() - recentTime < RECENT_MS) return false;
+    recentSignature = signature;
+    recentTime = Date.now();
+
+    if (typeof runOptionActionData === 'function') {
+      try {
+        const result = runOptionActionData(data);
+        if (result) return true;
+      } catch (error) {}
+    }
+    if (typeof runExportOptionActionData === 'function') {
+      try {
+        const result = runExportOptionActionData(data);
+        if (result) return true;
+      } catch (error) {}
+    }
+    return fallbackRun(data);
+  }
+
+  function selectEditorTarget(root, target) {
+    if (!root) return;
+    normalizeNav(root);
+    try { if (typeof selectElement === 'function') selectElement(root); } catch (error) {}
+    try { if (typeof refreshSelectOptionActionOptions === 'function') refreshSelectOptionActionOptions(); } catch (error) {}
+
+    const actionSelect = document.getElementById('selectOptionActionSelect');
+    if (actionSelect) {
+      actionSelect.value = target;
+      actionSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    try { if (typeof syncSelectedOptionActionPanel === 'function') syncSelectedOptionActionPanel(); } catch (error) {}
+
+    qsa(document, '.nav-dropdown-title.nav-option-edit-selected, .nav-dropdown-option.nav-option-edit-selected')
+      .forEach(node => node.classList.remove('nav-option-edit-selected'));
+    qsa(document, '.nav-dropdown[data-option-picker-open="true"]')
+      .forEach(node => { if (node !== root) delete node.dataset.optionPickerOpen; });
+
+    root.dataset.optionPickerOpen = 'true';
+    if (target === TITLE_KEY) {
+      root.querySelector('.nav-dropdown-title')?.classList.add('nav-option-edit-selected');
+    } else {
+      root.querySelector(`.nav-dropdown-option[data-option-index="${String(target).replace(/"/g, '\\"')}"]`)?.classList.add('nav-option-edit-selected');
+    }
+    document.getElementById('selectAdvancedSectionV122')?.setAttribute('open', '');
+  }
+
+  document.addEventListener('click', event => {
+    const navTarget = event.target?.closest?.('.nav-dropdown-title, .nav-dropdown-option');
+    if (!navTarget) return;
+    const root = navTarget.closest('.nav-dropdown');
+    if (!root) return;
+    normalizeNav(root);
+
+    const target = navTarget.classList.contains('nav-dropdown-title')
+      ? TITLE_KEY
+      : String(navTarget.dataset.optionIndex || '0');
+
+    if (!isPreviewLike()) {
+      selectEditorTarget(root, target);
+      return;
+    }
+
+    const data = actionForTarget(root, target);
+    if (!hasAction(data)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+    runAction(data);
+  }, true);
+
+  if (window.MutationObserver) {
+    let timer = null;
+    new MutationObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => qsa(document, '.nav-dropdown').forEach(normalizeNav), 80);
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-option-actions', 'data-option-actions-by-id', 'data-option-ids'] });
+  }
+
+  qsa(document, '.nav-dropdown').forEach(normalizeNav);
+
+  const runtimeV163 = `
+(function(){
+  if (window.__navDropdownActionParityRuntimeV163) return;
+  window.__navDropdownActionParityRuntimeV163 = true;
+  var TITLE_KEY = '__title';
+  var recent = { signature: '', time: 0 };
+  function qsa(root, selector){ return Array.prototype.slice.call((root || document).querySelectorAll(selector)); }
+  function readJSON(el, attr, fallback){ try { var key = attr.replace(/^data-/, '').replace(/-([a-z])/g, function(_, c){ return c.toUpperCase(); }); var raw = el && (el.getAttribute(attr) || (el.dataset && el.dataset[key])); return raw ? (JSON.parse(raw) || fallback) : fallback; } catch(e){ return fallback; } }
+  function normalize(root){ if (!root) return; qsa(root, '.nav-dropdown-option').forEach(function(option, index){ option.type = 'button'; option.setAttribute('data-option-index', String(index)); }); }
+  function hasAction(data){ return !!(data && (((data.functionEnabled && ((data.pageEnabled && data.pageTarget) || (data.scrollEnabled && data.scrollTarget)))) || (data.linkEnabled && data.linkUrl))); }
+  function findSection(id){ if (!id) return null; var normalized = String(id).replace(/^#/, ''); var target = document.getElementById(normalized); if (target) return target; try { target = document.querySelector('[data-id="' + CSS.escape(normalized) + '"], [data-block-id="' + CSS.escape(normalized) + '"]'); } catch(e) {} return target; }
+  function scrollToSection(id){ var target = findSection(id); if (!target) return false; try { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e) { target.scrollIntoView(); } return true; }
+  function actionFor(root, target){ normalize(root); var actions = readJSON(root, 'data-option-actions', {}); if (target === TITLE_KEY) return actions[TITLE_KEY] || null; var index = parseInt(target, 10); if (isNaN(index)) return null; var option = qsa(root, '.nav-dropdown-option')[index]; var id = option && option.getAttribute('data-option-id'); var byId = readJSON(root, 'data-option-actions-by-id', {}); return (id && byId[id]) || actions[String(index)] || null; }
+  function fallback(data){ if (!hasAction(data)) return false; if (data.functionEnabled && data.pageEnabled && data.pageTarget && typeof renderExportPage === 'function') { renderExportPage(data.pageTarget, function(){ if (data.scrollEnabled && data.scrollTarget) setTimeout(function(){ scrollToSection(data.scrollTarget); }, 80); }); return true; } if (data.functionEnabled && data.scrollEnabled && data.scrollTarget) return scrollToSection(data.scrollTarget); if (data.linkEnabled && data.linkUrl) { if (data.linkUrl.charAt(0) === '#') return scrollToSection(data.linkUrl.slice(1)); window.location.href = data.linkUrl; return true; } return false; }
+  function run(data){ if (!hasAction(data)) return false; var sig = ''; try { sig = JSON.stringify(data); } catch(e) { sig = String(Date.now()); } if (recent.signature === sig && Date.now() - recent.time < 420) return false; recent = { signature: sig, time: Date.now() }; if (typeof runExportOptionActionData === 'function') { try { if (runExportOptionActionData(data)) return true; } catch(e) {} } if (typeof runOptionActionData === 'function') { try { if (runOptionActionData(data)) return true; } catch(e) {} } return fallback(data); }
+  document.addEventListener('click', function(event){
+    var targetNode = event.target.closest && event.target.closest('.nav-dropdown-title, .nav-dropdown-option');
+    if (!targetNode) return;
+    var root = targetNode.closest && targetNode.closest('.nav-dropdown');
+    if (!root) return;
+    var target = targetNode.classList.contains('nav-dropdown-title') ? TITLE_KEY : String(targetNode.getAttribute('data-option-index') || '0');
+    var data = actionFor(root, target);
+    if (!hasAction(data)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+    run(data);
+  }, true);
+  qsa(document, '.nav-dropdown').forEach(normalize);
+})();`;
+
+  if (typeof buildExportJS === 'function' && !window.__buildExportJSNavDropdownActionParityV163) {
+    window.__buildExportJSNavDropdownActionParityV163 = true;
+    const previousBuildExportJSV163 = buildExportJS;
+    buildExportJS = function(exportPagesJSON, currentPageIdJSON) {
+      return previousBuildExportJSV163.apply(this, arguments) + runtimeV163;
+    };
+    window.buildExportJS = buildExportJS;
+  }
+})();
