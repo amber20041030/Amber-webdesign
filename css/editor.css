@@ -6483,3 +6483,293 @@ body.exported-site .accordion-dropdown-template[data-accordion-icon-style="trian
   background: var(--element-hover-text-color, #ffffff) !important;
   background-color: var(--element-hover-text-color, #ffffff) !important;
 }
+
+/* v150：下拉式收合 標題 / 內文背景顏色與透明度合併，並加入材質 */
+.accordion-bg-combo {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 8px 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid rgba(15, 23, 42, .10);
+  border-radius: 10px;
+  background: rgba(248, 249, 250, .72);
+}
+
+.accordion-bg-combo input[type="color"] {
+  grid-row: span 2;
+  width: 52px;
+  height: 42px;
+  padding: 3px;
+}
+
+.accordion-bg-combo .form-range {
+  margin: 0;
+}
+
+.accordion-bg-combo .px-input-row {
+  margin-bottom: 0 !important;
+}
+
+.accordion-item-template {
+  --accordion-head-bg-v150: var(--accordion-head-bg-v147, var(--accordion-head-bg, #f8f9fa));
+  --accordion-body-bg-v150: var(--accordion-body-bg-v147, var(--accordion-body-bg, #ffffff));
+}
+
+.accordion-item-template .accordion-item-head {
+  background: var(--accordion-head-bg-v150, var(--accordion-head-bg-v147, var(--accordion-head-bg, #f8f9fa))) !important;
+}
+
+.accordion-item-template .accordion-item-body,
+.accordion-item-template .accordion-item-content {
+  background: var(--accordion-body-bg-v150, var(--accordion-body-bg-v147, var(--accordion-body-bg, #ffffff))) !important;
+}
+
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-head {
+  background: var(--accordion-head-bg-v150, var(--accordion-head-bg-v147, var(--accordion-head-bg, #f8f9fa))) !important;
+}
+
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-body,
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-body,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-body,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-content {
+  background: var(--accordion-body-bg-v150, var(--accordion-body-bg-v147, var(--accordion-body-bg, #ffffff))) !important;
+}
+
+/* v151：下拉式收合刪除內層底，避免標題 / 內文背景透明度被多層疊加 */
+.accordion-dropdown-template,
+.accordion-dropdown-template .accordion-dropdown-inner,
+.accordion-dropdown-template .accordion-list,
+.accordion-dropdown-template .accordion-list-canvas,
+.accordion-dropdown-template .accordion-item-template,
+.accordion-dropdown-template .accordion-item-inner,
+.accordion-dropdown-template .accordion-item-body {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.accordion-dropdown-template .accordion-dropdown-inner,
+.accordion-dropdown-template .accordion-item-template,
+.accordion-dropdown-template .accordion-item-inner,
+.accordion-dropdown-template .accordion-item-body {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.accordion-dropdown-template .accordion-dropdown-inner {
+  border: 0 !important;
+}
+
+.accordion-dropdown-template .accordion-item-head {
+  background: var(--accordion-head-bg-v150, var(--accordion-head-bg-v147, var(--accordion-head-bg, #f8f9fa))) !important;
+}
+
+.accordion-dropdown-template .accordion-item-content {
+  background: var(--accordion-body-bg-v150, var(--accordion-body-bg-v147, var(--accordion-body-bg, #ffffff))) !important;
+}
+
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-head {
+  background: var(--accordion-head-bg-v150, var(--accordion-head-bg-v147, var(--accordion-head-bg, #f8f9fa))) !important;
+}
+
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-body,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-body,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-body {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-content {
+  background: var(--accordion-body-bg-v150, var(--accordion-body-bg-v147, var(--accordion-body-bg, #ffffff))) !important;
+}
+
+/* v152：刪除按鈕框線，並移除下拉式收合選項外框 */
+.free-element[data-type="button"],
+.free-element[data-type="button"]:hover,
+.free-element[data-type="button"].selected,
+.free-element[data-type="button"].multi-selected,
+.free-element[data-type="button"].selected.multi-selected,
+.free-element[data-type="button"] > .inner,
+.free-element[data-type="button"] > .inner:hover,
+.free-element[data-type="button"] > .inner:focus,
+.free-element[data-type="button"] > .inner:focus-visible,
+.free-element[data-type="button"] > .inner a,
+.free-element[data-type="button"] > .inner button,
+.free-element[data-type="button"] > .inner .btn,
+.free-element[data-type="button"] a.inner,
+.free-element[data-type="button"] a.inner:hover,
+.free-element[data-type="button"] a.inner:focus,
+.free-element[data-type="button"] a.inner:focus-visible {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+.accordion-dropdown-template .accordion-list,
+.accordion-dropdown-template .accordion-list-canvas,
+.accordion-dropdown-template .accordion-item-template,
+.accordion-dropdown-template .accordion-item-template:hover,
+.accordion-dropdown-template .accordion-item-template.selected,
+.accordion-dropdown-template .accordion-item-inner,
+.accordion-dropdown-template .accordion-item-head,
+.accordion-dropdown-template .accordion-item-head:hover,
+.accordion-dropdown-template .accordion-item-head:focus,
+.accordion-dropdown-template .accordion-item-head:focus-visible,
+.accordion-dropdown-template .accordion-item-body,
+.accordion-dropdown-template .accordion-item-content {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+.accordion-dropdown-template .accordion-list-canvas {
+  background-image: none !important;
+}
+
+
+/* v153：固定設計稿基準，避免換電腦因視窗寬度不同而跑版 */
+:root {
+  --design-desktop-width: 1440px;
+  --design-tablet-width: 768px;
+  --design-mobile-width: 390px;
+  --device-design-width: var(--design-desktop-width);
+  --fixed-canvas-scale: 1;
+}
+
+html,
+body {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.fixed-canvas-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(13, 110, 253, .10);
+  color: #0d6efd;
+  font-size: 12px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+body.device-desktop,
+body.export-mode-desktop {
+  --device-design-width: var(--design-desktop-width);
+}
+
+body.device-tablet,
+body.export-mode-tablet {
+  --device-design-width: var(--design-tablet-width);
+}
+
+body.device-mobile,
+body.export-mode-mobile {
+  --device-design-width: var(--design-mobile-width);
+}
+
+body:not(.preview-mode):not(.exported-site) .canvas-area {
+  display: flex !important;
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+  overflow: auto !important;
+  padding: 24px calc(var(--inspector-width, 290px) + 32px) 96px calc(var(--sidebar-width, 245px) + 32px) !important;
+}
+
+body.hide-left-panel:not(.preview-mode):not(.exported-site) .canvas-area {
+  padding-left: 32px !important;
+}
+
+body.hide-right-panel:not(.preview-mode):not(.exported-site) .canvas-area {
+  padding-right: 32px !important;
+}
+
+body.device-desktop:not(.preview-mode):not(.exported-site) .site-page {
+  flex: 0 0 var(--design-desktop-width) !important;
+  width: var(--design-desktop-width) !important;
+  min-width: var(--design-desktop-width) !important;
+  max-width: none !important;
+}
+
+body.device-tablet:not(.preview-mode):not(.exported-site) .site-page {
+  flex: 0 0 var(--design-tablet-width) !important;
+  width: var(--design-tablet-width) !important;
+  min-width: var(--design-tablet-width) !important;
+  max-width: none !important;
+}
+
+body.device-mobile:not(.preview-mode):not(.exported-site) .site-page {
+  flex: 0 0 var(--design-mobile-width) !important;
+  width: var(--design-mobile-width) !important;
+  min-width: var(--design-mobile-width) !important;
+  max-width: none !important;
+}
+
+body.preview-mode .canvas-area {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+body.preview-mode.device-desktop .site-page,
+body.exported-site.export-mode-desktop .site-page {
+  width: var(--design-desktop-width) !important;
+  min-width: var(--design-desktop-width) !important;
+  max-width: none !important;
+}
+
+body.preview-mode.device-tablet .site-page,
+body.exported-site.export-mode-tablet .site-page {
+  width: var(--design-tablet-width) !important;
+  min-width: var(--design-tablet-width) !important;
+  max-width: none !important;
+}
+
+body.preview-mode.device-mobile .site-page,
+body.exported-site.export-mode-mobile .site-page {
+  width: var(--design-mobile-width) !important;
+  min-width: var(--design-mobile-width) !important;
+  max-width: none !important;
+}
+
+body.preview-mode .site-page,
+body.exported-site .site-page {
+  transform-origin: top center !important;
+}
+
+@supports (zoom: 1) {
+  body.preview-mode .site-page,
+  body.exported-site .site-page {
+    zoom: var(--fixed-canvas-scale, 1) !important;
+  }
+}
+
+@supports not (zoom: 1) {
+  body.preview-mode .site-page,
+  body.exported-site .site-page {
+    transform: scale(var(--fixed-canvas-scale, 1)) !important;
+  }
+}
+
+body.exported-site {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  overflow-x: auto !important;
+  background: #fff !important;
+}
