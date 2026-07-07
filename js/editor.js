@@ -23794,3 +23794,522 @@ body.exported-site .free-element.multi-selected {
 
   document.body.classList.add('v144-multi-selected-animation-sync');
 })();
+/* v145：修正預覽模式下拉式換組選項點擊後無法切換組別 */
+(function initSelectSwitcherPreviewOptionClickFixV145() {
+  if (window.__v145SelectSwitcherPreviewOptionClickFixInstalled) return;
+  window.__v145SelectSwitcherPreviewOptionClickFixInstalled = true;
+
+  const RECENT_MS = 280;
+  let lastHandled = null;
+
+  const css = `
+/* v145：預覽 / 匯出時，下拉式換組的標題與選項都必須可點擊 */
+body.preview-mode .select-switcher-select-element[data-select-switcher-control="true"],
+body.exported-site .select-switcher-select-element[data-select-switcher-control="true"] {
+  pointer-events: auto !important;
+  overflow: visible !important;
+}
+body.preview-mode .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-combo,
+body.preview-mode .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-title,
+body.preview-mode .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-menu,
+body.preview-mode .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-option,
+body.exported-site .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-combo,
+body.exported-site .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-title,
+body.exported-site .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-menu,
+body.exported-site .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-option {
+  pointer-events: auto !important;
+}
+`;
+
+  function installCSS() {
+    let style = document.getElementById('selectSwitcherPreviewOptionClickFixCSSV145');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'selectSwitcherPreviewOptionClickFixCSSV145';
+      document.head.appendChild(style);
+    }
+    if (style.textContent !== css) style.textContent = css;
+  }
+
+  function qsa(root, selector) {
+    return Array.prototype.slice.call((root || document).querySelectorAll(selector));
+  }
+
+  function isPreviewLikeMode() {
+    return !!(document.body && (document.body.classList.contains('preview-mode') || document.body.classList.contains('exported-site')));
+  }
+
+  function rectContains(rect, x, y) {
+    return !!rect && rect.width > 0 && rect.height > 0 && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  }
+
+  function isVisible(el) {
+    if (!el || !el.isConnected) return false;
+    const rect = el.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) return false;
+    const style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+    return !(style && (style.display === 'none' || style.visibility === 'hidden' || style.pointerEvents === 'none'));
+  }
+
+  function getSwitcherControlFromOption(option) {
+    return option?.closest?.('.select-switcher-select-element[data-select-switcher-control="true"]') || null;
+  }
+
+  function getSwitcherBlockFromNode(node) {
+    return node?.closest?.('.js-css-select-switcher[data-type="select-switcher"], .js-css-select-switcher') || null;
+  }
+
+  function getSwitcherGroups(block) {
+    if (!block) return [];
+    if (typeof getSelectSwitcherGroups === 'function') {
+      try { return getSelectSwitcherGroups(block) || []; } catch (error) {}
+    }
+    return qsa(block, '.select-switcher-group');
+  }
+
+  function syncComboTitle(select, index) {
+    if (!select) return;
+    try {
+      if (typeof window.syncEditableSelectComboTitle === 'function') window.syncEditableSelectComboTitle(select);
+      if (typeof syncEditableSelectComboTitle === 'function') syncEditableSelectComboTitle(select);
+    } catch (error) {}
+
+    const combo = select.closest?.('.editable-select-combo');
+    if (!combo) return;
+    const selected = select.options?.[index] || select.options?.[select.selectedIndex] || select.options?.[0];
+    const titleSpan = combo.querySelector('.editable-select-title span');
+    if (titleSpan) titleSpan.textContent = selected ? (selected.textContent || '') : '';
+    qsa(combo, '.editable-select-option').forEach(option => {
+      option.classList.toggle('is-active', String(option.dataset.optionIndex || '0') === String(index));
+    });
+  }
+
+  function directSetSwitcher(block, index) {
+    const groups = getSwitcherGroups(block);
+    if (!block || !groups.length) return;
+    index = ((index % groups.length) + groups.length) % groups.length;
+    block.dataset.switcherIndex = String(index);
+    groups.forEach((group, groupIndex) => {
+      group.classList.toggle('active', groupIndex === index);
+      group.dataset.switcherGroup = String(groupIndex);
+    });
+    const info = block.querySelector('.select-switcher-info');
+    if (info) info.textContent = `${Math.min(index + 1, groups.length)} / ${groups.length}`;
+  }
+
+  function switchToOption(option, event) {
+    if (!option) return false;
+    const control = getSwitcherControlFromOption(option);
+    const block = getSwitcherBlockFromNode(control || option);
+    const select = control?.querySelector?.('.editable-select.select-switcher-control, select.select-switcher-control') || block?.querySelector?.('.select-switcher-control');
+    if (!control || !block || !select) return false;
+
+    const groups = getSwitcherGroups(block);
+    const maxIndex = Math.max((select.options?.length || groups.length || 1) - 1, 0);
+    const index = Math.max(0, Math.min(parseInt(option.dataset.optionIndex || option.getAttribute('data-option-index') || '0', 10) || 0, maxIndex));
+
+    if (lastHandled && lastHandled.block === block && lastHandled.index === index && Date.now() - lastHandled.time < RECENT_MS) {
+      return true;
+    }
+    lastHandled = { block, index, time: Date.now() };
+
+    select.selectedIndex = index;
+    if (select.options?.[index]) select.value = select.options[index].value;
+    else select.value = String(index);
+
+    if (typeof setSelectSwitcherIndex === 'function') {
+      try { setSelectSwitcherIndex(block, index); }
+      catch (error) { directSetSwitcher(block, index); }
+    } else if (typeof window.setSelectSwitcherIndex === 'function') {
+      try { window.setSelectSwitcherIndex(block, index); }
+      catch (error) { directSetSwitcher(block, index); }
+    } else {
+      directSetSwitcher(block, index);
+    }
+
+    syncComboTitle(select, index);
+    try { if (typeof applyOptionStylesToHost === 'function') applyOptionStylesToHost(select); } catch (error) {}
+    try { if (typeof window.applyOptionStylesToHost === 'function') window.applyOptionStylesToHost(select); } catch (error) {}
+
+    control.classList.remove('menu-open');
+    control.classList.add('dropdown-open');
+
+    if (event && isPreviewLikeMode()) {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+    }
+    return true;
+  }
+
+  function optionFromPoint(x, y) {
+    const controls = qsa(document, '.select-switcher-select-element[data-select-switcher-control="true"]')
+      .filter(control => control.classList.contains('dropdown-open') || control.classList.contains('menu-open') || control.classList.contains('select-hover-open-v127') || control.matches?.(':focus-within') || control.matches?.(':hover'))
+      .sort((a, b) => {
+        const za = parseInt((window.getComputedStyle(a).zIndex || a.style.zIndex || '0'), 10) || 0;
+        const zb = parseInt((window.getComputedStyle(b).zIndex || b.style.zIndex || '0'), 10) || 0;
+        return zb - za;
+      });
+
+    for (const control of controls) {
+      const options = qsa(control, '.editable-select-option');
+      for (let i = options.length - 1; i >= 0; i -= 1) {
+        const option = options[i];
+        if (isVisible(option) && rectContains(option.getBoundingClientRect(), x, y)) return option;
+      }
+    }
+    return null;
+  }
+
+  function resolveOption(event) {
+    const direct = event.target?.closest?.('.select-switcher-select-element[data-select-switcher-control="true"] .editable-select-option');
+    if (direct) return direct;
+    if (typeof event.clientX === 'number' && typeof event.clientY === 'number') return optionFromPoint(event.clientX, event.clientY);
+    return null;
+  }
+
+  function handleOptionEvent(event) {
+    const option = resolveOption(event);
+    if (!option) return;
+    switchToOption(option, event);
+  }
+
+  function handleNativeChange(event) {
+    const select = event.target?.closest?.('.select-switcher-control');
+    if (!select) return;
+    const block = getSwitcherBlockFromNode(select);
+    if (!block) return;
+    const index = Math.max(0, parseInt(select.value || select.selectedIndex || '0', 10) || 0);
+    if (typeof setSelectSwitcherIndex === 'function') {
+      try { setSelectSwitcherIndex(block, index); }
+      catch (error) { directSetSwitcher(block, index); }
+    } else {
+      directSetSwitcher(block, index);
+    }
+    syncComboTitle(select, index);
+  }
+
+  installCSS();
+  window.addEventListener('pointerup', handleOptionEvent, true);
+  window.addEventListener('click', handleOptionEvent, true);
+  window.addEventListener('change', handleNativeChange, true);
+
+  if (typeof buildExportCSS === 'function' && !window.__v145SelectSwitcherPreviewOptionClickFixExportCSSWrapped) {
+    window.__v145SelectSwitcherPreviewOptionClickFixExportCSSWrapped = true;
+    const originalBuildExportCSSV145 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV145.apply(this, arguments) + '\n' + css;
+    };
+  }
+
+  if (typeof buildExportJS === 'function' && !window.__v145SelectSwitcherPreviewOptionClickFixExportJSWrapped) {
+    window.__v145SelectSwitcherPreviewOptionClickFixExportJSWrapped = true;
+    const originalBuildExportJSV145 = buildExportJS;
+    buildExportJS = function(exportPagesJSON, currentPageIdJSON) {
+      return originalBuildExportJSV145.apply(this, arguments) + `
+(function(){
+  if (window.__v145SelectSwitcherExportOptionClickFixInstalled) return;
+  window.__v145SelectSwitcherExportOptionClickFixInstalled = true;
+  var RECENT_MS = 280;
+  var lastHandled = null;
+  function qsa(root, selector){ return Array.prototype.slice.call((root || document).querySelectorAll(selector)); }
+  function rectContains(rect, x, y){ return !!rect && rect.width > 0 && rect.height > 0 && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom; }
+  function isVisible(el){ if (!el || !el.isConnected) return false; var rect = el.getBoundingClientRect(); if (!rect || rect.width <= 0 || rect.height <= 0) return false; var style = window.getComputedStyle ? window.getComputedStyle(el) : null; return !(style && (style.display === 'none' || style.visibility === 'hidden' || style.pointerEvents === 'none')); }
+  function getGroups(block){ return qsa(block, '.select-switcher-group'); }
+  function syncTitle(select, index){ var combo = select && select.closest && select.closest('.editable-select-combo'); if (!combo) return; var selected = select.options && (select.options[index] || select.options[select.selectedIndex] || select.options[0]); var span = combo.querySelector('.editable-select-title span'); if (span) span.textContent = selected ? (selected.textContent || '') : ''; qsa(combo, '.editable-select-option').forEach(function(option){ option.classList.toggle('is-active', String(option.getAttribute('data-option-index') || '0') === String(index)); }); }
+  function setSwitcher(block, index){ if (!block) return; var groups = getGroups(block); if (!groups.length) return; index = ((index % groups.length) + groups.length) % groups.length; block.setAttribute('data-switcher-index', String(index)); groups.forEach(function(group, groupIndex){ group.classList.toggle('active', groupIndex === index); group.setAttribute('data-switcher-group', String(groupIndex)); }); var select = block.querySelector('.select-switcher-control'); if (select) { select.selectedIndex = index; if (select.options && select.options[index]) select.value = select.options[index].value; else select.value = String(index); syncTitle(select, index); } }
+  function optionFromPoint(x, y){ var controls = qsa(document, '.select-switcher-select-element[data-select-switcher-control="true"]').filter(function(control){ return control.classList.contains('dropdown-open') || control.classList.contains('menu-open') || control.classList.contains('select-hover-open-v127') || (control.matches && (control.matches(':focus-within') || control.matches(':hover'))); }).sort(function(a,b){ var za = parseInt((window.getComputedStyle(a).zIndex || a.style.zIndex || '0'), 10) || 0; var zb = parseInt((window.getComputedStyle(b).zIndex || b.style.zIndex || '0'), 10) || 0; return zb - za; }); for (var c=0; c<controls.length; c++){ var options = qsa(controls[c], '.editable-select-option'); for (var i=options.length - 1; i>=0; i--){ if (isVisible(options[i]) && rectContains(options[i].getBoundingClientRect(), x, y)) return options[i]; } } return null; }
+  function resolveOption(event){ var direct = event.target.closest && event.target.closest('.select-switcher-select-element[data-select-switcher-control="true"] .editable-select-option'); if (direct) return direct; if (typeof event.clientX === 'number' && typeof event.clientY === 'number') return optionFromPoint(event.clientX, event.clientY); return null; }
+  function handle(event){ var option = resolveOption(event); if (!option) return; var block = option.closest && option.closest('.js-css-select-switcher'); if (!block) return; var groups = getGroups(block); var index = Math.max(0, Math.min(parseInt(option.getAttribute('data-option-index') || '0', 10) || 0, Math.max(groups.length - 1, 0))); if (lastHandled && lastHandled.block === block && lastHandled.index === index && Date.now() - lastHandled.time < RECENT_MS) return; lastHandled = { block: block, index: index, time: Date.now() }; setSwitcher(block, index); event.preventDefault && event.preventDefault(); event.stopPropagation && event.stopPropagation(); }
+  window.addEventListener('pointerup', handle, true);
+  window.addEventListener('click', handle, true);
+  window.addEventListener('change', function(event){ var select = event.target.closest && event.target.closest('.select-switcher-control'); if (!select) return; setSwitcher(select.closest('.js-css-select-switcher'), parseInt(select.value || select.selectedIndex || '0', 10) || 0); }, true);
+})();`;
+    };
+  }
+
+  document.body?.classList?.add('v145-select-switcher-preview-option-click-fix');
+})();
+
+
+
+/* v146：匯出備份編輯器（完整編輯器 + 目前專案資料，可再開啟繼續編輯） */
+(function initExportEditorBackupV146() {
+  if (window.__exportEditorBackupV146Installed) return;
+  window.__exportEditorBackupV146Installed = true;
+
+  const BACKUP_PAYLOAD_SCRIPT_ID_V146 = 'editorBackupPayloadV146';
+  const BACKUP_RESTORE_SCRIPT_ID_V146 = 'editorBackupRestoreV146';
+
+  function pad2V146(value) {
+    return String(value).padStart(2, '0');
+  }
+
+  function backupTimestampV146(date = new Date()) {
+    return [
+      date.getFullYear(),
+      pad2V146(date.getMonth() + 1),
+      pad2V146(date.getDate())
+    ].join('') + '-' + [
+      pad2V146(date.getHours()),
+      pad2V146(date.getMinutes()),
+      pad2V146(date.getSeconds())
+    ].join('');
+  }
+
+  function escapeHtmlScriptTextV146(text) {
+    return String(text || '')
+      .replace(/<\/script/gi, '<\\/script')
+      .replace(/<\/style/gi, '<\\/style');
+  }
+
+  function escapeJsonForInlineScriptV146(json) {
+    return String(json || '{}')
+      .replace(/</g, '\\u003c')
+      .replace(/>/g, '\\u003e')
+      .replace(/&/g, '\\u0026');
+  }
+
+  function normalizeBackupHTMLBeforeCloneV146() {
+    try {
+      if (typeof captureCurrentPage === 'function') captureCurrentPage();
+      if (typeof captureCurrentResponsiveMode === 'function') captureCurrentResponsiveMode();
+    } catch (error) {}
+  }
+
+  async function fetchTextAssetV146(path) {
+    try {
+      const url = new URL(path, document.baseURI || window.location.href);
+      const response = await fetch(url.href, { cache: 'no-store' });
+      if (!response.ok) return '';
+      return await response.text();
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function collectEditorCSSFromRuntimeV146() {
+    const chunks = [];
+    Array.prototype.forEach.call(document.styleSheets || [], sheet => {
+      try {
+        const href = sheet.href || '';
+        if (href && !/editor\.css(\?|#|$)/.test(href)) return;
+        const rules = sheet.cssRules || sheet.rules;
+        if (!rules) return;
+        Array.prototype.forEach.call(rules, rule => chunks.push(rule.cssText));
+      } catch (error) {}
+    });
+    return chunks.join('\n');
+  }
+
+  function buildBackupRestoreScriptV146() {
+    return `(function(){
+  var PAYLOAD_ID = '${BACKUP_PAYLOAD_SCRIPT_ID_V146}';
+  var SAVE_KEY = 'bootstrap-editor-v84-pages';
+  function parse(raw){ try { return raw ? JSON.parse(raw) : null; } catch(error){ return null; } }
+  function getEmbeddedPayload(){
+    var node = document.getElementById(PAYLOAD_ID);
+    if (!node) return null;
+    var payload = parse(node.textContent || node.innerText || '');
+    return payload && payload.pages ? payload : null;
+  }
+  function getLocalPayload(){
+    try { return parse(localStorage.getItem(SAVE_KEY)); } catch(error){ return null; }
+  }
+  function shouldUseEmbedded(embedded, local){
+    if (!embedded || !embedded.pages) return false;
+    if (!local || !local.pages) return true;
+    return Number(embedded.savedAt || 0) >= Number(local.savedAt || 0);
+  }
+  function setStatus(text){
+    var status = document.getElementById('manualSaveStatus');
+    if (status) status.innerHTML = '<i class="bi bi-shield-check"></i> ' + text;
+  }
+  function restore(){
+    var embedded = getEmbeddedPayload();
+    if (!embedded) return;
+    var local = getLocalPayload();
+    if (!shouldUseEmbedded(embedded, local)) {
+      setStatus('已保留此瀏覽器較新的存檔');
+      return;
+    }
+    try {
+      if (typeof applySavedPayload === 'function') {
+        applySavedPayload(embedded, true);
+      }
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(embedded)); } catch(error) {}
+      try { if (typeof saveProjectToIndexedDB === 'function') saveProjectToIndexedDB(embedded); } catch(error) {}
+      setStatus('已載入備份編輯器資料');
+    } catch(error) {
+      console.warn('備份編輯器自動載入失敗：', error);
+      setStatus('備份資料載入失敗');
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ window.setTimeout(restore, 80); });
+  } else {
+    window.setTimeout(restore, 80);
+  }
+})();`;
+  }
+
+  function prepareBackupDocumentV146(payloadJSON, editorCSS, editorJS) {
+    normalizeBackupHTMLBeforeCloneV146();
+
+    const html = document.documentElement.cloneNode(true);
+    const head = html.querySelector('head');
+    const body = html.querySelector('body');
+
+    if (head) {
+      let title = head.querySelector('title');
+      if (!title) {
+        title = document.createElement('title');
+        head.appendChild(title);
+      }
+      title.textContent = '自訂網站編輯器 V146 備份';
+    }
+
+    if (body) {
+      body.classList.remove('preview-mode');
+      body.classList.remove('panels-hidden');
+      body.classList.add('editor-backup-v146');
+    }
+
+    Array.prototype.forEach.call(html.querySelectorAll('.selected, .multi-selected, .has-selected-child, .is-editing'), node => {
+      node.classList.remove('selected', 'multi-selected', 'has-selected-child', 'is-editing');
+    });
+
+    Array.prototype.forEach.call(html.querySelectorAll('#' + BACKUP_PAYLOAD_SCRIPT_ID_V146 + ', #' + BACKUP_RESTORE_SCRIPT_ID_V146), node => node.remove());
+
+    if (editorCSS) {
+      Array.prototype.forEach.call(html.querySelectorAll('link[rel="stylesheet"]'), link => {
+        const href = link.getAttribute('href') || '';
+        if (/editor\.css(\?|#|$)/.test(href)) {
+          const style = document.createElement('style');
+          style.setAttribute('data-editor-backup-css', 'editor.css');
+          style.textContent = editorCSS;
+          link.replaceWith(style);
+        }
+      });
+    }
+
+    if (editorJS) {
+      Array.prototype.forEach.call(html.querySelectorAll('script[src]'), script => {
+        const src = script.getAttribute('src') || '';
+        if (/editor\.js(\?|#|$)/.test(src)) {
+          const inline = document.createElement('script');
+          inline.setAttribute('data-editor-backup-js', 'editor.js');
+          inline.textContent = escapeHtmlScriptTextV146(editorJS);
+          script.replaceWith(inline);
+        }
+      });
+    }
+
+    const payloadScript = document.createElement('script');
+    payloadScript.id = BACKUP_PAYLOAD_SCRIPT_ID_V146;
+    payloadScript.type = 'application/json';
+    payloadScript.textContent = escapeJsonForInlineScriptV146(payloadJSON);
+
+    const restoreScript = document.createElement('script');
+    restoreScript.id = BACKUP_RESTORE_SCRIPT_ID_V146;
+    restoreScript.textContent = buildBackupRestoreScriptV146();
+
+    (body || html).appendChild(payloadScript);
+    (body || html).appendChild(restoreScript);
+
+    return '<!doctype html>\n' + html.outerHTML;
+  }
+
+  function buildEditorBackupReadmeV146(timestamp, hasInlineEditorJS, hasInlineEditorCSS) {
+    return [
+      '自訂網站編輯器 V146 備份',
+      '',
+      '備份時間：' + timestamp,
+      '',
+      '使用方式：',
+      '1. 解壓縮這個 ZIP。',
+      '2. 開啟 index.html。',
+      '3. 編輯器會自動載入匯出當下的所有頁面與元件資料。',
+      '4. 若同一個瀏覽器已有較新的手動存檔，系統會保留較新的資料，不會用舊備份覆蓋。',
+      '',
+      '內含檔案：',
+      '- index.html：可繼續編輯的備份編輯器。',
+      '- backup-project.json：目前專案資料，可用「匯入備份」載回。',
+      hasInlineEditorJS ? '- index.html 已內嵌完整 editor.js 功能。' : '- js/editor.js：完整編輯器功能檔。',
+      hasInlineEditorCSS ? '- index.html 已內嵌完整 editor.css 樣式。' : '- css/editor.css：完整編輯器樣式檔。',
+      '',
+      '提醒：Bootstrap、Bootstrap Icons、JSZip 仍沿用 CDN。若完全離線，外觀圖示或 ZIP 功能可能受瀏覽器限制。'
+    ].join('\n');
+  }
+
+  async function exportEditorBackupV146() {
+    if (typeof JSZip === 'undefined') {
+      alert('匯出備份編輯器需要 JSZip，請確認網路可載入 JSZip CDN。');
+      return;
+    }
+
+    const button = document.getElementById('exportEditorBackupBtn');
+    const originalHTML = button ? button.innerHTML : '';
+    if (button) {
+      button.disabled = true;
+      button.innerHTML = '<i class="bi bi-hourglass-split"></i> 匯出中';
+    }
+
+    try {
+      const payload = (typeof getSerializableProjectPayload === 'function')
+        ? getSerializableProjectPayload(true)
+        : (typeof getProjectPayloadForBrowserStorage === 'function' ? getProjectPayloadForBrowserStorage() : {});
+
+      payload.version = 'v146-editor-backup';
+      payload.backupType = 'full-editor-backup';
+      payload.savedAt = Date.now();
+      payload.exportedAt = payload.savedAt;
+
+      const payloadJSON = JSON.stringify(payload, null, 2);
+      const editorCSS = await fetchTextAssetV146('./css/editor.css') || collectEditorCSSFromRuntimeV146();
+      const editorJS = await fetchTextAssetV146('./js/editor.js');
+      const backupHTML = prepareBackupDocumentV146(payloadJSON, editorCSS, editorJS);
+      const timestamp = backupTimestampV146(new Date(payload.savedAt));
+      const zip = new JSZip();
+
+      zip.file('index.html', backupHTML);
+      zip.file('backup-project.json', payloadJSON);
+      if (editorCSS) zip.file('css/editor.css', editorCSS);
+      if (editorJS) zip.file('js/editor.js', editorJS);
+      zip.file('README.txt', buildEditorBackupReadmeV146(timestamp, !!editorJS, !!editorCSS));
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'editor-backup-v146-' + timestamp + '.zip';
+      document.body.appendChild(a);
+      a.click();
+      window.setTimeout(() => {
+        URL.revokeObjectURL(url);
+        a.remove();
+      }, 0);
+
+      alert('已匯出備份編輯器 ZIP。解壓縮後開啟 index.html，就可以載入目前資料並繼續編輯。');
+    } catch (error) {
+      console.error('匯出備份編輯器失敗：', error);
+      alert('匯出備份編輯器失敗，請確認瀏覽器允許下載，且 JS / CSS 檔案可被讀取。');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.innerHTML = originalHTML;
+      }
+    }
+  }
+
+  window.exportEditorBackupV146 = exportEditorBackupV146;
+
+  document.getElementById('exportEditorBackupBtn')?.addEventListener('click', exportEditorBackupV146);
+
+  if (typeof buildExportCSS === 'function' && !window.__exportEditorBackupV146CSSWrapped) {
+    window.__exportEditorBackupV146CSSWrapped = true;
+    const originalBuildExportCSSV146 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV146.apply(this, arguments) + '\n/* v146：匯出備份編輯器按鈕只存在編輯器，不輸出到前台網站 */\n';
+    };
+  }
+})();
