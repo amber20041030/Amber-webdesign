@@ -6821,3 +6821,78 @@ body.export-animation-priming-v156 [data-slide-animation="true"] {
   transform: translate(var(--base-slide-initial-x, 0px), var(--base-slide-initial-y, 40px)) !important;
   transition: none !important;
 }
+
+
+/* v157：下拉導覽選項可在編輯模式直接被選為功能設定目標 */
+body:not(.preview-mode):not(.exported-site) .nav-dropdown-option.nav-option-edit-selected,
+body:not(.preview-mode):not(.exported-site) .nav-dropdown-title.nav-option-edit-selected {
+  outline: 2px solid var(--primary, #0d6efd) !important;
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, .16) !important;
+  position: relative;
+  z-index: 2;
+}
+
+body:not(.preview-mode):not(.exported-site) .nav-dropdown[data-option-picker-open="true"] .nav-dropdown-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+
+
+/* v159：匯出根目錄分頁、形狀保護、滑到區塊重播動畫 */
+body.preview-mode [data-slide-animation="true"],
+body.exported-site [data-slide-animation="true"] {
+  will-change: opacity, transform;
+}
+
+body.preview-mode .free-element[data-type="shape"],
+body.exported-site .free-element[data-type="shape"] {
+  display: block !important;
+  visibility: visible !important;
+  opacity: var(--shape-element-opacity-v159, 1);
+  overflow: visible !important;
+}
+
+body.preview-mode .free-element[data-type="shape"] .inner,
+body.exported-site .free-element[data-type="shape"] .inner {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 1px;
+  min-height: 1px;
+}
+
+body.preview-mode .free-element[data-type="shape"] .shape-fill,
+body.exported-site .free-element[data-type="shape"] .shape-fill {
+  position: absolute !important;
+  inset: 0 !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 1px;
+  min-height: 1px;
+  border-radius: inherit;
+  background: var(--shape-bg-v159, var(--shape-bg, rgba(13, 110, 253, 1))) !important;
+  pointer-events: none;
+}
+
+body.preview-mode .free-element[data-type="shape"][data-shape-type="circle"] .shape-fill,
+body.exported-site .free-element[data-type="shape"][data-shape-type="circle"] .shape-fill {
+  border-radius: 9999px !important;
+}
+
+
+/* v160：預覽 / 匯出顏色保留備援 CSS */
+body.preview-mode #sitePage.site-page,
+body.preview-mode .site-page,
+body.exported-site #sitePage.site-page,
+body.exported-site .site-page {
+  background: var(--site-page-bg-preserve-v160, var(--site-page-bg-v153, var(--site-page-bg-color-v154, #ffffff))) !important;
+  background-color: var(--site-page-bg-color-preserve-v160, var(--site-page-bg-color-v154, var(--site-page-bg-v153, #ffffff))) !important;
+}
+body.preview-mode .free-element[data-type="shape"] .shape-fill,
+body.exported-site .free-element[data-type="shape"] .shape-fill {
+  background: var(--shape-bg-preserve-v160, var(--shape-bg-color, rgba(var(--shape-bg-rgb, 13, 110, 253), var(--shape-bg-alpha, 1)))) !important;
+}

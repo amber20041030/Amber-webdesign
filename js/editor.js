@@ -26319,3 +26319,2442 @@ body.export-animation-priming-v156 [data-slide-animation="true"] {
 
   injectExportAnimationPreviewCSSV156();
 })();
+
+
+/* v157：下拉導覽選項可直接選取，功能列表新增「跳轉到指定元件」 */
+(function initNavDropdownOptionElementTargetV157(){
+  if (window.__navDropdownOptionElementTargetInstalledV157) return;
+  window.__navDropdownOptionElementTargetInstalledV157 = true;
+
+  const EDIT_SELECTED_CLASS = 'nav-option-edit-selected';
+  const ROOT_PICKER_ATTR = 'optionPickerOpen';
+  const RECENT_MS = 480;
+  let lastRunSignatureV157 = '';
+  let lastRunTimeV157 = 0;
+
+  function qs(selector, root = document) { return root.querySelector(selector); }
+  function qsa(selector, root = document) { return Array.from(root.querySelectorAll(selector)); }
+  function isPreviewOrExport() { return document.body.classList.contains('preview-mode') || document.body.classList.contains('exported-site'); }
+  function safeJsonParse(raw, fallback) { try { return raw ? (JSON.parse(raw) || fallback) : fallback; } catch (error) { return fallback; } }
+  function safeJsonStringify(value) { try { return JSON.stringify(value || {}); } catch (error) { return '{}'; } }
+  function getSiteRoot() { return document.getElementById('sitePage') || document.querySelector('.site-page') || document; }
+  function getSelectedHostV157() {
+    try { if (typeof getSelectedOptionHost === 'function') return getSelectedOptionHost(); } catch (error) {}
+    const selected = window.selectedElement || document.querySelector('.free-element.selected');
+    if (!selected) return null;
+    if (selected.dataset?.type === 'nav-dropdown') return selected;
+    if (selected.dataset?.type === 'select') return selected.querySelector('.editable-select');
+    if (selected.dataset?.type === 'select-switcher-control') return selected.querySelector('.select-switcher-control');
+    return null;
+  }
+  function isNavDropdownHost(host) { return !!(host && host.dataset && host.dataset.type === 'nav-dropdown'); }
+  function ensureElementDataId(el) {
+    if (!el) return '';
+    let id = el.dataset?.id || el.getAttribute('data-id') || '';
+    if (!id) {
+      id = 'el_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+      el.setAttribute('data-id', id);
+    }
+    return id;
+  }
+  function elementLabel(el) {
+    if (!el) return '未命名元件';
+    const typeMap = {
+      text: '文字', image: '圖片', button: '按鈕', shape: '形狀', line: '線條', youtube: 'YouTube',
+      select: '下拉式', 'nav-dropdown': '下拉導覽', 'select-switcher-control': '下拉換組選單',
+      input: '輸入框', group: '群組', 'accordion-dropdown': '下拉收合', 'accordion-item': '收合項目'
+    };
+    const type = el.dataset?.type || 'element';
+    const name = (el.dataset?.name || '').trim();
+    const text = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+    const base = name || text || (typeMap[type] || type || '元件');
+    return base.length > 34 ? base.slice(0, 34) + '…' : base;
+  }
+  function getAvailableElementTargets() {
+    const root = getSiteRoot();
+    return qsa('.free-element', root)
+      .filter(el => el && el.isConnected && !el.closest('.no-export') && !el.classList.contains('no-export'))
+      .map(el => ({ id: ensureElementDataId(el), label: elementLabel(el), type: el.dataset?.type || '' }))
+      .filter(item => item.id);
+  }
+  function refreshSelectOptionElementTargetOptions(preferredValue = '') {
+    const select = qs('#selectOptionElementTarget');
+    if (!select) return;
+    const current = preferredValue || select.value || '';
+    const items = getAvailableElementTargets();
+    const escape = (value) => String(value ?? '').replace(/[&<>"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[m]));
+    select.innerHTML = '<option value="">請先選擇元件</option>' + items.map(item => {
+      const selected = item.id === current ? ' selected' : '';
+      const suffix = item.type ? `（${item.type}）` : '';
+      return `<option value="${escape(item.id)}"${selected}>${escape(item.label)}${escape(suffix)}</option>`;
+    }).join('');
+    select.value = items.some(item => item.id === current) ? current : '';
+  }
+  function findElementTargetById(id) {
+    if (!id) return null;
+    const root = getSiteRoot();
+    let target = null;
+    if (window.CSS && CSS.escape) target = root.querySelector(`.free-element[data-id="${CSS.escape(id)}"]`);
+    if (!target) target = qsa('.free-element', root).find(el => (el.dataset?.id || el.getAttribute('data-id')) === id);
+    return target || null;
+  }
+  function scrollElementTargetIntoView(target, behavior = 'smooth') {
+    if (!target) return false;
+    try {
+      target.scrollIntoView({ behavior, block: 'center', inline: 'center' });
+      return true;
+    } catch (error) {
+      const rect = target.getBoundingClientRect();
+      window.scrollTo({ top: Math.max(0, window.scrollY + rect.top - (window.innerHeight / 2) + (rect.height / 2)), behavior });
+      return true;
+    }
+  }
+  function scrollToElementTargetId(id, behavior = 'smooth') {
+    return scrollElementTargetIntoView(findElementTargetById(id), behavior);
+  }
+  function readActions(host) {
+    if (!host) return {};
+    try { if (typeof getSelectOptionActions === 'function') return getSelectOptionActions(host) || {}; } catch (error) {}
+    return safeJsonParse(host.getAttribute('data-option-actions') || host.dataset?.optionActions || '{}', {});
+  }
+  function writeActions(host, actions) {
+    if (!host) return;
+    try {
+      if (typeof setSelectOptionActions === 'function') {
+        setSelectOptionActions(host, actions || {});
+        return;
+      }
+    } catch (error) {}
+    host.dataset.optionActions = safeJsonStringify(actions || {});
+  }
+  function selectedActionIndex() {
+    const select = qs('#selectOptionActionSelect');
+    return select ? (select.value || '') : '';
+  }
+  function selectedActionData(host) {
+    const index = selectedActionIndex();
+    const actions = readActions(host);
+    return index ? (actions[index] || {}) : {};
+  }
+  function setPanelVisibleV157() {
+    const functionList = qs('#selectOptionFunctionList');
+    const linkSettings = qs('#selectOptionLinkSettings');
+    const actionPanel = qs('#selectOptionActionPanel');
+    const stylePanel = qs('#selectOptionStylePanel');
+    const hasOption = !!selectedActionIndex();
+    const functionEnabled = !!qs('#selectOptionFunctionEnabled')?.checked;
+    const linkEnabled = !!qs('#selectOptionLinkEnabled')?.checked;
+    if (actionPanel) actionPanel.classList.toggle('d-none', !hasOption);
+    if (stylePanel) stylePanel.classList.toggle('d-none', !hasOption);
+    if (functionList) functionList.classList.toggle('d-none', !functionEnabled);
+    if (linkSettings) linkSettings.classList.toggle('d-none', !linkEnabled);
+  }
+  function syncElementTargetPanelFromData(host) {
+    const data = selectedActionData(host);
+    const toggle = qs('#selectOptionElementEnabled');
+    if (toggle) toggle.checked = data.elementEnabled === true;
+    refreshSelectOptionElementTargetOptions(data.elementTarget || '');
+    const select = qs('#selectOptionElementTarget');
+    if (select) select.value = data.elementTarget || '';
+    setPanelVisibleV157();
+  }
+  function normalizePanelActionDataV157(data = {}) {
+    data.functionEnabled = !!qs('#selectOptionFunctionEnabled')?.checked;
+    data.scrollEnabled = !!qs('#selectOptionScrollEnabled')?.checked;
+    data.scrollTarget = qs('#selectOptionScrollTarget')?.value || '';
+    data.pageEnabled = !!qs('#selectOptionPageEnabled')?.checked;
+    data.pageTarget = qs('#selectOptionPageTarget')?.value || '';
+    data.elementEnabled = !!qs('#selectOptionElementEnabled')?.checked;
+    data.elementTarget = qs('#selectOptionElementTarget')?.value || '';
+    data.linkEnabled = !!qs('#selectOptionLinkEnabled')?.checked;
+    data.linkUrl = (qs('#selectOptionLinkUrl')?.value || '').trim();
+    return data;
+  }
+  function hasV157Action(data) {
+    if (!data) return false;
+    return !!(
+      (data.functionEnabled && (
+        (data.pageEnabled && data.pageTarget) ||
+        (data.scrollEnabled && data.scrollTarget) ||
+        (data.elementEnabled && data.elementTarget)
+      )) ||
+      (data.linkEnabled && data.linkUrl)
+    );
+  }
+  function runOptionActionDataV157(data) {
+    if (!hasV157Action(data)) return false;
+    let signature = '';
+    try { signature = JSON.stringify(data); } catch (error) { signature = String(Date.now()); }
+    if (signature === lastRunSignatureV157 && Date.now() - lastRunTimeV157 < RECENT_MS) return false;
+    lastRunSignatureV157 = signature;
+    lastRunTimeV157 = Date.now();
+
+    const runElement = () => {
+      if (data.functionEnabled && data.elementEnabled && data.elementTarget) {
+        window.setTimeout(() => scrollToElementTargetId(data.elementTarget), (data.pageEnabled || data.scrollEnabled) ? 100 : 0);
+      }
+    };
+
+    const copy = Object.assign({}, data);
+    delete copy.elementEnabled;
+    delete copy.elementTarget;
+    const hasLegacy = !!(
+      (copy.functionEnabled && ((copy.pageEnabled && copy.pageTarget) || (copy.scrollEnabled && copy.scrollTarget))) ||
+      (copy.linkEnabled && copy.linkUrl)
+    );
+
+    if (hasLegacy) {
+      let handled = false;
+      try {
+        if (typeof window.__runOptionActionDataBeforeV157 === 'function') handled = !!window.__runOptionActionDataBeforeV157(copy);
+        else if (typeof runExportOptionActionData === 'function' && document.body.classList.contains('exported-site')) handled = !!runExportOptionActionData(copy);
+      } catch (error) {}
+      runElement();
+      return handled || true;
+    }
+
+    runElement();
+    return true;
+  }
+  function markNavOptionSelected(root, value) {
+    qsa('.nav-dropdown-title, .nav-dropdown-option', root || document).forEach(el => el.classList.remove(EDIT_SELECTED_CLASS));
+    qsa('.nav-dropdown').forEach(el => { if (el !== root) delete el.dataset[ROOT_PICKER_ATTR]; });
+    if (!root || !value) return;
+    root.dataset[ROOT_PICKER_ATTR] = 'true';
+    if (value === '__title') {
+      qs('.nav-dropdown-title', root)?.classList.add(EDIT_SELECTED_CLASS);
+      return;
+    }
+    const option = qs(`.nav-dropdown-option[data-option-index="${String(value).replace(/"/g, '\\"')}"]`, root);
+    if (option) option.classList.add(EDIT_SELECTED_CLASS);
+  }
+  function selectNavDropdownActionTarget(root, value) {
+    if (!root) return;
+    try { if (typeof selectElement === 'function') selectElement(root); } catch (error) {}
+    try { if (typeof refreshSelectOptionActionOptions === 'function') refreshSelectOptionActionOptions(); } catch (error) {}
+    const actionSelect = qs('#selectOptionActionSelect');
+    if (actionSelect) {
+      actionSelect.value = value;
+      actionSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    try { if (typeof syncSelectedOptionActionPanel === 'function') syncSelectedOptionActionPanel(); } catch (error) {}
+    syncElementTargetPanelFromData(root);
+    markNavOptionSelected(root, value);
+    qs('#selectAdvancedSectionV122')?.setAttribute('open', '');
+  }
+
+  // 先保存原始執行器，再讓新的執行器支援 elementTarget。
+  if (typeof runOptionActionData === 'function' && !window.__runOptionActionDataBeforeV157) {
+    window.__runOptionActionDataBeforeV157 = runOptionActionData;
+    runOptionActionData = function(data) { return runOptionActionDataV157(data); };
+    window.runOptionActionData = runOptionActionData;
+  }
+  if (typeof runExportOptionActionData === 'function' && !window.__runExportOptionActionDataBeforeV157) {
+    window.__runExportOptionActionDataBeforeV157 = runExportOptionActionData;
+    runExportOptionActionData = function(data) {
+      if (!hasV157Action(data)) return false;
+      const hasElement = data.functionEnabled && data.elementEnabled && data.elementTarget;
+      const legacy = Object.assign({}, data);
+      delete legacy.elementEnabled;
+      delete legacy.elementTarget;
+      const hasLegacy = !!((legacy.functionEnabled && ((legacy.pageEnabled && legacy.pageTarget) || (legacy.scrollEnabled && legacy.scrollTarget))) || (legacy.linkEnabled && legacy.linkUrl));
+      if (hasLegacy) {
+        const result = window.__runExportOptionActionDataBeforeV157(legacy);
+        if (hasElement) window.setTimeout(() => scrollToElementTargetId(data.elementTarget), 120);
+        return result || hasElement;
+      }
+      if (hasElement) return scrollToElementTargetId(data.elementTarget);
+      return false;
+    };
+    window.runExportOptionActionData = runExportOptionActionData;
+  }
+
+  if (typeof refreshSelectOptionTargetOptions === 'function' && !window.__refreshSelectOptionTargetOptionsWrappedV157) {
+    window.__refreshSelectOptionTargetOptionsWrappedV157 = true;
+    const originalRefreshTargetsV157 = refreshSelectOptionTargetOptions;
+    refreshSelectOptionTargetOptions = function() {
+      const result = originalRefreshTargetsV157.apply(this, arguments);
+      refreshSelectOptionElementTargetOptions(qs('#selectOptionElementTarget')?.value || '');
+      return result;
+    };
+    window.refreshSelectOptionTargetOptions = refreshSelectOptionTargetOptions;
+  }
+
+  if (typeof setSelectOptionPanelsVisible === 'function' && !window.__setSelectOptionPanelsVisibleWrappedV157) {
+    window.__setSelectOptionPanelsVisibleWrappedV157 = true;
+    const originalSetPanelsV157 = setSelectOptionPanelsVisible;
+    setSelectOptionPanelsVisible = function() {
+      const result = originalSetPanelsV157.apply(this, arguments);
+      setPanelVisibleV157();
+      return result;
+    };
+    window.setSelectOptionPanelsVisible = setSelectOptionPanelsVisible;
+  }
+
+  if (typeof syncSelectedOptionActionPanel === 'function' && !window.__syncSelectedOptionActionPanelWrappedV157) {
+    window.__syncSelectedOptionActionPanelWrappedV157 = true;
+    const originalSyncActionPanelV157 = syncSelectedOptionActionPanel;
+    syncSelectedOptionActionPanel = function() {
+      const result = originalSyncActionPanelV157.apply(this, arguments);
+      syncElementTargetPanelFromData(getSelectedHostV157());
+      return result;
+    };
+    window.syncSelectedOptionActionPanel = syncSelectedOptionActionPanel;
+  }
+
+  if (typeof applySelectOptionAction === 'function' && !window.__applySelectOptionActionWrappedV157) {
+    window.__applySelectOptionActionWrappedV157 = true;
+    const originalApplyActionV157 = applySelectOptionAction;
+    applySelectOptionAction = function() {
+      const host = getSelectedHostV157();
+      const optionIndex = selectedActionIndex();
+      if (!host || !optionIndex) return originalApplyActionV157.apply(this, arguments);
+      const elementEnabled = !!qs('#selectOptionElementEnabled')?.checked;
+      const elementTarget = qs('#selectOptionElementTarget')?.value || '';
+      if (elementEnabled && !elementTarget) {
+        alert('套用失敗：請先選擇要跳轉的元件。');
+        return;
+      }
+      let actions = readActions(host);
+      const beforeAction = Object.assign({}, actions[optionIndex] || {});
+      const result = originalApplyActionV157.apply(this, arguments);
+      actions = readActions(host);
+      actions[optionIndex] = normalizePanelActionDataV157(Object.assign({}, beforeAction, actions[optionIndex] || {}));
+      if (actions[optionIndex].itemId && actions[optionIndex].itemId !== optionIndex) {
+        // 保留 v132 用選項 ID 綁定的資料。
+        const byId = safeJsonParse(host.dataset?.optionActionsById || host.getAttribute('data-option-actions-by-id') || '{}', {});
+        byId[actions[optionIndex].itemId] = actions[optionIndex];
+        host.dataset.optionActionsById = safeJsonStringify(byId);
+      }
+      writeActions(host, actions);
+      syncElementTargetPanelFromData(host);
+      try { if (typeof scheduleAutoSave === 'function') scheduleAutoSave(); } catch (error) {}
+      return result;
+    };
+    window.applySelectOptionAction = applySelectOptionAction;
+  }
+
+  // 下拉導覽：編輯模式點選標題/選項，就將它設為功能列表目前目標。
+  document.addEventListener('click', event => {
+    if (isPreviewOrExport()) return;
+    const navTarget = event.target?.closest?.('.nav-dropdown-title, .nav-dropdown-option');
+    if (!navTarget) return;
+    const root = navTarget.closest('.nav-dropdown');
+    if (!root) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+    const value = navTarget.classList.contains('nav-dropdown-title') ? '__title' : String(navTarget.dataset.optionIndex || '0');
+    selectNavDropdownActionTarget(root, value);
+  }, true);
+
+  document.addEventListener('change', event => {
+    if (event.target?.id === 'selectOptionActionSelect') {
+      const host = getSelectedHostV157();
+      if (isNavDropdownHost(host)) markNavOptionSelected(host, event.target.value || '');
+      syncElementTargetPanelFromData(host);
+    }
+    if (event.target?.id === 'selectOptionFunctionEnabled' || event.target?.id === 'selectOptionLinkEnabled') {
+      setPanelVisibleV157();
+    }
+    if (event.target?.id === 'selectOptionElementEnabled') {
+      refreshSelectOptionElementTargetOptions(qs('#selectOptionElementTarget')?.value || '');
+      setPanelVisibleV157();
+    }
+  }, true);
+
+  document.addEventListener('input', event => {
+    if (event.target?.id === 'selectOptionsInput') {
+      window.setTimeout(() => {
+        refreshSelectOptionElementTargetOptions(qs('#selectOptionElementTarget')?.value || '');
+      }, 0);
+    }
+  }, true);
+
+  if (window.MutationObserver) {
+    let timer = null;
+    new MutationObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => refreshSelectOptionElementTargetOptions(qs('#selectOptionElementTarget')?.value || ''), 120);
+    }).observe(getSiteRoot(), { childList: true, subtree: true, attributes: true, attributeFilter: ['data-id', 'data-name', 'data-type'] });
+  }
+
+  // 匯出後也支援 elementTarget。buildExportJS 的原始 runtime 會先處理區塊/頁面；此段補上指定元件。
+  if (typeof buildExportJS === 'function' && !window.__navDropdownElementTargetExportJSWrappedV157) {
+    window.__navDropdownElementTargetExportJSWrappedV157 = true;
+    const originalBuildExportJSV157 = buildExportJS;
+    const exportRuntimeV157 = `
+(function(){
+  if (window.__navDropdownElementTargetRuntimeInstalledV157) return;
+  window.__navDropdownElementTargetRuntimeInstalledV157 = true;
+  var recent = { sig: '', time: 0 };
+  function qsa(root, selector){ return Array.prototype.slice.call((root || document).querySelectorAll(selector)); }
+  function readJSON(el, attr, fallback){ try { var raw = el && (el.getAttribute(attr) || (el.dataset && el.dataset[attr.replace(/^data-/, '').replace(/-([a-z])/g, function(_, c){ return c.toUpperCase(); })])); return raw ? (JSON.parse(raw) || fallback) : fallback; } catch(e){ return fallback; } }
+  function findElementTarget(id){ if (!id) return null; var root = document.getElementById('sitePage') || document; var target = null; try { if (window.CSS && CSS.escape) target = root.querySelector('.free-element[data-id="' + CSS.escape(id) + '"]'); } catch(e){} if (!target) target = qsa(root, '.free-element').filter(function(el){ return (el.getAttribute('data-id') || '') === id; })[0] || null; return target; }
+  function scrollElement(id){ var target = findElementTarget(id); if (!target) return false; try { target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' }); } catch(e) { var rect = target.getBoundingClientRect(); window.scrollTo({ top: Math.max(0, window.pageYOffset + rect.top - (window.innerHeight / 2) + (rect.height / 2)), behavior: 'smooth' }); } return true; }
+  function valid(data){ return !!(data && data.functionEnabled && data.elementEnabled && data.elementTarget); }
+  function runElement(data){ if (!valid(data)) return false; var sig = ''; try { sig = JSON.stringify(data); } catch(e){ sig = String(Date.now()); } if (sig === recent.sig && Date.now() - recent.time < 480) return false; recent = { sig: sig, time: Date.now() }; window.setTimeout(function(){ scrollElement(data.elementTarget); }, (data.pageEnabled || data.scrollEnabled) ? 120 : 0); return true; }
+  var oldRunExport = window.runExportOptionActionData;
+  if (typeof oldRunExport === 'function' && !oldRunExport.__v157Wrapped) {
+    var wrapped = function(data){ var result = oldRunExport(data); runElement(data); return result || valid(data); };
+    wrapped.__v157Wrapped = true;
+    window.runExportOptionActionData = wrapped;
+    try { runExportOptionActionData = wrapped; } catch(e) {}
+  }
+  document.addEventListener('click', function(event){
+    var option = event.target.closest && event.target.closest('.nav-dropdown-option');
+    if (!option) return;
+    var root = option.closest('.nav-dropdown');
+    if (!root) return;
+    var actions = readJSON(root, 'data-option-actions', {});
+    var data = actions[String(option.getAttribute('data-option-index') || '0')];
+    if (valid(data)) runElement(data);
+  }, true);
+  document.addEventListener('change', function(event){
+    var select = event.target.closest && event.target.closest('.editable-select');
+    if (!select) return;
+    var actions = readJSON(select, 'data-option-actions', {});
+    var data = actions[String(select.selectedIndex || 0)];
+    if (valid(data)) runElement(data);
+  }, true);
+})();
+`;
+    buildExportJS = function(exportPagesJSON, currentPageIdJSON) {
+      return originalBuildExportJSV157(exportPagesJSON, currentPageIdJSON) + exportRuntimeV157;
+    };
+    window.buildExportJS = buildExportJS;
+  }
+
+  refreshSelectOptionElementTargetOptions();
+})();
+
+
+/* v158：預覽/匯出防閃白、降低動畫重複初始化、匯出不產生 pages 資料夾 */
+(function installIndexOnlyNoFlashExportV158(){
+  if (window.__indexOnlyNoFlashExportV158) return;
+  window.__indexOnlyNoFlashExportV158 = true;
+
+  const NO_FLASH_CSS_V158 = `
+/* v158：預覽 / 匯出先套背景色，避免白屏閃爍 */
+html.v158-preview-prepaint,
+html.v158-preview-prepaint body,
+body.preview-mode,
+body.exported-site {
+  overflow-x: hidden !important;
+}
+
+body.preview-mode,
+body.preview-mode .editor-layout,
+body.preview-mode .canvas-area,
+body.exported-site,
+body.exported-site.preview-mode {
+  background: var(--site-page-bg-v153, var(--site-page-bg-color-v154, #ffffff)) !important;
+  background-color: var(--site-page-bg-v153, var(--site-page-bg-color-v154, #ffffff)) !important;
+}
+
+body.preview-mode .site-background-layer-v153,
+body.exported-site .site-background-layer-v153,
+body.exported-site .export-site-background-v153 {
+  background: var(--site-page-bg-v153, var(--site-page-bg-color-v154, #ffffff));
+  backface-visibility: hidden;
+  contain: paint;
+}
+
+body.preview-mode .site-page,
+body.exported-site .site-page,
+body.exported-site.preview-mode .site-page {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* 預覽與匯出不顯示編輯外框，減少第一次切換重繪 */
+body.preview-mode .free-element,
+body.exported-site .free-element {
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+/* 匯出初始幀先固定在動畫起點，JS 下一幀才播放 */
+body.exported-site.v158-animation-priming [data-slide-animation="true"],
+body.preview-mode.v158-animation-priming [data-slide-animation="true"] {
+  opacity: 0 !important;
+  transform: translate(var(--base-slide-initial-x, 0px), var(--base-slide-initial-y, 40px)) !important;
+  transition: none !important;
+}
+`;
+
+  function injectNoFlashCSSV158(){
+    if (document.getElementById('noFlashPreviewExportCSSV158')) return;
+    const style = document.createElement('style');
+    style.id = 'noFlashPreviewExportCSSV158';
+    style.textContent = NO_FLASH_CSS_V158;
+    document.head.appendChild(style);
+  }
+
+  function escapeHtmlV158(value){
+    return String(value ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  }
+
+  function escapeStyleV158(value){
+    return String(value || '#ffffff').replace(/["<>]/g, '').replace(/&/g, '&amp;');
+  }
+
+  function normalizeBgV158(bg){
+    const value = String(bg || '').trim();
+    return value && value !== 'transparent' && value !== 'rgba(0, 0, 0, 0)' ? value : '#ffffff';
+  }
+
+  function getCurrentBgV158(){
+    const picker = document.getElementById('pageBgColor');
+    const page = document.getElementById('sitePage');
+    return normalizeBgV158(
+      picker?.value ||
+      page?.dataset?.pageBackgroundV154 ||
+      page?.style?.getPropertyValue('--site-page-bg-v153') ||
+      page?.style?.background ||
+      page?.style?.backgroundColor ||
+      '#ffffff'
+    );
+  }
+
+  function applyBgVarsV158(bg){
+    const safeBg = normalizeBgV158(bg || getCurrentBgV158());
+    const page = document.getElementById('sitePage');
+    const canvas = document.getElementById('canvasArea') || document.querySelector('.canvas-area');
+    document.documentElement.style.setProperty('--site-page-bg-v153', safeBg);
+    document.documentElement.style.setProperty('--site-page-bg-color-v154', safeBg);
+    document.body.style.setProperty('--site-page-bg-v153', safeBg);
+    document.body.style.setProperty('--site-page-bg-color-v154', safeBg);
+    if (canvas) {
+      canvas.style.setProperty('--site-page-bg-v153', safeBg);
+      canvas.style.setProperty('--site-page-bg-color-v154', safeBg);
+    }
+    if (page) {
+      page.dataset.pageBackgroundV154 = safeBg;
+      page.style.setProperty('--site-page-bg-v153', safeBg);
+      page.style.setProperty('--site-page-bg-color-v154', safeBg);
+      if (!document.body.classList.contains('preview-mode')) {
+        page.style.background = safeBg;
+      }
+    }
+    const layer = document.getElementById('siteBackgroundLayerV153') || document.querySelector('.site-background-layer-v153');
+    if (layer) {
+      layer.style.background = safeBg;
+      layer.style.backgroundSize = 'cover';
+      layer.style.backgroundPosition = 'center center';
+      layer.style.backgroundRepeat = 'no-repeat';
+    }
+    return safeBg;
+  }
+
+  function normalizeAnimationElementV158(el){
+    if (!el || el.getAttribute('data-slide-animation') !== 'true') return;
+    const num = (value, fallback) => Number.isFinite(parseFloat(value)) ? parseFloat(value) : fallback;
+    const direction = el.getAttribute('data-slide-direction') || el.dataset.slideDirection || 'up';
+    const distance = num(el.getAttribute('data-slide-distance') || el.dataset.slideDistance || '40', 40);
+    const duration = Math.max(100, Math.min(5000, num(el.getAttribute('data-slide-duration') || el.dataset.slideDuration || '600', 600)));
+    const preset = direction === 'down' ? {x:0,y:-distance} : direction === 'left' ? {x:distance,y:0} : direction === 'right' ? {x:-distance,y:0} : {x:0,y:distance};
+    const initialX = num(el.getAttribute('data-slide-initial-x') || el.dataset.slideInitialX, preset.x);
+    const initialY = num(el.getAttribute('data-slide-initial-y') || el.dataset.slideInitialY, preset.y);
+    const finalX = num(el.getAttribute('data-slide-final-x') || el.dataset.slideFinalX, 0);
+    const finalY = num(el.getAttribute('data-slide-final-y') || el.dataset.slideFinalY, 0);
+    el.setAttribute('data-slide-direction', direction);
+    el.setAttribute('data-slide-distance', String(distance));
+    el.setAttribute('data-slide-duration', String(duration));
+    el.setAttribute('data-slide-initial-x', String(initialX));
+    el.setAttribute('data-slide-initial-y', String(initialY));
+    el.setAttribute('data-slide-final-x', String(finalX));
+    el.setAttribute('data-slide-final-y', String(finalY));
+    el.style.setProperty('--base-slide-duration', duration + 'ms');
+    el.style.setProperty('--base-slide-initial-x', initialX + 'px');
+    el.style.setProperty('--base-slide-initial-y', initialY + 'px');
+    el.style.setProperty('--base-slide-final-x', finalX + 'px');
+    el.style.setProperty('--base-slide-final-y', finalY + 'px');
+  }
+
+  let restartTimerV158 = null;
+  function restartBaseAnimationsV158(root, delay = 60){
+    const scope = root || document.getElementById('sitePage') || document;
+    const targets = Array.from(scope.querySelectorAll('[data-slide-animation="true"]'));
+    window.clearTimeout(restartTimerV158);
+    if (!targets.length) return;
+
+    document.body.classList.add('v158-animation-priming');
+    targets.forEach(el => {
+      normalizeAnimationElementV158(el);
+      el.classList.remove('animate-in');
+    });
+    if (targets[0]) void targets[0].offsetWidth;
+
+    restartTimerV158 = window.setTimeout(() => {
+      document.body.classList.remove('v158-animation-priming');
+      if (targets[0]) void targets[0].offsetWidth;
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          targets.forEach((el, index) => {
+            const n = parseFloat(el.getAttribute('data-slide-delay') || el.getAttribute('data-animation-delay') || '0');
+            const customDelay = Number.isFinite(n) ? Math.max(0, n) : 0;
+            window.setTimeout(() => el.classList.add('animate-in'), customDelay + index * 18);
+          });
+        });
+      });
+    }, delay);
+  }
+
+  function preparePreviewNoFlashV158(){
+    injectNoFlashCSSV158();
+    const bg = applyBgVarsV158();
+    document.documentElement.classList.add('v158-preview-prepaint');
+    document.body.style.setProperty('--site-page-bg-v153', bg);
+    document.body.style.setProperty('--site-page-bg-color-v154', bg);
+    document.body.classList.add('v158-animation-priming');
+    window.setTimeout(() => document.documentElement.classList.remove('v158-preview-prepaint'), 360);
+  }
+
+  function finishPreviewNoFlashV158(){
+    applyBgVarsV158();
+    restartBaseAnimationsV158(document.getElementById('sitePage') || document, 80);
+    window.setTimeout(() => restartBaseAnimationsV158(document.getElementById('sitePage') || document, 80), 260);
+  }
+
+  injectNoFlashCSSV158();
+  applyBgVarsV158();
+
+  document.getElementById('pageBgColor')?.addEventListener('input', e => applyBgVarsV158(e.target.value), true);
+  document.getElementById('pageBgColor')?.addEventListener('change', e => applyBgVarsV158(e.target.value), true);
+
+  const previewBtn = document.getElementById('previewBtn');
+  if (previewBtn && !previewBtn.dataset.v158NoFlashBound) {
+    previewBtn.dataset.v158NoFlashBound = 'true';
+    previewBtn.addEventListener('click', preparePreviewNoFlashV158, true);
+    previewBtn.addEventListener('click', () => {
+      window.requestAnimationFrame(() => {
+        finishPreviewNoFlashV158();
+        window.setTimeout(finishPreviewNoFlashV158, 140);
+      });
+    });
+  }
+
+  document.getElementById('exitPreviewBtn')?.addEventListener('click', () => {
+    document.body.classList.remove('v158-animation-priming');
+    window.clearTimeout(restartTimerV158);
+    window.setTimeout(() => applyBgVarsV158(), 0);
+  }, true);
+
+  document.getElementById('floatingExitPreviewBtn')?.addEventListener('click', () => {
+    document.getElementById('exitPreviewBtn')?.click();
+  }, true);
+
+  if (typeof buildExportCSS === 'function' && !window.__buildExportCSSNoFlashWrappedV158) {
+    window.__buildExportCSSNoFlashWrappedV158 = true;
+    const previousBuildExportCSSV158 = buildExportCSS;
+    buildExportCSS = function(){
+      return previousBuildExportCSSV158.apply(this, arguments) + '\n' + NO_FLASH_CSS_V158 + '\n';
+    };
+    window.buildExportCSS = buildExportCSS;
+  }
+
+  if (typeof buildExportHTML === 'function' && !window.__buildExportHTMLNoFlashWrappedV158) {
+    window.__buildExportHTMLNoFlashWrappedV158 = true;
+    const previousBuildExportHTMLV158 = buildExportHTML;
+    buildExportHTML = function(bodyHTML, pageBg, inlineJS, assetPrefix, pageId, mode){
+      const safeBg = escapeStyleV158(normalizeBgV158(pageBg));
+      let html = previousBuildExportHTMLV158.apply(this, arguments);
+      const critical = `<style id="critical-no-flash-v158">
+html,body{margin:0;width:100%;min-width:100%;min-height:100%;overflow-x:hidden;background:${safeBg}!important;background-color:${safeBg}!important;}
+body.exported-site{background:${safeBg}!important;background-color:${safeBg}!important;}
+.site-background-layer-v153,.export-site-background-v153{position:fixed;inset:-2vmax;width:calc(100vw + 4vmax);height:calc(100dvh + 4vmax);min-height:calc(100vh + 4vmax);background:${safeBg};background-size:cover;background-position:center center;background-repeat:no-repeat;transform:scale(1.02);transform-origin:center center;pointer-events:none;z-index:0;contain:paint;}
+#sitePage.site-page{position:relative;z-index:1;min-height:100vh;margin:0;background:transparent!important;box-shadow:none!important;}
+body.v158-animation-priming [data-slide-animation="true"]{opacity:0!important;transform:translate(var(--base-slide-initial-x,0px),var(--base-slide-initial-y,40px))!important;transition:none!important;}
+</style>`;
+      html = html.replace('</head>', critical + '\n</head>');
+      html = html.replace(/<body([^>]*)>/i, function(match, attrs){
+        if (/style\s*=/.test(attrs)) {
+          return '<body' + attrs.replace(/style="([^"]*)"/i, 'style="$1; --site-page-bg-v153: ' + safeBg + '; --site-page-bg-color-v154: ' + safeBg + '; background: ' + safeBg + ' !important;"') + '>';
+        }
+        return '<body' + attrs + ' style="--site-page-bg-v153: ' + safeBg + '; --site-page-bg-color-v154: ' + safeBg + '; background: ' + safeBg + ' !important;">';
+      });
+      html = html.replace(/<div id="sitePage" class="site-page" style="([^"]*)"/i, function(match, styleText){
+        let merged = styleText;
+        if (!/--site-page-bg-v153/.test(merged)) merged += '; --site-page-bg-v153: ' + safeBg;
+        if (!/--site-page-bg-color-v154/.test(merged)) merged += '; --site-page-bg-color-v154: ' + safeBg;
+        return '<div id="sitePage" class="site-page" style="' + merged + '"';
+      });
+      return html;
+    };
+    window.buildExportHTML = buildExportHTML;
+  }
+
+  if (typeof buildExportJS === 'function' && !window.__buildExportJSNoFlashWrappedV158) {
+    window.__buildExportJSNoFlashWrappedV158 = true;
+    const previousBuildExportJSV158 = buildExportJS;
+    const exportRuntimeV158 = `
+
+/* v158：匯出網站防閃白、單 index 切頁、動畫穩定播放 */
+(function initNoFlashIndexOnlyRuntimeV158(){
+  if (window.__noFlashIndexOnlyRuntimeV158) return;
+  window.__noFlashIndexOnlyRuntimeV158 = true;
+  var timer = null;
+  function qs(sel, root){ return (root || document).querySelector(sel); }
+  function qsa(sel, root){ return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+  function bgFor(pageId){ var id = pageId || window.EXPORT_CURRENT_PAGE_ID || (typeof CURRENT_PAGE_ID !== 'undefined' ? CURRENT_PAGE_ID : 'home'); var page = (typeof EXPORT_PAGES !== 'undefined' && EXPORT_PAGES) ? EXPORT_PAGES[id] : null; return (page && page.bg) || (qs('#sitePage') && (qs('#sitePage').style.getPropertyValue('--site-page-bg-v153') || qs('#sitePage').style.background)) || '#ffffff'; }
+  function applyBg(bg){ var safe = bg || bgFor(); document.documentElement.style.setProperty('--site-page-bg-v153', safe); document.documentElement.style.setProperty('--site-page-bg-color-v154', safe); document.body.style.setProperty('--site-page-bg-v153', safe); document.body.style.setProperty('--site-page-bg-color-v154', safe); document.body.style.background = safe; document.body.classList.add('exported-site','preview-mode'); var layer = qs('.site-background-layer-v153') || qs('.export-site-background-v153'); if (layer) { layer.style.background = safe; layer.style.backgroundSize = 'cover'; layer.style.backgroundPosition = 'center center'; layer.style.backgroundRepeat = 'no-repeat'; } var page = qs('#sitePage'); if (page) { page.style.setProperty('--site-page-bg-v153', safe); page.style.setProperty('--site-page-bg-color-v154', safe); } }
+  function n(value, fallback){ var parsed = parseFloat(value); return isFinite(parsed) ? parsed : fallback; }
+  function normalize(el){ if (!el || el.getAttribute('data-slide-animation') !== 'true') return; var direction = el.getAttribute('data-slide-direction') || 'up'; var distance = n(el.getAttribute('data-slide-distance') || '40', 40); var duration = Math.max(100, Math.min(5000, n(el.getAttribute('data-slide-duration') || '600', 600))); var preset = direction === 'down' ? {x:0,y:-distance} : direction === 'left' ? {x:distance,y:0} : direction === 'right' ? {x:-distance,y:0} : {x:0,y:distance}; var ix = n(el.getAttribute('data-slide-initial-x'), preset.x); var iy = n(el.getAttribute('data-slide-initial-y'), preset.y); var fx = n(el.getAttribute('data-slide-final-x'), 0); var fy = n(el.getAttribute('data-slide-final-y'), 0); el.style.setProperty('--base-slide-duration', duration + 'ms'); el.style.setProperty('--base-slide-initial-x', ix + 'px'); el.style.setProperty('--base-slide-initial-y', iy + 'px'); el.style.setProperty('--base-slide-final-x', fx + 'px'); el.style.setProperty('--base-slide-final-y', fy + 'px'); }
+  function play(root){ var scope = root || qs('#sitePage') || document; var targets = qsa('[data-slide-animation="true"]', scope); clearTimeout(timer); if (!targets.length) return; document.body.classList.add('v158-animation-priming'); targets.forEach(function(el){ normalize(el); el.classList.remove('animate-in'); }); if (targets[0]) void targets[0].offsetWidth; timer = setTimeout(function(){ document.body.classList.remove('v158-animation-priming'); if (targets[0]) void targets[0].offsetWidth; requestAnimationFrame(function(){ requestAnimationFrame(function(){ targets.forEach(function(el, i){ var delay = Math.max(0, n(el.getAttribute('data-slide-delay') || el.getAttribute('data-animation-delay') || '0', 0)); setTimeout(function(){ el.classList.add('animate-in'); }, delay + i * 18); }); }); }); }, 90); }
+  function run(pageId){ applyBg(bgFor(pageId)); play(qs('#sitePage') || document); }
+  var oldRender = (typeof renderExportPage === 'function') ? renderExportPage : null;
+  if (oldRender && !oldRender.__v158Wrapped) {
+    var wrappedRender = function(pageId, callback){ var result = oldRender.call(this, pageId, function(){ applyBg(bgFor(pageId)); play(qs('#sitePage') || document); if (typeof callback === 'function') callback(); }); setTimeout(function(){ run(pageId); }, 80); return result; };
+    wrappedRender.__v158Wrapped = true;
+    window.renderExportPage = wrappedRender;
+    try { renderExportPage = wrappedRender; } catch(e) {}
+  }
+  var oldInit = (typeof initExportRuntime === 'function') ? initExportRuntime : null;
+  if (oldInit && !oldInit.__v158Wrapped) {
+    var wrappedInit = function(){ var result = oldInit.apply(this, arguments); applyBg(bgFor()); setTimeout(function(){ play(qs('#sitePage') || document); }, 80); return result; };
+    wrappedInit.__v158Wrapped = true;
+    window.initExportRuntime = wrappedInit;
+    try { initExportRuntime = wrappedInit; } catch(e) {}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ run(); }); else run();
+  window.addEventListener('load', function(){ run(); });
+})();
+`;
+    buildExportJS = function(exportPagesJSON, currentPageIdJSON){
+      return previousBuildExportJSV158(exportPagesJSON, currentPageIdJSON) + exportRuntimeV158;
+    };
+    window.buildExportJS = buildExportJS;
+  }
+
+  function buildExportPayloadPagesV158(selectedModes){
+    const modeExportPages = {};
+    selectedModes.forEach(mode => {
+      modeExportPages[mode] = {};
+      Object.entries(pages).forEach(([id, page]) => {
+        normalizeResponsivePage(page);
+        const modeData = page.responsive?.[mode] || page.responsive?.desktop || { html: page.html, bg: page.bg || '#ffffff' };
+        modeExportPages[mode][id] = {
+          name: page.name,
+          bg: normalizeBgV158(modeData.bg || '#ffffff'),
+          html: cleanHTMLForExport(modeData.html)
+        };
+      });
+    });
+    return modeExportPages;
+  }
+
+  async function exportIndexOnlyHTMLV158(){
+    captureCurrentPage();
+    normalizeAllResponsivePages();
+
+    const selectedModes = getExportModeSelection();
+    if (!selectedModes) return;
+
+    const modeExportPages = buildExportPayloadPagesV158(selectedModes);
+    const primaryMode = selectedModes.includes('desktop') ? 'desktop' : selectedModes[0];
+    const primaryPages = modeExportPages[primaryMode] || {};
+    const currentExportPage = primaryPages[currentPageId] || primaryPages.home || Object.values(primaryPages)[0];
+    const bodyHTML = currentExportPage ? currentExportPage.html : cleanForExport();
+    const pageBg = normalizeBgV158(currentExportPage ? currentExportPage.bg : (sitePage.style.background || '#ffffff'));
+    const exportPagesJSON = JSON.stringify(primaryPages).replace(/<\/script/gi, '<\\/script');
+    const indexJS = buildExportJS(exportPagesJSON, JSON.stringify(currentPageId)).replace(/<\/script/gi, '<\\/script');
+    const cssCode = buildExportCSS();
+
+    if (typeof JSZip === 'undefined') {
+      alert('匯出 ZIP 需要 JSZip，請確認網路可載入 JSZip CDN。');
+      return;
+    }
+
+    const zip = new JSZip();
+    zip.file('index.html', buildExportHTML(bodyHTML, pageBg, indexJS, './', currentPageId, primaryMode));
+    zip.folder('css').file('style.css', cssCode);
+    zip.file('README.txt', [
+      '自訂網站匯出檔案 v158',
+      '',
+      '請先解壓縮整個 ZIP，再開啟 index.html。',
+      '所有子頁面都已內嵌在 index.html 的資料中，不會產生 pages 資料夾。',
+      '點擊導覽或下拉選項切換頁面時，會在同一個 index.html 內更新內容。',
+      '開啟時會先套用設定背景色，避免白屏閃爍，並保留基礎動畫。',
+      '',
+      '頁面列表：',
+      ...Object.entries(primaryPages).map(([id, page]) => '- ' + id + '：' + page.name)
+    ].join('\n'));
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'custom-website-index-only-v158.zip';
+    document.body.appendChild(a);
+    a.click();
+    window.setTimeout(() => {
+      URL.revokeObjectURL(url);
+      a.remove();
+    }, 0);
+  }
+
+  window.exportIndexOnlyHTMLV158 = exportIndexOnlyHTMLV158;
+  try { exportHTML = exportIndexOnlyHTMLV158; } catch(error) {}
+
+  const exportBtn = document.getElementById('exportBtn');
+  if (exportBtn && !exportBtn.dataset.v158IndexOnlyExportBound) {
+    exportBtn.dataset.v158IndexOnlyExportBound = 'true';
+    exportBtn.addEventListener('click', function(event){
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      exportIndexOnlyHTMLV158();
+    }, true);
+  }
+
+  const title = document.querySelector('.editor-title');
+  if (title) title.innerHTML = '<i class="bi bi-bounding-box-circles me-1"></i> 自訂網站編輯器 V158 <span class="low-spec-badge">低效能模式</span>';
+  document.title = '自訂網站編輯器 V158';
+
+  window.restartBaseAnimationsV158 = restartBaseAnimationsV158;
+  window.applyNoFlashBackgroundV158 = applyBgVarsV158;
+})();
+
+
+/* v159：根目錄多分頁匯出 + 滑到區塊重播動畫 + 形狀匯出保護 */
+(function patchRootPageExportScrollReplayShapesV159(){
+  if (window.__patchRootPageExportScrollReplayShapesV159) return;
+  window.__patchRootPageExportScrollReplayShapesV159 = true;
+
+  const VERSION_LABEL_V159 = 'V159';
+  const CSS_V159 = `
+/* v159：匯出根目錄分頁、形狀保護、滑到區塊重播動畫 */
+body.preview-mode [data-slide-animation="true"],
+body.exported-site [data-slide-animation="true"] { will-change: opacity, transform; }
+body.preview-mode .free-element[data-type="shape"],
+body.exported-site .free-element[data-type="shape"] { display:block!important; visibility:visible!important; opacity:var(--shape-element-opacity-v159,1); overflow:visible!important; }
+body.preview-mode .free-element[data-type="shape"] .inner,
+body.exported-site .free-element[data-type="shape"] .inner { position:relative!important; display:block!important; width:100%!important; height:100%!important; min-width:1px; min-height:1px; }
+body.preview-mode .free-element[data-type="shape"] .shape-fill,
+body.exported-site .free-element[data-type="shape"] .shape-fill { position:absolute!important; inset:0!important; display:block!important; width:100%!important; height:100%!important; min-width:1px; min-height:1px; border-radius:inherit; background:var(--shape-bg-v159,var(--shape-bg,rgba(13,110,253,1)))!important; pointer-events:none; }
+body.preview-mode .free-element[data-type="shape"][data-shape-type="circle"] .shape-fill,
+body.exported-site .free-element[data-type="shape"][data-shape-type="circle"] .shape-fill { border-radius:9999px!important; }
+`;
+
+  function injectCSSV159(){
+    if (document.getElementById('cssPatchV159RootPagesAnimationShapes')) return;
+    const style = document.createElement('style');
+    style.id = 'cssPatchV159RootPagesAnimationShapes';
+    style.textContent = CSS_V159;
+    document.head.appendChild(style);
+  }
+
+  function safePageFileNameV159(id){
+    const raw = String(id || 'page').trim() || 'page';
+    const safe = raw
+      .replace(/[\\/]+/g, '-')
+      .replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') || 'page';
+    return safe + '.html';
+  }
+
+  function normalizeBgV159(bg){
+    const value = String(bg || '').trim();
+    return value && value !== 'transparent' && value !== 'rgba(0, 0, 0, 0)' ? value : '#ffffff';
+  }
+
+  function escapeStyleV159(value){
+    return String(value || '#ffffff').replace(/["<>]/g, '').replace(/&/g, '&amp;');
+  }
+
+  function hexToRgbV159(hex){
+    const v = String(hex || '').trim();
+    const m3 = /^#([0-9a-f]{3})$/i.exec(v);
+    if (m3) {
+      return m3[1].split('').map(ch => parseInt(ch + ch, 16));
+    }
+    const m6 = /^#([0-9a-f]{6})$/i.exec(v);
+    if (m6) {
+      const n = parseInt(m6[1], 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+    return null;
+  }
+
+  function colorWithOpacityV159(color, opacityPercent){
+    const alpha = Math.max(0, Math.min(1, (parseFloat(opacityPercent) || 100) / 100));
+    const rgb = hexToRgbV159(color);
+    if (rgb) return 'rgba(' + rgb[0] + ', ' + rgb[1] + ', ' + rgb[2] + ', ' + alpha + ')';
+    const value = String(color || '').trim();
+    if (/^rgba?\(/i.test(value) || /gradient\(/i.test(value)) return value;
+    return value || 'rgba(13, 110, 253, ' + alpha + ')';
+  }
+
+  function ensureShapeExportSafeV159(root){
+    const scope = root || document;
+    Array.from(scope.querySelectorAll ? scope.querySelectorAll('.free-element[data-type="shape"]') : []).forEach(el => {
+      el.style.display = el.style.display || 'block';
+      el.style.visibility = el.style.visibility || 'visible';
+      el.style.overflow = el.style.overflow || 'visible';
+      const shapeType = el.getAttribute('data-shape-type') || el.dataset.shapeType || 'rect';
+      el.setAttribute('data-shape-type', shapeType);
+
+      let inner = el.querySelector(':scope > .inner');
+      if (!inner) {
+        inner = document.createElement('div');
+        inner.className = 'inner';
+        while (el.firstChild) inner.appendChild(el.firstChild);
+        el.appendChild(inner);
+      }
+
+      let fill = inner.querySelector('.shape-fill');
+      if (!fill) {
+        fill = document.createElement('div');
+        fill.className = 'shape-fill';
+        inner.insertBefore(fill, inner.firstChild);
+      }
+
+      fill.setAttribute('data-shape-type', shapeType);
+      const inlineBg = (fill.style.background && fill.style.background !== 'transparent')
+        ? fill.style.background
+        : (el.style.background && el.style.background !== 'transparent')
+          ? el.style.background
+          : '';
+      const shapeColor = el.getAttribute('data-shape-color') || el.dataset.shapeColor || '#0d6efd';
+      const shapeOpacity = el.getAttribute('data-shape-opacity') || el.dataset.shapeOpacity || '100';
+      const bg = inlineBg || colorWithOpacityV159(shapeColor, shapeOpacity);
+      el.style.setProperty('--shape-bg-v159', bg);
+      fill.style.setProperty('--shape-bg-v159', bg);
+      fill.style.position = fill.style.position || 'absolute';
+      fill.style.inset = fill.style.inset || '0';
+      fill.style.display = fill.style.display || 'block';
+      fill.style.width = fill.style.width || '100%';
+      fill.style.height = fill.style.height || '100%';
+      if (!fill.style.borderRadius) fill.style.borderRadius = 'inherit';
+      if (!fill.style.background || fill.style.background === 'transparent') fill.style.background = bg;
+      if (shapeType === 'circle') fill.style.borderRadius = '9999px';
+    });
+  }
+
+  function normalizeAnimationElementV159(el){
+    if (!el || el.getAttribute('data-slide-animation') !== 'true') return;
+    const n = (value, fallback) => Number.isFinite(parseFloat(value)) ? parseFloat(value) : fallback;
+    const direction = el.getAttribute('data-slide-direction') || el.dataset.slideDirection || 'up';
+    const distance = n(el.getAttribute('data-slide-distance') || el.dataset.slideDistance || '40', 40);
+    const duration = Math.max(100, Math.min(5000, n(el.getAttribute('data-slide-duration') || el.dataset.slideDuration || '600', 600)));
+    const preset = direction === 'down' ? {x:0,y:-distance} : direction === 'left' ? {x:distance,y:0} : direction === 'right' ? {x:-distance,y:0} : {x:0,y:distance};
+    const initialX = n(el.getAttribute('data-slide-initial-x') || el.dataset.slideInitialX, preset.x);
+    const initialY = n(el.getAttribute('data-slide-initial-y') || el.dataset.slideInitialY, preset.y);
+    const finalX = n(el.getAttribute('data-slide-final-x') || el.dataset.slideFinalX, 0);
+    const finalY = n(el.getAttribute('data-slide-final-y') || el.dataset.slideFinalY, 0);
+    el.setAttribute('data-slide-direction', direction);
+    el.setAttribute('data-slide-distance', String(distance));
+    el.setAttribute('data-slide-duration', String(duration));
+    el.setAttribute('data-slide-initial-x', String(initialX));
+    el.setAttribute('data-slide-initial-y', String(initialY));
+    el.setAttribute('data-slide-final-x', String(finalX));
+    el.setAttribute('data-slide-final-y', String(finalY));
+    el.style.setProperty('--base-slide-duration', duration + 'ms');
+    el.style.setProperty('--base-slide-initial-x', initialX + 'px');
+    el.style.setProperty('--base-slide-initial-y', initialY + 'px');
+    el.style.setProperty('--base-slide-final-x', finalX + 'px');
+    el.style.setProperty('--base-slide-final-y', finalY + 'px');
+  }
+
+  let observerV159 = null;
+  const timersV159 = new WeakMap();
+
+  function replayOneAnimationV159(el, staggerIndex = 0){
+    if (!el) return;
+    normalizeAnimationElementV159(el);
+    const oldTimer = timersV159.get(el);
+    if (oldTimer) window.clearTimeout(oldTimer);
+    el.classList.remove('animate-in');
+    // 強制套用初始狀態後再播放，避免看起來直接跳到終點。
+    void el.offsetWidth;
+    const delay = Math.max(0, parseFloat(el.getAttribute('data-slide-delay') || el.getAttribute('data-animation-delay') || '0') || 0);
+    const timer = window.setTimeout(() => {
+      window.requestAnimationFrame(() => el.classList.add('animate-in'));
+    }, delay + staggerIndex * 16);
+    timersV159.set(el, timer);
+  }
+
+  function initScrollReplayAnimationsV159(root){
+    const scope = root || document.getElementById('sitePage') || document;
+    const targets = Array.from(scope.querySelectorAll ? scope.querySelectorAll('[data-slide-animation="true"]') : []);
+    if (observerV159) {
+      observerV159.disconnect();
+      observerV159 = null;
+    }
+    if (!targets.length) return;
+
+    targets.forEach(el => {
+      normalizeAnimationElementV159(el);
+      el.classList.remove('animate-in');
+      el.dataset.v159InView = 'false';
+    });
+
+    if (!('IntersectionObserver' in window)) {
+      targets.forEach((el, index) => replayOneAnimationV159(el, index));
+      return;
+    }
+
+    observerV159 = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        const el = entry.target;
+        const isVisible = entry.isIntersecting && entry.intersectionRatio >= 0.15;
+        if (isVisible && el.dataset.v159InView !== 'true') {
+          el.dataset.v159InView = 'true';
+          replayOneAnimationV159(el, 0);
+        } else if (!isVisible && el.dataset.v159InView === 'true') {
+          el.dataset.v159InView = 'false';
+          const oldTimer = timersV159.get(el);
+          if (oldTimer) window.clearTimeout(oldTimer);
+          el.classList.remove('animate-in');
+        }
+      });
+    }, {
+      threshold: [0, 0.15, 0.35, 0.6],
+      rootMargin: '0px 0px -8% 0px'
+    });
+
+    targets.forEach(el => observerV159.observe(el));
+  }
+
+  function scheduleScrollReplayV159(root, delay = 160){
+    window.setTimeout(() => initScrollReplayAnimationsV159(root || document.getElementById('sitePage') || document), delay);
+  }
+
+  // 形狀匯出前先補齊 shape-fill，避免匯出後空白或被清理後看不到。
+  if (typeof cleanPageCloneForExport === 'function' && !window.__cleanPageCloneForExportShapesWrappedV159) {
+    window.__cleanPageCloneForExportShapesWrappedV159 = true;
+    const previousCleanPageCloneForExportV159 = cleanPageCloneForExport;
+    cleanPageCloneForExport = function(clone){
+      ensureShapeExportSafeV159(clone);
+      return previousCleanPageCloneForExportV159.call(this, clone);
+    };
+    window.cleanPageCloneForExport = cleanPageCloneForExport;
+  }
+
+  if (typeof buildExportCSS === 'function' && !window.__buildExportCSSWrappedV159) {
+    window.__buildExportCSSWrappedV159 = true;
+    const previousBuildExportCSSV159 = buildExportCSS;
+    buildExportCSS = function(){
+      return previousBuildExportCSSV159.apply(this, arguments) + '\n' + CSS_V159 + '\n';
+    };
+    window.buildExportCSS = buildExportCSS;
+  }
+
+  function makeExportRuntimeV159(pageFileMap){
+    const mapJSON = JSON.stringify(pageFileMap || {}).replace(/<\/script/gi, '<\\/script');
+    return `
+
+/* v159：根目錄 HTML 分頁 + 滑到區塊重新播放動畫 + 形狀保護 */
+(function exportRuntimeRootPagesScrollReplayShapesV159(){
+  if (window.__exportRuntimeRootPagesScrollReplayShapesV159) return;
+  window.__exportRuntimeRootPagesScrollReplayShapesV159 = true;
+  var PAGE_FILES_V159 = ${mapJSON};
+  var observer = null;
+  var timers = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
+  function qs(sel, root){ return (root || document).querySelector(sel); }
+  function qsa(sel, root){ return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+  function n(value, fallback){ var parsed = parseFloat(value); return isFinite(parsed) ? parsed : fallback; }
+  function encodeHash(id){ return encodeURIComponent(String(id || '')).replace(/%20/g, '+'); }
+  function currentFile(){ var path = String(window.location.pathname || 'index.html').split('/').pop() || 'index.html'; return path; }
+  function pageFile(pageId){ return PAGE_FILES_V159[String(pageId || '')] || (String(pageId || '') ? String(pageId).replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff]/g, '-') + '.html' : 'index.html'); }
+  function goPage(pageId, targetId){ var file = pageFile(pageId); var url = file + (targetId ? '#' + encodeHash(targetId) : ''); if (currentFile() === file) { if (targetId && typeof scrollToExportTarget === 'function') scrollToExportTarget(targetId); else window.scrollTo({top:0, behavior:'smooth'}); initAll(); return true; } window.location.href = url; return true; }
+  function normalize(el){ if (!el || el.getAttribute('data-slide-animation') !== 'true') return; var direction = el.getAttribute('data-slide-direction') || 'up'; var distance = n(el.getAttribute('data-slide-distance') || '40', 40); var duration = Math.max(100, Math.min(5000, n(el.getAttribute('data-slide-duration') || '600', 600))); var preset = direction === 'down' ? {x:0,y:-distance} : direction === 'left' ? {x:distance,y:0} : direction === 'right' ? {x:-distance,y:0} : {x:0,y:distance}; var ix = n(el.getAttribute('data-slide-initial-x'), preset.x); var iy = n(el.getAttribute('data-slide-initial-y'), preset.y); var fx = n(el.getAttribute('data-slide-final-x'), 0); var fy = n(el.getAttribute('data-slide-final-y'), 0); el.style.setProperty('--base-slide-duration', duration + 'ms'); el.style.setProperty('--base-slide-initial-x', ix + 'px'); el.style.setProperty('--base-slide-initial-y', iy + 'px'); el.style.setProperty('--base-slide-final-x', fx + 'px'); el.style.setProperty('--base-slide-final-y', fy + 'px'); }
+  function replay(el){ if (!el) return; normalize(el); if (timers) { var oldTimer = timers.get(el); if (oldTimer) clearTimeout(oldTimer); } el.classList.remove('animate-in'); void el.offsetWidth; var delay = Math.max(0, n(el.getAttribute('data-slide-delay') || el.getAttribute('data-animation-delay') || '0', 0)); var timer = setTimeout(function(){ requestAnimationFrame(function(){ el.classList.add('animate-in'); }); }, delay); if (timers) timers.set(el, timer); }
+  function initAnimations(root){ var scope = root || qs('#sitePage') || document; var targets = qsa('[data-slide-animation="true"]', scope); if (observer) observer.disconnect(); observer = null; if (!targets.length) return; targets.forEach(function(el){ normalize(el); el.classList.remove('animate-in'); el.setAttribute('data-v159-in-view', 'false'); }); if (!('IntersectionObserver' in window)) { targets.forEach(function(el){ replay(el); }); return; } observer = new IntersectionObserver(function(entries){ entries.forEach(function(entry){ var el = entry.target; var visible = entry.isIntersecting && entry.intersectionRatio >= 0.15; if (visible && el.getAttribute('data-v159-in-view') !== 'true') { el.setAttribute('data-v159-in-view', 'true'); replay(el); } else if (!visible && el.getAttribute('data-v159-in-view') === 'true') { el.setAttribute('data-v159-in-view', 'false'); if (timers) { var oldTimer = timers.get(el); if (oldTimer) clearTimeout(oldTimer); } el.classList.remove('animate-in'); } }); }, { threshold:[0,0.15,0.35,0.6], rootMargin:'0px 0px -8% 0px' }); targets.forEach(function(el){ observer.observe(el); }); }
+  function ensureShapes(root){ qsa('.free-element[data-type="shape"]', root || document).forEach(function(el){ var fill = qs('.shape-fill', el); var inner = qs('.inner', el); if (!inner) { inner = document.createElement('div'); inner.className = 'inner'; while (el.firstChild) inner.appendChild(el.firstChild); el.appendChild(inner); } if (!fill) { fill = document.createElement('div'); fill.className = 'shape-fill'; inner.insertBefore(fill, inner.firstChild); } var bg = el.style.getPropertyValue('--shape-bg-v159') || fill.style.background || el.style.background || 'rgba(13,110,253,1)'; el.style.setProperty('--shape-bg-v159', bg); fill.style.setProperty('--shape-bg-v159', bg); }); }
+  function initAll(){ ensureShapes(qs('#sitePage') || document); setTimeout(function(){ initAnimations(qs('#sitePage') || document); }, 180); }
+  var oldRender = (typeof renderExportPage === 'function') ? renderExportPage : null;
+  renderExportPage = function(pageId, callback){ goPage(pageId); return true; };
+  window.renderExportPage = renderExportPage;
+  handlePageAndScroll = function(el, event){ if (!el || el.getAttribute('data-css-function-enabled') !== 'true') return false; var hasPage = el.getAttribute('data-css-page-enabled') === 'true'; var hasScroll = el.getAttribute('data-css-scroll-enabled') === 'true'; if (!hasPage && !hasScroll) return false; if (event) { event.preventDefault(); event.stopPropagation(); } var pageId = el.getAttribute('data-css-page-target'); var targetId = el.getAttribute('data-css-scroll-target'); if (hasPage && pageId) return goPage(pageId, hasScroll ? targetId : ''); if (hasScroll && targetId && typeof scrollToExportTarget === 'function') { scrollToExportTarget(targetId); return true; } return false; };
+  window.handlePageAndScroll = handlePageAndScroll;
+  runExportOptionActionData = function(data){ if (!data) return false; if (data.functionEnabled) { if (data.pageEnabled && data.pageTarget) { return goPage(data.pageTarget, data.scrollEnabled ? data.scrollTarget : ''); } if (data.scrollEnabled && data.scrollTarget && typeof scrollToExportTarget === 'function') { scrollToExportTarget(data.scrollTarget); return true; } } if (data.linkEnabled && data.linkUrl) { if (data.linkUrl.charAt(0) === '#') { if (typeof scrollToExportTarget === 'function') scrollToExportTarget(data.linkUrl.slice(1)); } else { window.location.href = data.linkUrl; } return true; } return true; };
+  window.runExportOptionActionData = runExportOptionActionData;
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initAll); else initAll();
+  window.addEventListener('load', function(){ initAll(); if (window.location.hash && typeof scrollToExportTarget === 'function') { setTimeout(function(){ scrollToExportTarget(decodeURIComponent(window.location.hash.slice(1).replace(/\+/g, ' '))); }, 240); } });
+})();
+`;
+  }
+
+  function buildModeExportPagesV159(selectedModes){
+    const modeExportPages = {};
+    selectedModes.forEach(mode => {
+      modeExportPages[mode] = {};
+      Object.entries(pages).forEach(([id, page]) => {
+        normalizeResponsivePage(page);
+        const modeData = page.responsive?.[mode] || page.responsive?.desktop || { html: page.html, bg: page.bg || '#ffffff' };
+        modeExportPages[mode][id] = {
+          name: page.name,
+          bg: normalizeBgV159(modeData.bg || '#ffffff'),
+          html: cleanHTMLForExport(modeData.html)
+        };
+      });
+    });
+    return modeExportPages;
+  }
+
+  function buildRootPageFileMapV159(pageIds, indexPageId){
+    const used = new Set(['css', 'js', 'fonts', 'README', 'README.txt', 'page-manifest.json']);
+    const map = {};
+    pageIds.forEach(id => {
+      if (id === indexPageId) {
+        map[id] = 'index.html';
+        used.add('index.html');
+        return;
+      }
+      let file = safePageFileNameV159(id);
+      let base = file.replace(/\.html$/i, '') || 'page';
+      let i = 2;
+      while (used.has(file) || file === 'index.html') {
+        file = base + '-' + i + '.html';
+        i += 1;
+      }
+      used.add(file);
+      map[id] = file;
+    });
+    return map;
+  }
+
+  function buildPageJSV159(exportPages, pageId, pageFileMap){
+    const exportPagesJSON = JSON.stringify(exportPages).replace(/<\/script/gi, '<\\/script');
+    const baseJS = buildExportJS(exportPagesJSON, JSON.stringify(pageId)).replace(/<\/script/gi, '<\\/script');
+    return (baseJS + makeExportRuntimeV159(pageFileMap)).replace(/<\/script/gi, '<\\/script');
+  }
+
+  async function exportRootPagesHTMLV159(){
+    captureCurrentPage();
+    normalizeAllResponsivePages();
+
+    const selectedModes = getExportModeSelection();
+    if (!selectedModes) return;
+
+    const modeExportPages = buildModeExportPagesV159(selectedModes);
+    const primaryMode = selectedModes.includes('desktop') ? 'desktop' : selectedModes[0];
+    const primaryPages = modeExportPages[primaryMode] || {};
+    const pageIds = Object.keys(primaryPages);
+    if (!pageIds.length) {
+      alert('目前沒有可匯出的分頁。');
+      return;
+    }
+
+    const indexPageId = primaryPages.home ? 'home' : (primaryPages[currentPageId] ? currentPageId : pageIds[0]);
+    const pageFileMap = buildRootPageFileMapV159(pageIds, indexPageId);
+    const cssCode = buildExportCSS();
+
+    if (typeof JSZip === 'undefined') {
+      alert('匯出 ZIP 需要 JSZip，請確認網路可載入 JSZip CDN。');
+      return;
+    }
+
+    const zip = new JSZip();
+    const manifest = {
+      exportedModes: selectedModes,
+      primaryMode,
+      exportType: 'root-html-pages',
+      pages: {}
+    };
+
+    Object.entries(primaryPages).forEach(([id, page]) => {
+      const fileName = pageFileMap[id] || safePageFileNameV159(id);
+      const pageJS = buildPageJSV159(primaryPages, id, pageFileMap);
+      const pageBg = normalizeBgV159(page.bg || '#ffffff');
+      zip.file(fileName, buildExportHTML(page.html, pageBg, pageJS, './', id, primaryMode));
+      manifest.pages[id] = {
+        name: page.name,
+        file: fileName,
+        bg: pageBg
+      };
+    });
+
+    // 若 index.html 不是目前編輯分頁，仍以首頁/主要頁作為 index，其他頁在根目錄另外輸出。
+    zip.folder('css').file('style.css', cssCode);
+    zip.file('page-manifest.json', JSON.stringify(manifest, null, 2));
+    zip.file('README.txt', [
+      '自訂網站匯出檔案 v159',
+      '',
+      '請先解壓縮整個 ZIP，再開啟 index.html。',
+      '本版會另外產生 HTML 分頁，但全部放在 ZIP 根目錄，不會產生 pages 資料夾。',
+      '導覽列、下拉導覽與頁面跳轉會連到根目錄中的 HTML 檔。',
+      '基礎動畫改成滑到該區塊進入視窗時播放；離開視窗後再滑回會重新播放。',
+      '已補強形狀元件匯出，避免匯出後部分形狀看不到。',
+      '',
+      '頁面列表：',
+      ...Object.entries(primaryPages).map(([id, page]) => '- ' + (pageFileMap[id] || safePageFileNameV159(id)) + '：' + page.name)
+    ].join('\n'));
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'custom-website-root-pages-v159.zip';
+    document.body.appendChild(a);
+    a.click();
+    window.setTimeout(() => {
+      URL.revokeObjectURL(url);
+      a.remove();
+    }, 0);
+  }
+
+  function replaceExportButtonV159(){
+    const oldBtn = document.getElementById('exportBtn');
+    if (!oldBtn || oldBtn.dataset.v159RootPagesExportBound === 'true') return;
+    const newBtn = oldBtn.cloneNode(true);
+    newBtn.dataset.v159RootPagesExportBound = 'true';
+    newBtn.addEventListener('click', function(event){
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      exportRootPagesHTMLV159();
+    }, true);
+    oldBtn.replaceWith(newBtn);
+  }
+
+  injectCSSV159();
+  ensureShapeExportSafeV159(document);
+  window.exportRootPagesHTMLV159 = exportRootPagesHTMLV159;
+  try { exportHTML = exportRootPagesHTMLV159; } catch(error) {}
+  window.exportHTML = exportRootPagesHTMLV159;
+  replaceExportButtonV159();
+
+  // 預覽時也改成滑到區塊才跑動畫；避免一進預覽就全部跑完。
+  const previewBtn = document.getElementById('previewBtn');
+  if (previewBtn && !previewBtn.dataset.v159ScrollReplayBound) {
+    previewBtn.dataset.v159ScrollReplayBound = 'true';
+    previewBtn.addEventListener('click', () => {
+      scheduleScrollReplayV159(document.getElementById('sitePage') || document, 260);
+      scheduleScrollReplayV159(document.getElementById('sitePage') || document, 520);
+    });
+  }
+
+  const exitPreviewBtn = document.getElementById('exitPreviewBtn');
+  if (exitPreviewBtn && !exitPreviewBtn.dataset.v159ScrollReplayExitBound) {
+    exitPreviewBtn.dataset.v159ScrollReplayExitBound = 'true';
+    exitPreviewBtn.addEventListener('click', () => {
+      if (observerV159) observerV159.disconnect();
+      observerV159 = null;
+    });
+  }
+
+  // 若先前 v158 還會呼叫全頁重播，這裡覆蓋成「建立滑入觀察器」。
+  window.restartBaseAnimationsV158 = function(root){
+    scheduleScrollReplayV159(root || document.getElementById('sitePage') || document, 80);
+  };
+
+  window.initScrollReplayAnimationsV159 = initScrollReplayAnimationsV159;
+  window.ensureShapeExportSafeV159 = ensureShapeExportSafeV159;
+
+  window.addEventListener('load', () => {
+    injectCSSV159();
+    ensureShapeExportSafeV159(document);
+    replaceExportButtonV159();
+  });
+
+  const title = document.querySelector('.editor-title');
+  if (title) title.innerHTML = '<i class="bi bi-bounding-box-circles me-1"></i> 自訂網站編輯器 V159 <span class="low-spec-badge">根目錄分頁</span>';
+  document.title = '自訂網站編輯器 V159';
+})();
+
+
+/* v160：預覽 / 匯出顏色保留修正
+   目標：只修正顏色被預覽/匯出流程覆蓋的問題，不改元件內容與原本樣式。
+   - sitePage 不再於預覽/匯出被強制透明導致背景色看起來改變。
+   - 形狀保護只補顯示結構，不再強制套預設藍色或覆蓋原本材質/漸層。
+   - 根目錄分頁匯出維持，不產生 pages 資料夾。
+*/
+(function patchPreviewExportColorPreserveV160(){
+  if (window.__patchPreviewExportColorPreserveV160) return;
+  window.__patchPreviewExportColorPreserveV160 = true;
+
+  const VERSION_LABEL_V160 = 'V160';
+
+  const CSS_V160 = `
+/* v160：預覽 / 匯出顏色保留，不覆蓋原本設定 */
+body.preview-mode,
+body.preview-mode .editor-layout,
+body.preview-mode .canvas-area,
+body.exported-site,
+body.exported-site.preview-mode {
+  background: var(--site-page-bg-preserve-v160, var(--site-page-bg-v153, var(--site-page-bg-color-v154, #ffffff))) !important;
+  background-color: var(--site-page-bg-preserve-v160, var(--site-page-bg-v153, var(--site-page-bg-color-v154, #ffffff))) !important;
+}
+
+body.preview-mode .site-background-layer-v153,
+body.exported-site .site-background-layer-v153,
+body.exported-site .export-site-background-v153 {
+  background: var(--site-page-bg-preserve-v160, var(--site-page-bg-v153, var(--site-page-bg-color-v154, #ffffff))) !important;
+  background-size: cover !important;
+  background-position: center center !important;
+  background-repeat: no-repeat !important;
+}
+
+body.preview-mode #sitePage.site-page,
+body.preview-mode .site-page,
+body.exported-site #sitePage.site-page,
+body.exported-site .site-page,
+body.exported-site.preview-mode #sitePage.site-page {
+  background: var(--site-page-bg-preserve-v160, var(--site-page-bg-v153, var(--site-page-bg-color-v154, #ffffff))) !important;
+  background-color: var(--site-page-bg-color-preserve-v160, var(--site-page-bg-color-v154, var(--site-page-bg-v153, #ffffff))) !important;
+}
+
+/* 形狀：保留原本背景/漸層/透明度；這裡只補顯示，不再套預設顏色 */
+body.preview-mode .free-element[data-type="shape"],
+body.exported-site .free-element[data-type="shape"] {
+  display: block !important;
+  visibility: visible !important;
+  overflow: visible !important;
+}
+
+body.preview-mode .free-element[data-type="shape"] > .inner,
+body.exported-site .free-element[data-type="shape"] > .inner {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 1px !important;
+  min-height: 1px !important;
+}
+
+body.preview-mode .free-element[data-type="shape"] .shape-fill,
+body.exported-site .free-element[data-type="shape"] .shape-fill {
+  position: absolute !important;
+  inset: 0 !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 1px !important;
+  min-height: 1px !important;
+  border-radius: inherit;
+  background: var(--shape-bg-preserve-v160, var(--shape-bg-color, rgba(var(--shape-bg-rgb, 13, 110, 253), var(--shape-bg-alpha, 1)))) !important;
+  pointer-events: none !important;
+}
+
+body.preview-mode .free-element[data-type="shape"][data-shape-type="circle"] .shape-fill,
+body.exported-site .free-element[data-type="shape"][data-shape-type="circle"] .shape-fill {
+  border-radius: 9999px !important;
+}
+
+/* 材質樣式保留：避免 v159 的 shape-bg 變數覆蓋材質原色 */
+body.preview-mode .free-element[data-type="shape"][data-shape-material="frosted"] .shape-fill,
+body.exported-site .free-element[data-type="shape"][data-shape-material="frosted"] .shape-fill {
+  background: rgba(255,255,255,.28) !important;
+  border: 1px solid rgba(255,255,255,.45) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.38), 0 12px 28px rgba(15,23,42,.14) !important;
+  backdrop-filter: blur(12px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(130%) !important;
+}
+
+body.preview-mode .free-element[data-type="shape"][data-shape-material="glass"] .shape-fill,
+body.exported-site .free-element[data-type="shape"][data-shape-material="glass"] .shape-fill {
+  background: linear-gradient(135deg, rgba(255,255,255,.58), rgba(255,255,255,.16)) !important;
+  border: 1px solid rgba(255,255,255,.68) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.75), 0 18px 40px rgba(15,23,42,.18) !important;
+  backdrop-filter: blur(8px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(150%) !important;
+}
+
+body.preview-mode .free-element[data-type="shape"][data-shape-material="dark-matte"] .shape-fill,
+body.exported-site .free-element[data-type="shape"][data-shape-material="dark-matte"] .shape-fill {
+  background: var(--shape-bg-preserve-v160, var(--shape-bg-color, rgba(var(--shape-bg-rgb, 45,45,45), var(--shape-bg-alpha, 1)))) !important;
+  overflow: hidden !important;
+}
+`;
+
+  function injectCSSV160(){
+    let style = document.getElementById('cssPatchV160PreviewExportColorPreserve');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'cssPatchV160PreviewExportColorPreserve';
+      document.head.appendChild(style);
+    }
+    style.textContent = CSS_V160;
+  }
+
+  function isTransparentBgV160(value){
+    const v = String(value || '').trim().toLowerCase().replace(/\s+/g, '');
+    return !v || v === 'transparent' || v === 'rgba(0,0,0,0)' || v === 'rgba(255,255,255,0)';
+  }
+
+  function preserveBgV160(value, fallback = '#ffffff'){
+    const v = String(value || '').trim();
+    return isTransparentBgV160(v) ? fallback : v;
+  }
+
+  function backgroundColorPartV160(bg){
+    const value = String(bg || '').trim();
+    if (/gradient\(/i.test(value)) return 'transparent';
+    return value || '#ffffff';
+  }
+
+  function escapeStyleV160(value){
+    return String(value || '#ffffff').replace(/["<>]/g, '').replace(/&/g, '&amp;');
+  }
+
+  function hexToRgbaV160(hex, opacityPercent){
+    const raw = String(hex || '').trim();
+    const alpha = Math.max(0, Math.min(1, (parseFloat(opacityPercent) || 100) / 100));
+    const short = /^#([0-9a-f]{3})$/i.exec(raw);
+    const full = /^#([0-9a-f]{6})$/i.exec(raw);
+    let r, g, b;
+    if (short) {
+      r = parseInt(short[1][0] + short[1][0], 16);
+      g = parseInt(short[1][1] + short[1][1], 16);
+      b = parseInt(short[1][2] + short[1][2], 16);
+      return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+    }
+    if (full) {
+      const n = parseInt(full[1], 16);
+      r = (n >> 16) & 255; g = (n >> 8) & 255; b = n & 255;
+      return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+    }
+    if (/^rgba?\(/i.test(raw) || /gradient\(/i.test(raw)) return raw;
+    return raw || 'rgba(13, 110, 253, ' + alpha + ')';
+  }
+
+  function bestShapeBgV160(el, fill){
+    const candidates = [
+      fill && fill.style && fill.style.background,
+      el && el.style && el.style.background,
+      fill && fill.style && fill.style.backgroundColor,
+      el && el.style && el.style.backgroundColor
+    ];
+    for (const candidate of candidates) {
+      const v = String(candidate || '').trim();
+      if (!isTransparentBgV160(v)) return v;
+    }
+    const color = el?.getAttribute?.('data-shape-color') || el?.dataset?.shapeColor;
+    const opacity = el?.getAttribute?.('data-shape-opacity') || el?.dataset?.shapeOpacity || '100';
+    if (color) return hexToRgbaV160(color, opacity);
+    return '';
+  }
+
+  function preserveShapeVisualsV160(root){
+    const scope = root || document;
+    const shapes = Array.from(scope.querySelectorAll ? scope.querySelectorAll('.free-element[data-type="shape"]') : []);
+    shapes.forEach(el => {
+      const shapeType = el.getAttribute('data-shape-type') || el.dataset.shapeType || 'rect';
+      el.setAttribute('data-shape-type', shapeType);
+      el.style.display = el.style.display || 'block';
+      el.style.visibility = el.style.visibility || 'visible';
+      el.style.overflow = el.style.overflow || 'visible';
+
+      let inner = el.querySelector(':scope > .inner');
+      if (!inner) {
+        inner = document.createElement('div');
+        inner.className = 'inner';
+        while (el.firstChild) inner.appendChild(el.firstChild);
+        el.appendChild(inner);
+      }
+
+      let fill = inner.querySelector('.shape-fill');
+      if (!fill) {
+        fill = document.createElement('div');
+        fill.className = 'shape-fill';
+        inner.insertBefore(fill, inner.firstChild);
+      }
+      fill.setAttribute('data-shape-type', shapeType);
+
+      const material = el.getAttribute('data-shape-material') || el.dataset.shapeMaterial || 'none';
+      if (material !== 'frosted' && material !== 'glass') {
+        const bg = bestShapeBgV160(el, fill);
+        if (bg) {
+          el.style.setProperty('--shape-bg-preserve-v160', bg);
+          fill.style.setProperty('--shape-bg-preserve-v160', bg);
+          // 不主動覆蓋已存在的 inline background；只在完全沒有背景時補，避免形狀消失。
+          if (isTransparentBgV160(fill.style.background)) fill.style.background = bg;
+        }
+      }
+    });
+  }
+
+  function getCurrentPageBgV160(){
+    const page = document.getElementById('sitePage');
+    const fromPages = (typeof pages !== 'undefined' && typeof currentPageId !== 'undefined' && pages[currentPageId])
+      ? (pages[currentPageId].bg || pages[currentPageId].responsive?.[window.currentResponsiveMode || 'desktop']?.bg || '')
+      : '';
+    return preserveBgV160(
+      page?.style?.background ||
+      page?.dataset?.pageBackgroundV154 ||
+      page?.style?.getPropertyValue('--site-page-bg-v153') ||
+      fromPages ||
+      document.getElementById('pageBgColor')?.value ||
+      '#ffffff'
+    );
+  }
+
+  function applyPageBgPreserveV160(bg){
+    const safe = preserveBgV160(bg || getCurrentPageBgV160());
+    const colorPart = backgroundColorPartV160(safe);
+    const page = document.getElementById('sitePage');
+    const canvas = document.getElementById('canvasArea') || document.querySelector('.canvas-area');
+    document.documentElement.style.setProperty('--site-page-bg-preserve-v160', safe);
+    document.documentElement.style.setProperty('--site-page-bg-v153', safe);
+    document.documentElement.style.setProperty('--site-page-bg-color-v154', colorPart);
+    document.documentElement.style.setProperty('--site-page-bg-color-preserve-v160', colorPart);
+    document.body.style.setProperty('--site-page-bg-preserve-v160', safe);
+    document.body.style.setProperty('--site-page-bg-v153', safe);
+    document.body.style.setProperty('--site-page-bg-color-v154', colorPart);
+    document.body.style.setProperty('--site-page-bg-color-preserve-v160', colorPart);
+    if (canvas) {
+      canvas.style.setProperty('--site-page-bg-preserve-v160', safe);
+      canvas.style.setProperty('--site-page-bg-v153', safe);
+      canvas.style.setProperty('--site-page-bg-color-v154', colorPart);
+      canvas.style.setProperty('--site-page-bg-color-preserve-v160', colorPart);
+    }
+    if (page) {
+      page.dataset.pageBackgroundV154 = safe;
+      page.style.setProperty('--site-page-bg-preserve-v160', safe);
+      page.style.setProperty('--site-page-bg-v153', safe);
+      page.style.setProperty('--site-page-bg-color-v154', colorPart);
+      page.style.setProperty('--site-page-bg-color-preserve-v160', colorPart);
+      page.style.background = safe;
+      page.style.backgroundColor = colorPart;
+    }
+    const layer = document.getElementById('siteBackgroundLayerV153') || document.querySelector('.site-background-layer-v153, .export-site-background-v153');
+    if (layer) {
+      layer.style.background = safe;
+      layer.style.backgroundSize = 'cover';
+      layer.style.backgroundPosition = 'center center';
+      layer.style.backgroundRepeat = 'no-repeat';
+    }
+    return safe;
+  }
+
+  function refreshColorPreserveV160(root){
+    injectCSSV160();
+    applyPageBgPreserveV160();
+    preserveShapeVisualsV160(root || document.getElementById('sitePage') || document);
+  }
+
+  function safePageFileNameV160(id){
+    const raw = String(id || 'page').trim() || 'page';
+    const safe = raw
+      .replace(/[\\/]+/g, '-')
+      .replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') || 'page';
+    return safe + '.html';
+  }
+
+  function buildRootPageFileMapV160(pageIds, indexPageId){
+    const used = new Set(['css', 'js', 'fonts', 'README', 'README.txt', 'page-manifest.json']);
+    const map = {};
+    pageIds.forEach(id => {
+      if (id === indexPageId) {
+        map[id] = 'index.html';
+        used.add('index.html');
+        return;
+      }
+      let file = safePageFileNameV160(id);
+      let base = file.replace(/\.html$/i, '') || 'page';
+      let i = 2;
+      while (used.has(file) || file === 'index.html') {
+        file = base + '-' + i + '.html';
+        i += 1;
+      }
+      used.add(file);
+      map[id] = file;
+    });
+    return map;
+  }
+
+  function makeExportRuntimeV160(pageFileMap){
+    const mapJSON = JSON.stringify(pageFileMap || {}).replace(/<\/script/gi, '<\\/script');
+    return `
+
+/* v160：匯出後顏色保留 + 根目錄 HTML 分頁 + 滑到區塊重播動畫 */
+(function exportRuntimeColorPreserveRootPagesV160(){
+  if (window.__exportRuntimeColorPreserveRootPagesV160) return;
+  window.__exportRuntimeColorPreserveRootPagesV160 = true;
+  var PAGE_FILES_V160 = ${mapJSON};
+  var observer = null;
+  var timers = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
+  function qs(sel, root){ return (root || document).querySelector(sel); }
+  function qsa(sel, root){ return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+  function n(value, fallback){ var parsed = parseFloat(value); return isFinite(parsed) ? parsed : fallback; }
+  function isTransparent(value){ var v = String(value || '').trim().toLowerCase().replace(/\s+/g, ''); return !v || v === 'transparent' || v === 'rgba(0,0,0,0)' || v === 'rgba(255,255,255,0)'; }
+  function preserveBg(value, fallback){ var v = String(value || '').trim(); return isTransparent(v) ? (fallback || '#ffffff') : v; }
+  function bgColorPart(bg){ return /gradient\(/i.test(String(bg || '')) ? 'transparent' : (bg || '#ffffff'); }
+  function currentPageId(){ return window.EXPORT_CURRENT_PAGE_ID || (typeof CURRENT_PAGE_ID !== 'undefined' ? CURRENT_PAGE_ID : 'home'); }
+  function bgFor(pageId){ var id = pageId || currentPageId(); var page = (typeof EXPORT_PAGES !== 'undefined' && EXPORT_PAGES) ? EXPORT_PAGES[id] : null; var site = qs('#sitePage'); return preserveBg((page && page.bg) || (site && (site.style.getPropertyValue('--site-page-bg-preserve-v160') || site.style.background)) || '#ffffff'); }
+  function applyBg(bg){ var safe = preserveBg(bg || bgFor()); var color = bgColorPart(safe); document.documentElement.style.setProperty('--site-page-bg-preserve-v160', safe); document.documentElement.style.setProperty('--site-page-bg-v153', safe); document.documentElement.style.setProperty('--site-page-bg-color-v154', color); document.documentElement.style.setProperty('--site-page-bg-color-preserve-v160', color); document.body.style.setProperty('--site-page-bg-preserve-v160', safe); document.body.style.setProperty('--site-page-bg-v153', safe); document.body.style.setProperty('--site-page-bg-color-v154', color); document.body.style.setProperty('--site-page-bg-color-preserve-v160', color); document.body.style.background = safe; document.body.style.backgroundColor = color; document.body.classList.add('exported-site','preview-mode'); var layer = qs('.site-background-layer-v153') || qs('.export-site-background-v153'); if (layer) { layer.style.background = safe; layer.style.backgroundSize = 'cover'; layer.style.backgroundPosition = 'center center'; layer.style.backgroundRepeat = 'no-repeat'; } var page = qs('#sitePage'); if (page) { page.style.setProperty('--site-page-bg-preserve-v160', safe); page.style.setProperty('--site-page-bg-v153', safe); page.style.setProperty('--site-page-bg-color-v154', color); page.style.setProperty('--site-page-bg-color-preserve-v160', color); page.style.background = safe; page.style.backgroundColor = color; } }
+  function encodeHash(id){ return encodeURIComponent(String(id || '')).replace(/%20/g, '+'); }
+  function currentFile(){ return String(window.location.pathname || 'index.html').split('/').pop() || 'index.html'; }
+  function pageFile(pageId){ return PAGE_FILES_V160[String(pageId || '')] || (String(pageId || '') ? String(pageId).replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff]/g, '-') + '.html' : 'index.html'); }
+  function goPage(pageId, targetId){ var file = pageFile(pageId); var url = file + (targetId ? '#' + encodeHash(targetId) : ''); if (currentFile() === file) { if (targetId && typeof scrollToExportTarget === 'function') scrollToExportTarget(targetId); else window.scrollTo({top:0, behavior:'smooth'}); initAll(pageId); return true; } window.location.href = url; return true; }
+  function shapeBg(el, fill){ var list = [fill && fill.style && fill.style.background, el && el.style && el.style.background, fill && fill.style && fill.style.backgroundColor, el && el.style && el.style.backgroundColor]; for (var i=0;i<list.length;i++){ var v = String(list[i] || '').trim(); if (!isTransparent(v)) return v; } var color = el.getAttribute('data-shape-color') || '#0d6efd'; var opacity = parseFloat(el.getAttribute('data-shape-opacity') || '100'); var alpha = isFinite(opacity) ? Math.max(0, Math.min(1, opacity / 100)) : 1; if (/^#([0-9a-f]{6})$/i.test(color)) { var num = parseInt(color.slice(1),16); return 'rgba(' + ((num>>16)&255) + ', ' + ((num>>8)&255) + ', ' + (num&255) + ', ' + alpha + ')'; } return color; }
+  function ensureShapes(root){ qsa('.free-element[data-type="shape"]', root || document).forEach(function(el){ var inner = qs(':scope > .inner', el); if (!inner) { inner = document.createElement('div'); inner.className = 'inner'; while (el.firstChild) inner.appendChild(el.firstChild); el.appendChild(inner); } var fill = qs('.shape-fill', inner); if (!fill) { fill = document.createElement('div'); fill.className = 'shape-fill'; inner.insertBefore(fill, inner.firstChild); } var type = el.getAttribute('data-shape-type') || 'rect'; el.setAttribute('data-shape-type', type); fill.setAttribute('data-shape-type', type); var material = el.getAttribute('data-shape-material') || 'none'; if (material !== 'frosted' && material !== 'glass') { var bg = shapeBg(el, fill); if (bg) { el.style.setProperty('--shape-bg-preserve-v160', bg); fill.style.setProperty('--shape-bg-preserve-v160', bg); if (isTransparent(fill.style.background)) fill.style.background = bg; } } }); }
+  function normalize(el){ if (!el || el.getAttribute('data-slide-animation') !== 'true') return; var direction = el.getAttribute('data-slide-direction') || 'up'; var distance = n(el.getAttribute('data-slide-distance') || '40', 40); var duration = Math.max(100, Math.min(5000, n(el.getAttribute('data-slide-duration') || '600', 600))); var preset = direction === 'down' ? {x:0,y:-distance} : direction === 'left' ? {x:distance,y:0} : direction === 'right' ? {x:-distance,y:0} : {x:0,y:distance}; var ix = n(el.getAttribute('data-slide-initial-x'), preset.x); var iy = n(el.getAttribute('data-slide-initial-y'), preset.y); var fx = n(el.getAttribute('data-slide-final-x'), 0); var fy = n(el.getAttribute('data-slide-final-y'), 0); el.style.setProperty('--base-slide-duration', duration + 'ms'); el.style.setProperty('--base-slide-initial-x', ix + 'px'); el.style.setProperty('--base-slide-initial-y', iy + 'px'); el.style.setProperty('--base-slide-final-x', fx + 'px'); el.style.setProperty('--base-slide-final-y', fy + 'px'); }
+  function replay(el){ if (!el) return; normalize(el); if (timers) { var oldTimer = timers.get(el); if (oldTimer) clearTimeout(oldTimer); } el.classList.remove('animate-in'); void el.offsetWidth; var delay = Math.max(0, n(el.getAttribute('data-slide-delay') || el.getAttribute('data-animation-delay') || '0', 0)); var timer = setTimeout(function(){ requestAnimationFrame(function(){ el.classList.add('animate-in'); }); }, delay); if (timers) timers.set(el, timer); }
+  function initAnimations(root){ var scope = root || qs('#sitePage') || document; var targets = qsa('[data-slide-animation="true"]', scope); if (observer) observer.disconnect(); observer = null; if (!targets.length) return; targets.forEach(function(el){ normalize(el); el.classList.remove('animate-in'); el.setAttribute('data-v160-in-view', 'false'); }); if (!('IntersectionObserver' in window)) { targets.forEach(function(el){ replay(el); }); return; } observer = new IntersectionObserver(function(entries){ entries.forEach(function(entry){ var el = entry.target; var visible = entry.isIntersecting && entry.intersectionRatio >= 0.15; if (visible && el.getAttribute('data-v160-in-view') !== 'true') { el.setAttribute('data-v160-in-view', 'true'); replay(el); } else if (!visible && el.getAttribute('data-v160-in-view') === 'true') { el.setAttribute('data-v160-in-view', 'false'); if (timers) { var oldTimer = timers.get(el); if (oldTimer) clearTimeout(oldTimer); } el.classList.remove('animate-in'); } }); }, { threshold:[0,0.15,0.35,0.6], rootMargin:'0px 0px -8% 0px' }); targets.forEach(function(el){ observer.observe(el); }); }
+  function initAll(pageId){ applyBg(bgFor(pageId)); ensureShapes(qs('#sitePage') || document); setTimeout(function(){ initAnimations(qs('#sitePage') || document); }, 180); }
+  renderExportPage = function(pageId, callback){ goPage(pageId); if (typeof callback === 'function') callback(); return true; };
+  window.renderExportPage = renderExportPage;
+  handlePageAndScroll = function(el, event){ if (!el || el.getAttribute('data-css-function-enabled') !== 'true') return false; var hasPage = el.getAttribute('data-css-page-enabled') === 'true'; var hasScroll = el.getAttribute('data-css-scroll-enabled') === 'true'; if (!hasPage && !hasScroll) return false; if (event) { event.preventDefault(); event.stopPropagation(); } var pageId = el.getAttribute('data-css-page-target'); var targetId = el.getAttribute('data-css-scroll-target'); if (hasPage && pageId) return goPage(pageId, hasScroll ? targetId : ''); if (hasScroll && targetId && typeof scrollToExportTarget === 'function') { scrollToExportTarget(targetId); return true; } return false; };
+  window.handlePageAndScroll = handlePageAndScroll;
+  runExportOptionActionData = function(data){ if (!data) return false; if (data.functionEnabled) { if (data.pageEnabled && data.pageTarget) return goPage(data.pageTarget, data.scrollEnabled ? data.scrollTarget : ''); if (data.scrollEnabled && data.scrollTarget && typeof scrollToExportTarget === 'function') { scrollToExportTarget(data.scrollTarget); return true; } } if (data.linkEnabled && data.linkUrl) { if (data.linkUrl.charAt(0) === '#') { if (typeof scrollToExportTarget === 'function') scrollToExportTarget(data.linkUrl.slice(1)); } else { window.location.href = data.linkUrl; } return true; } return true; };
+  window.runExportOptionActionData = runExportOptionActionData;
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ initAll(); }); else initAll();
+  window.addEventListener('load', function(){ initAll(); if (window.location.hash && typeof scrollToExportTarget === 'function') setTimeout(function(){ scrollToExportTarget(decodeURIComponent(window.location.hash.slice(1).replace(/\+/g, ' '))); }, 240); });
+})();
+`;
+  }
+
+  if (typeof buildExportCSS === 'function' && !window.__buildExportCSSWrappedV160ColorPreserve) {
+    window.__buildExportCSSWrappedV160ColorPreserve = true;
+    const previousBuildExportCSSV160 = buildExportCSS;
+    buildExportCSS = function(){
+      return previousBuildExportCSSV160.apply(this, arguments) + '\n' + CSS_V160 + '\n';
+    };
+    window.buildExportCSS = buildExportCSS;
+  }
+
+  if (typeof buildExportHTML === 'function' && !window.__buildExportHTMLWrappedV160ColorPreserve) {
+    window.__buildExportHTMLWrappedV160ColorPreserve = true;
+    const previousBuildExportHTMLV160 = buildExportHTML;
+    buildExportHTML = function(bodyHTML, pageBg, inlineJS, assetPrefix, pageId, mode){
+      const safeBg = escapeStyleV160(preserveBgV160(pageBg || '#ffffff'));
+      const safeColor = escapeStyleV160(backgroundColorPartV160(safeBg));
+      let html = previousBuildExportHTMLV160.apply(this, arguments);
+      const critical = `<style id="critical-color-preserve-v160">
+html,body{margin:0;width:100%;min-width:100%;min-height:100%;overflow-x:hidden;background:${safeBg}!important;background-color:${safeColor}!important;--site-page-bg-preserve-v160:${safeBg};--site-page-bg-v153:${safeBg};--site-page-bg-color-v154:${safeColor};--site-page-bg-color-preserve-v160:${safeColor};}
+.site-background-layer-v153,.export-site-background-v153{background:${safeBg}!important;background-size:cover!important;background-position:center center!important;background-repeat:no-repeat!important;}
+#sitePage.site-page,body.exported-site #sitePage.site-page,body.exported-site.preview-mode #sitePage.site-page{background:${safeBg}!important;background-color:${safeColor}!important;--site-page-bg-preserve-v160:${safeBg};--site-page-bg-v153:${safeBg};--site-page-bg-color-v154:${safeColor};--site-page-bg-color-preserve-v160:${safeColor};}
+body.exported-site .free-element[data-type="shape"] .shape-fill{background:var(--shape-bg-preserve-v160,var(--shape-bg-color,rgba(var(--shape-bg-rgb,13,110,253),var(--shape-bg-alpha,1))))!important;}
+body.exported-site .free-element[data-type="shape"][data-shape-material="frosted"] .shape-fill{background:rgba(255,255,255,.28)!important;}
+body.exported-site .free-element[data-type="shape"][data-shape-material="glass"] .shape-fill{background:linear-gradient(135deg,rgba(255,255,255,.58),rgba(255,255,255,.16))!important;}
+</style>`;
+      html = html.replace('</head>', critical + '\n</head>');
+      html = html.replace(/<body([^>]*)>/i, function(match, attrs){
+        if (/style\s*=/.test(attrs)) {
+          return '<body' + attrs.replace(/style="([^"]*)"/i, 'style="$1; --site-page-bg-preserve-v160: ' + safeBg + '; --site-page-bg-v153: ' + safeBg + '; --site-page-bg-color-v154: ' + safeColor + '; --site-page-bg-color-preserve-v160: ' + safeColor + '; background: ' + safeBg + ' !important; background-color: ' + safeColor + ' !important;"') + '>';
+        }
+        return '<body' + attrs + ' style="--site-page-bg-preserve-v160: ' + safeBg + '; --site-page-bg-v153: ' + safeBg + '; --site-page-bg-color-v154: ' + safeColor + '; --site-page-bg-color-preserve-v160: ' + safeColor + '; background: ' + safeBg + ' !important; background-color: ' + safeColor + ' !important;">';
+      });
+      html = html.replace(/<div id="sitePage" class="site-page" style="([^"]*)"/i, function(match, styleText){
+        let merged = styleText;
+        if (!/--site-page-bg-preserve-v160/.test(merged)) merged += '; --site-page-bg-preserve-v160: ' + safeBg;
+        if (!/--site-page-bg-v153/.test(merged)) merged += '; --site-page-bg-v153: ' + safeBg;
+        if (!/--site-page-bg-color-v154/.test(merged)) merged += '; --site-page-bg-color-v154: ' + safeColor;
+        if (!/--site-page-bg-color-preserve-v160/.test(merged)) merged += '; --site-page-bg-color-preserve-v160: ' + safeColor;
+        merged = merged.replace(/background\s*:\s*transparent\s*!important;?/gi, '');
+        merged += '; background: ' + safeBg + ' !important; background-color: ' + safeColor + ' !important;';
+        return '<div id="sitePage" class="site-page" style="' + merged + '"';
+      });
+      return html;
+    };
+    window.buildExportHTML = buildExportHTML;
+  }
+
+  function buildModeExportPagesV160(selectedModes){
+    const modeExportPages = {};
+    selectedModes.forEach(mode => {
+      modeExportPages[mode] = {};
+      Object.entries(pages).forEach(([id, page]) => {
+        normalizeResponsivePage(page);
+        const modeData = page.responsive?.[mode] || page.responsive?.desktop || { html: page.html, bg: page.bg || '#ffffff' };
+        modeExportPages[mode][id] = {
+          name: page.name,
+          bg: preserveBgV160(modeData.bg || page.bg || '#ffffff'),
+          html: cleanHTMLForExport(modeData.html)
+        };
+      });
+    });
+    return modeExportPages;
+  }
+
+  function buildPageJSV160(exportPages, pageId, pageFileMap){
+    const exportPagesJSON = JSON.stringify(exportPages).replace(/<\/script/gi, '<\\/script');
+    const baseJS = buildExportJS(exportPagesJSON, JSON.stringify(pageId)).replace(/<\/script/gi, '<\\/script');
+    return (baseJS + makeExportRuntimeV160(pageFileMap)).replace(/<\/script/gi, '<\\/script');
+  }
+
+  async function exportRootPagesHTMLV160(){
+    captureCurrentPage();
+    normalizeAllResponsivePages();
+    refreshColorPreserveV160(document.getElementById('sitePage') || document);
+
+    const selectedModes = getExportModeSelection();
+    if (!selectedModes) return;
+
+    const modeExportPages = buildModeExportPagesV160(selectedModes);
+    const primaryMode = selectedModes.includes('desktop') ? 'desktop' : selectedModes[0];
+    const primaryPages = modeExportPages[primaryMode] || {};
+    const pageIds = Object.keys(primaryPages);
+    if (!pageIds.length) {
+      alert('目前沒有可匯出的分頁。');
+      return;
+    }
+
+    const indexPageId = primaryPages.home ? 'home' : (primaryPages[currentPageId] ? currentPageId : pageIds[0]);
+    const pageFileMap = buildRootPageFileMapV160(pageIds, indexPageId);
+    const cssCode = buildExportCSS();
+
+    if (typeof JSZip === 'undefined') {
+      alert('匯出 ZIP 需要 JSZip，請確認網路可載入 JSZip CDN。');
+      return;
+    }
+
+    const zip = new JSZip();
+    const manifest = { exportedModes: selectedModes, primaryMode, exportType: 'root-html-pages-color-preserve-v160', pages: {} };
+
+    Object.entries(primaryPages).forEach(([id, page]) => {
+      const fileName = pageFileMap[id] || safePageFileNameV160(id);
+      const pageJS = buildPageJSV160(primaryPages, id, pageFileMap);
+      const pageBg = preserveBgV160(page.bg || '#ffffff');
+      zip.file(fileName, buildExportHTML(page.html, pageBg, pageJS, './', id, primaryMode));
+      manifest.pages[id] = { name: page.name, file: fileName, bg: pageBg };
+    });
+
+    zip.folder('css').file('style.css', cssCode);
+    zip.file('page-manifest.json', JSON.stringify(manifest, null, 2));
+    zip.file('README.txt', [
+      '自訂網站匯出檔案 v160',
+      '',
+      '請先解壓縮整個 ZIP，再開啟 index.html。',
+      '本版會另外產生 HTML 分頁，但全部放在 ZIP 根目錄，不會產生 pages 資料夾。',
+      '已修正預覽 / 匯出時顏色被改變的問題。',
+      '形狀元件只補顯示結構，不會強制改原本顏色、漸層或材質。',
+      '基礎動畫維持滑到該區塊時播放；離開後再滑回會重新播放。',
+      '',
+      '頁面列表：',
+      ...Object.entries(primaryPages).map(([id, page]) => '- ' + (pageFileMap[id] || safePageFileNameV160(id)) + '：' + page.name)
+    ].join('\n'));
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'custom-website-root-pages-color-preserve-v160.zip';
+    document.body.appendChild(a);
+    a.click();
+    window.setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+  }
+
+  function replaceExportButtonV160(){
+    const oldBtn = document.getElementById('exportBtn');
+    if (!oldBtn || oldBtn.dataset.v160ColorPreserveExportBound === 'true') return;
+    const newBtn = oldBtn.cloneNode(true);
+    newBtn.dataset.v160ColorPreserveExportBound = 'true';
+    newBtn.addEventListener('click', function(event){
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      exportRootPagesHTMLV160();
+    }, true);
+    oldBtn.replaceWith(newBtn);
+  }
+
+  // clean 匯出時先保留形狀目前視覺，不改原本顏色。
+  if (typeof cleanPageCloneForExport === 'function' && !window.__cleanPageCloneForExportWrappedV160ColorPreserve) {
+    window.__cleanPageCloneForExportWrappedV160ColorPreserve = true;
+    const previousCleanPageCloneForExportV160 = cleanPageCloneForExport;
+    cleanPageCloneForExport = function(clone){
+      preserveShapeVisualsV160(clone);
+      return previousCleanPageCloneForExportV160.call(this, clone);
+    };
+    window.cleanPageCloneForExport = cleanPageCloneForExport;
+  }
+
+  injectCSSV160();
+  refreshColorPreserveV160(document.getElementById('sitePage') || document);
+  window.exportRootPagesHTMLV160 = exportRootPagesHTMLV160;
+  try { exportHTML = exportRootPagesHTMLV160; } catch(error) {}
+  window.exportHTML = exportRootPagesHTMLV160;
+  replaceExportButtonV160();
+
+  document.getElementById('previewBtn')?.addEventListener('click', () => {
+    refreshColorPreserveV160(document.getElementById('sitePage') || document);
+    window.requestAnimationFrame(() => refreshColorPreserveV160(document.getElementById('sitePage') || document));
+    window.setTimeout(() => refreshColorPreserveV160(document.getElementById('sitePage') || document), 120);
+    window.setTimeout(() => refreshColorPreserveV160(document.getElementById('sitePage') || document), 420);
+  }, true);
+
+  document.getElementById('pageBgColor')?.addEventListener('input', e => applyPageBgPreserveV160(e.target.value), true);
+  document.getElementById('pageBgColor')?.addEventListener('change', e => applyPageBgPreserveV160(e.target.value), true);
+
+  window.addEventListener('load', () => {
+    injectCSSV160();
+    refreshColorPreserveV160(document.getElementById('sitePage') || document);
+    replaceExportButtonV160();
+  });
+
+  window.preservePreviewExportColorsV160 = refreshColorPreserveV160;
+  window.preserveShapeVisualsV160 = preserveShapeVisualsV160;
+
+  const title = document.querySelector('.editor-title');
+  if (title) title.innerHTML = '<i class="bi bi-palette2 me-1"></i> 自訂網站編輯器 V160 <span class="low-spec-badge">顏色保留</span>';
+  document.title = '自訂網站編輯器 V160';
+})();
+
+
+/* v161：預覽 / 匯出一致修正
+   目標：匯出後與預覽使用同一種結構與清理方式。
+   - 匯出時不再把 .html-zone 轉成 header/main/footer，保留預覽相同的 zone/block/canvas 結構。
+   - 匯出 HTML 補上 editor-layout/canvas-area 結構，讓與預覽相同的 CSS 選擇器生效。
+   - 分頁仍另外產生 HTML，全部放 ZIP 根目錄，不產生 pages 資料夾。
+   - 不主動改顏色、圖形內容、材質與 inline style，只移除編輯器工具列與控制元件。
+*/
+(function patchPreviewExportParityV161(){
+  if (window.__patchPreviewExportParityV161) return;
+  window.__patchPreviewExportParityV161 = true;
+
+  const CSS_V161 = `
+/* v161：匯出頁面補齊與預覽相同的外層結構 */
+body.exported-site.preview-mode .export-preview-layout-v161 {
+  display: block !important;
+  width: 100% !important;
+  min-height: 100vh !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+body.exported-site.preview-mode .export-preview-canvas-v161 {
+  position: relative !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  width: 100vw !important;
+  min-height: 100vh !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  overflow: visible !important;
+  box-shadow: none !important;
+  background-image: none !important;
+  background: var(--site-page-bg-preserve-v160, var(--site-page-bg-v153, #ffffff)) !important;
+}
+
+body.exported-site.preview-mode #sitePage.site-page {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* 匯出仍保留 html-zone，讓它和預覽同一套版面規則 */
+body.exported-site.preview-mode .html-zone {
+  position: relative !important;
+  border-bottom: 0 !important;
+  padding: 0 !important;
+  min-height: 0 !important;
+  background-image: none !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+body.exported-site.preview-mode .html-zone.preview-empty-zone,
+body.exported-site.preview-mode .html-zone:empty {
+  display: none !important;
+}
+
+body.exported-site.preview-mode .html-block,
+body.exported-site.preview-mode .html-block:hover,
+body.exported-site.preview-mode .html-block.selected {
+  outline: 0 !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+body.exported-site.preview-mode .block-canvas {
+  outline: 0 !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+  background-image: none !important;
+}
+`;
+
+  function injectCSSV161(){
+    let style = document.getElementById('cssPatchV161PreviewExportParity');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'cssPatchV161PreviewExportParity';
+      document.head.appendChild(style);
+    }
+    style.textContent = CSS_V161;
+  }
+
+  function cleanPageCloneForExportV161(clone){
+    if (!clone) return '';
+
+    try {
+      if (typeof window.preserveShapeVisualsV160 === 'function') window.preserveShapeVisualsV160(clone);
+      if (typeof window.ensureShapeExportSafeV159 === 'function') window.ensureShapeExportSafeV159(clone);
+    } catch (error) {}
+
+    clone.querySelectorAll([
+      '.no-export',
+      '.editor-actions',
+      '.move-handle',
+      '.element-toolbar',
+      '.resize-handle',
+      '.zone-label',
+      '.zone-empty',
+      '.block-label',
+      '.block-empty',
+      '.group-empty',
+      '.select-switcher-empty-group',
+      '.hover-slide-empty-group',
+      '.accordion-editor-panel',
+      '.carousel-editor-panel',
+      '.select-switcher-editor-panel',
+      '.vertical-carousel-editor-panel',
+      '.vertical-news-editor-panel',
+      '.hover-slide-editor-panel',
+      '.side-drawer-editor-panel',
+      '.alignment-guide',
+      '.carousel-loop-clone',
+      '.youtube-placeholder',
+      '[data-element-action]',
+      '[data-block-action]',
+      '[data-resize]',
+      '[data-accordion-action]',
+      '[data-carousel-action]',
+      '[data-select-switcher-action]',
+      '[data-vertical-carousel-action]',
+      '[data-hover-slide-action]'
+    ].join(',')).forEach(el => el.remove());
+
+    // 與預覽保持一致：不轉成 header/main/footer，只保留 .html-zone 結構。
+    clone.querySelectorAll('.html-zone').forEach(zone => {
+      const hasVisibleBlock = !!zone.querySelector(':scope > .html-block');
+      if (!hasVisibleBlock) {
+        zone.remove();
+        return;
+      }
+      zone.classList.remove('selected', 'preview-empty-zone');
+      zone.style.removeProperty('outline');
+      zone.style.removeProperty('box-shadow');
+    });
+
+    clone.querySelectorAll('.html-block').forEach(el => {
+      el.classList.remove('selected', 'multi-selected', 'is-editing', 'has-selected-child');
+      el.removeAttribute('data-original-scale-enabled');
+      el.removeAttribute('data-original-scale');
+      el.style.removeProperty('outline');
+      el.style.removeProperty('box-shadow');
+    });
+
+    clone.querySelectorAll('.free-element').forEach(el => {
+      el.querySelectorAll('iframe.editable-youtube').forEach(iframe => {
+        if (iframe.getAttribute('src')) {
+          iframe.classList.remove('d-none');
+          iframe.setAttribute('allowfullscreen', '');
+          iframe.setAttribute('loading', iframe.getAttribute('loading') || 'lazy');
+          iframe.setAttribute('referrerpolicy', iframe.getAttribute('referrerpolicy') || 'strict-origin-when-cross-origin');
+        }
+      });
+
+      const linkEnabled = el.getAttribute('data-link-enabled') === 'true';
+      const linkUrl = el.getAttribute('data-link-url') || '';
+      el.querySelectorAll('a').forEach(anchor => {
+        if (linkEnabled && linkUrl) anchor.setAttribute('href', linkUrl);
+        else anchor.removeAttribute('href');
+      });
+
+      el.classList.remove('selected', 'multi-selected', 'is-editing', 'has-selected-child', 'has-element-link');
+      el.removeAttribute('data-original-scale-enabled');
+      el.removeAttribute('data-original-scale');
+      el.style.removeProperty('outline');
+      el.style.removeProperty('box-shadow');
+    });
+
+    clone.querySelectorAll('[data-editable-text]').forEach(el => {
+      el.removeAttribute('data-editable-text');
+      el.removeAttribute('contenteditable');
+      el.style.removeProperty('caret-color');
+    });
+
+    clone.querySelectorAll('*').forEach(el => {
+      el.classList.remove('selected', 'multi-selected', 'is-editing', 'has-selected-child');
+      el.removeAttribute('contenteditable');
+      if (el.classList.contains('no-export') ||
+          el.classList.contains('move-handle') ||
+          el.classList.contains('element-toolbar') ||
+          el.classList.contains('resize-handle') ||
+          el.classList.contains('editor-actions')) {
+        el.remove();
+      }
+    });
+
+    return clone.innerHTML;
+  }
+
+  function cleanHTMLForExportV161(html){
+    const wrapper = document.createElement('div');
+    wrapper.className = 'site-page';
+    wrapper.innerHTML = html || '';
+    return cleanPageCloneForExportV161(wrapper);
+  }
+
+  function cleanForExportV161(){
+    const page = document.getElementById('sitePage');
+    return page ? cleanPageCloneForExportV161(page.cloneNode(true)) : '';
+  }
+
+  function escapeStyleV161(value){
+    return String(value || '#ffffff').replace(/&/g, '&amp;').replace(/["<>]/g, '');
+  }
+
+  function isTransparentBgV161(value){
+    const v = String(value || '').trim().toLowerCase().replace(/\s+/g, '');
+    return !v || v === 'transparent' || v === 'rgba(0,0,0,0)' || v === 'rgba(255,255,255,0)';
+  }
+
+  function preserveBgV161(value, fallback = '#ffffff'){
+    const v = String(value || '').trim();
+    return isTransparentBgV161(v) ? fallback : v;
+  }
+
+  function safePageFileNameV161(pageId, used){
+    const raw = String(pageId || 'page').trim();
+    let file = raw === 'home' ? 'index.html' : raw.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff]/g, '-').replace(/^-+|-+$/g, '') + '.html';
+    if (!file || file === '.html') file = 'page.html';
+    if (!used) return file;
+    let finalName = file;
+    let i = 2;
+    const base = file.replace(/\.html$/i, '');
+    while (used.has(finalName)) {
+      finalName = base + '-' + i + '.html';
+      i += 1;
+    }
+    used.add(finalName);
+    return finalName;
+  }
+
+  function buildRootPageFileMapV161(pageIds, indexPageId){
+    const used = new Set();
+    const map = {};
+    const indexId = pageIds.includes(indexPageId) ? indexPageId : (pageIds.includes('home') ? 'home' : pageIds[0]);
+    if (indexId) {
+      map[indexId] = 'index.html';
+      used.add('index.html');
+    }
+    pageIds.forEach(id => {
+      if (map[id]) return;
+      map[id] = safePageFileNameV161(id, used);
+    });
+    return map;
+  }
+
+  function wrapExportHTMLLikePreviewV161(html){
+    if (!html || /export-preview-layout-v161/.test(html)) return html;
+    let out = html.replace(/<body([^>]*)>/i, function(match, attrs){
+      return '<body' + attrs + '><div class="editor-layout export-preview-layout-v161"><main class="canvas-area export-preview-canvas-v161">';
+    });
+    out = out.replace(/(<script>\s*window\.EXPORT_CURRENT_PAGE_ID\b)/i, '</main></div>\n$1');
+    return out;
+  }
+
+  // 覆蓋清理函式：讓匯出內容與預覽 DOM 結構一致。
+  cleanPageCloneForExport = cleanPageCloneForExportV161;
+  cleanHTMLForExport = cleanHTMLForExportV161;
+  cleanForExport = cleanForExportV161;
+  window.cleanPageCloneForExport = cleanPageCloneForExportV161;
+  window.cleanHTMLForExport = cleanHTMLForExportV161;
+  window.cleanForExport = cleanForExportV161;
+
+  if (typeof buildExportCSS === 'function' && !window.__buildExportCSSWrappedV161Parity) {
+    window.__buildExportCSSWrappedV161Parity = true;
+    const previousBuildExportCSSV161 = buildExportCSS;
+    buildExportCSS = function(){
+      return previousBuildExportCSSV161.apply(this, arguments) + '\n' + CSS_V161 + '\n';
+    };
+    window.buildExportCSS = buildExportCSS;
+  }
+
+  if (typeof buildExportHTML === 'function' && !window.__buildExportHTMLWrappedV161Parity) {
+    window.__buildExportHTMLWrappedV161Parity = true;
+    const previousBuildExportHTMLV161 = buildExportHTML;
+    buildExportHTML = function(bodyHTML, pageBg, inlineJS, assetPrefix, pageId, mode){
+      const bg = escapeStyleV161(preserveBgV161(pageBg || '#ffffff'));
+      let html = previousBuildExportHTMLV161.apply(this, arguments);
+      html = html.replace(/<body class="exported-site(?![^"]*preview-mode)([^"]*)"/i, '<body class="exported-site preview-mode$1"');
+      html = wrapExportHTMLLikePreviewV161(html);
+      html = html.replace(/<main class="canvas-area export-preview-canvas-v161"/i, '<main class="canvas-area export-preview-canvas-v161" style="--site-page-bg-preserve-v160: ' + bg + '; --site-page-bg-v153: ' + bg + '; background: ' + bg + ' !important;"');
+      return html;
+    };
+    window.buildExportHTML = buildExportHTML;
+  }
+
+  function buildExportPagesByModeV161(selectedModes){
+    const modeExportPages = {};
+    selectedModes.forEach(mode => {
+      modeExportPages[mode] = {};
+      Object.entries(pages || {}).forEach(([id, page]) => {
+        if (typeof normalizeResponsivePage === 'function') normalizeResponsivePage(page);
+        const responsive = page.responsive || {};
+        const modeData = responsive[mode] || responsive.desktop || { html: page.html, bg: page.bg || '#ffffff' };
+        modeExportPages[mode][id] = {
+          name: page.name || id,
+          bg: preserveBgV161(modeData.bg || page.bg || '#ffffff'),
+          html: cleanHTMLForExportV161(modeData.html || page.html || '')
+        };
+      });
+    });
+    return modeExportPages;
+  }
+
+  function buildPageJSV161(exportPages, pageId, pageFileMap){
+    const exportPagesJSON = JSON.stringify(exportPages || {}).replace(/<\/script/gi, '<\\/script');
+    let js = buildExportJS(exportPagesJSON, JSON.stringify(pageId)).replace(/<\/script/gi, '<\\/script');
+    if (typeof pageFileMap === 'object') {
+      const mapJSON = JSON.stringify(pageFileMap).replace(/<\/script/gi, '<\\/script');
+      js += `\n\n/* v161：根目錄分頁連結對應 */\nwindow.PAGE_FILES_V161 = ${mapJSON};\n(function(){\n  function fileFor(id){ return (window.PAGE_FILES_V161 && window.PAGE_FILES_V161[String(id || '')]) || (String(id || '').replace(/[^a-zA-Z0-9_\\-\\u4e00-\\u9fff]/g, '-') + '.html'); }\n  window.renderExportPage = function(pageId){ window.location.href = fileFor(pageId); return true; };\n})();`;
+    }
+    return js.replace(/<\/script/gi, '<\\/script');
+  }
+
+  async function exportRootPagesHTMLV161(){
+    if (typeof captureCurrentPage === 'function') captureCurrentPage();
+    if (typeof normalizeAllResponsivePages === 'function') normalizeAllResponsivePages();
+    if (typeof window.preservePreviewExportColorsV160 === 'function') window.preservePreviewExportColorsV160(document.getElementById('sitePage') || document);
+
+    const selectedModes = (typeof getExportModeSelection === 'function') ? getExportModeSelection() : ['desktop'];
+    if (!selectedModes) return;
+
+    const modeExportPages = buildExportPagesByModeV161(selectedModes);
+    const primaryMode = selectedModes.includes('desktop') ? 'desktop' : selectedModes[0];
+    const primaryPages = modeExportPages[primaryMode] || {};
+    const pageIds = Object.keys(primaryPages);
+    if (!pageIds.length) {
+      alert('目前沒有可匯出的分頁。');
+      return;
+    }
+
+    const indexPageId = primaryPages.home ? 'home' : (primaryPages[currentPageId] ? currentPageId : pageIds[0]);
+    const pageFileMap = buildRootPageFileMapV161(pageIds, indexPageId);
+    const cssCode = buildExportCSS();
+
+    if (typeof JSZip === 'undefined') {
+      alert('匯出 ZIP 需要 JSZip，請確認網路可載入 JSZip CDN。');
+      return;
+    }
+
+    const zip = new JSZip();
+    const manifest = { exportedModes: selectedModes, primaryMode, exportType: 'root-html-pages-preview-parity-v161', pages: {} };
+
+    Object.entries(primaryPages).forEach(([id, page]) => {
+      const fileName = pageFileMap[id] || safePageFileNameV161(id);
+      const pageJS = buildPageJSV161(primaryPages, id, pageFileMap);
+      const pageBg = preserveBgV161(page.bg || '#ffffff');
+      zip.file(fileName, buildExportHTML(page.html, pageBg, pageJS, './', id, primaryMode));
+      manifest.pages[id] = { name: page.name, file: fileName, bg: pageBg };
+    });
+
+    zip.folder('css').file('style.css', cssCode);
+    zip.file('page-manifest.json', JSON.stringify(manifest, null, 2));
+    zip.file('README.txt', [
+      '自訂網站匯出檔案 v161',
+      '',
+      '請先解壓縮整個 ZIP，再從 index.html 開啟。',
+      '本版會另外產生 HTML 分頁，但全部放在 ZIP 根目錄，不會產生 pages 資料夾。',
+      '匯出內容保留與預覽相同的 .html-zone / .html-block / .block-canvas 結構，避免預覽與匯出套用不同版面。',
+      '不會主動修改形狀顏色、背景色、材質或元件內容。',
+      '基礎動畫維持滑到該區塊時播放，離開後再滑回會重新播放。',
+      '',
+      '頁面列表：',
+      ...Object.entries(primaryPages).map(([id, page]) => '- ' + (pageFileMap[id] || safePageFileNameV161(id)) + '：' + page.name)
+    ].join('\n'));
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'custom-website-preview-export-parity-v161.zip';
+    document.body.appendChild(a);
+    a.click();
+    window.setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+  }
+
+  function replaceExportButtonV161(){
+    const oldBtn = document.getElementById('exportBtn');
+    if (!oldBtn || oldBtn.dataset.v161ParityExportBound === 'true') return;
+    const newBtn = oldBtn.cloneNode(true);
+    newBtn.dataset.v161ParityExportBound = 'true';
+    newBtn.addEventListener('click', function(event){
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      exportRootPagesHTMLV161();
+    }, true);
+    oldBtn.replaceWith(newBtn);
+  }
+
+  injectCSSV161();
+  replaceExportButtonV161();
+  window.exportRootPagesHTMLV161 = exportRootPagesHTMLV161;
+  try { exportHTML = exportRootPagesHTMLV161; } catch(error) {}
+  window.exportHTML = exportRootPagesHTMLV161;
+
+  document.getElementById('previewBtn')?.addEventListener('click', () => {
+    injectCSSV161();
+    if (typeof window.preservePreviewExportColorsV160 === 'function') {
+      window.preservePreviewExportColorsV160(document.getElementById('sitePage') || document);
+    }
+  }, true);
+
+  window.addEventListener('load', () => {
+    injectCSSV161();
+    replaceExportButtonV161();
+  });
+
+  const title = document.querySelector('.editor-title');
+  if (title) title.innerHTML = '<i class="bi bi-columns-gap me-1"></i> 自訂網站編輯器 V161 <span class="low-spec-badge">預覽匯出一致</span>';
+  document.title = '自訂網站編輯器 V161';
+})();
+
+
+/* v162：補回匯出後滑出畫面再滑回重新播放動畫
+   只修正動畫觀察器，不改分頁、顏色、圖形內容或版面結構。
+   原因：v161 的預覽/匯出一致化匯出流程沒有把 v160 的 scroll replay runtime 一起注入匯出頁。
+*/
+(function patchExportScrollReplayAnimationV162(){
+  if (window.__patchExportScrollReplayAnimationV162) return;
+  window.__patchExportScrollReplayAnimationV162 = true;
+
+  function scrollReplayRuntimeSourceV162(){
+    return `
+
+/* v162：匯出網站滑入動畫重播 runtime */
+(function exportScrollReplayAnimationRuntimeV162(){
+  if (window.__exportScrollReplayAnimationRuntimeV162) return;
+  window.__exportScrollReplayAnimationRuntimeV162 = true;
+
+  var observer = null;
+  var timers = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
+
+  function qsa(root, selector) {
+    return Array.prototype.slice.call((root || document).querySelectorAll(selector));
+  }
+
+  function numberValue(value, fallback) {
+    var parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function normalizeSlideElement(el) {
+    if (!el || el.getAttribute('data-slide-animation') !== 'true') return;
+
+    var direction = el.getAttribute('data-slide-direction') || 'up';
+    var distance = numberValue(el.getAttribute('data-slide-distance') || '40', 40);
+    var duration = Math.max(100, Math.min(5000, numberValue(el.getAttribute('data-slide-duration') || '600', 600)));
+    var preset = { x: 0, y: distance };
+
+    if (direction === 'down') preset = { x: 0, y: -distance };
+    else if (direction === 'left') preset = { x: distance, y: 0 };
+    else if (direction === 'right') preset = { x: -distance, y: 0 };
+
+    var initialX = numberValue(el.getAttribute('data-slide-initial-x'), preset.x);
+    var initialY = numberValue(el.getAttribute('data-slide-initial-y'), preset.y);
+    var finalX = numberValue(el.getAttribute('data-slide-final-x'), 0);
+    var finalY = numberValue(el.getAttribute('data-slide-final-y'), 0);
+
+    el.style.setProperty('--base-slide-duration', duration + 'ms');
+    el.style.setProperty('--base-slide-initial-x', initialX + 'px');
+    el.style.setProperty('--base-slide-initial-y', initialY + 'px');
+    el.style.setProperty('--base-slide-final-x', finalX + 'px');
+    el.style.setProperty('--base-slide-final-y', finalY + 'px');
+  }
+
+  function clearTimer(el) {
+    if (!timers || !el) return;
+    var oldTimer = timers.get(el);
+    if (oldTimer) clearTimeout(oldTimer);
+    timers.delete(el);
+  }
+
+  function resetAnimation(el) {
+    if (!el) return;
+    clearTimer(el);
+    el.classList.remove('animate-in');
+    el.setAttribute('data-v162-in-view', 'false');
+  }
+
+  function replayAnimation(el) {
+    if (!el) return;
+    normalizeSlideElement(el);
+    clearTimer(el);
+    el.classList.remove('animate-in');
+    // 強制瀏覽器先套用初始狀態，下一幀才加 animate-in，避免看起來直接跳到結束狀態。
+    void el.offsetWidth;
+    var delay = Math.max(0, numberValue(el.getAttribute('data-slide-delay') || el.getAttribute('data-animation-delay') || '0', 0));
+    var timer = setTimeout(function(){
+      requestAnimationFrame(function(){
+        if (!el.isConnected) return;
+        el.classList.add('animate-in');
+      });
+    }, delay);
+    if (timers) timers.set(el, timer);
+  }
+
+  function initScrollReplayAnimations(root) {
+    var scope = root || document.getElementById('sitePage') || document;
+    var targets = qsa(scope, '[data-slide-animation="true"]');
+
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
+
+    if (!targets.length) return;
+
+    targets.forEach(function(el){
+      normalizeSlideElement(el);
+      resetAnimation(el);
+    });
+
+    if (!('IntersectionObserver' in window)) {
+      targets.forEach(replayAnimation);
+      return;
+    }
+
+    observer = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        var el = entry.target;
+        var isVisible = entry.isIntersecting && entry.intersectionRatio >= 0.12;
+        var wasVisible = el.getAttribute('data-v162-in-view') === 'true';
+
+        if (isVisible && !wasVisible) {
+          el.setAttribute('data-v162-in-view', 'true');
+          replayAnimation(el);
+        } else if (!isVisible && wasVisible) {
+          resetAnimation(el);
+        } else if (!entry.isIntersecting && !wasVisible) {
+          el.classList.remove('animate-in');
+        }
+      });
+    }, {
+      threshold: [0, 0.01, 0.12, 0.35, 0.6, 1],
+      rootMargin: '0px 0px -6% 0px'
+    });
+
+    targets.forEach(function(el){ observer.observe(el); });
+  }
+
+  window.initScrollReplayAnimationsV162 = initScrollReplayAnimations;
+  window.restartBaseAnimationsV158 = initScrollReplayAnimations;
+  window.initScrollReplayAnimationsV159 = initScrollReplayAnimations;
+
+  function scheduleInit(delay) {
+    setTimeout(function(){ initScrollReplayAnimations(document.getElementById('sitePage') || document); }, delay || 0);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ scheduleInit(40); scheduleInit(260); });
+  } else {
+    scheduleInit(40);
+    scheduleInit(260);
+  }
+
+  window.addEventListener('load', function(){ scheduleInit(80); scheduleInit(420); });
+  window.addEventListener('pageshow', function(){ scheduleInit(120); });
+})();
+`;
+  }
+
+  function installPreviewScrollReplayV162(root) {
+    const scope = root || document.getElementById('sitePage') || document;
+    const targets = Array.from(scope.querySelectorAll('[data-slide-animation="true"]'));
+    if (!targets.length) return;
+
+    if (window.__previewScrollReplayObserverV162) {
+      try { window.__previewScrollReplayObserverV162.disconnect(); } catch (error) {}
+      window.__previewScrollReplayObserverV162 = null;
+    }
+
+    targets.forEach(el => {
+      el.classList.remove('animate-in');
+      el.setAttribute('data-v162-in-view', 'false');
+      const distance = parseFloat(el.dataset.slideDistance || '40') || 40;
+      const direction = el.dataset.slideDirection || 'up';
+      let initialX = parseFloat(el.dataset.slideInitialX || '0') || 0;
+      let initialY = parseFloat(el.dataset.slideInitialY || '0') || 0;
+      if (!el.dataset.slideInitialX && !el.dataset.slideInitialY) {
+        if (direction === 'down') initialY = -distance;
+        else if (direction === 'left') initialX = distance;
+        else if (direction === 'right') initialX = -distance;
+        else initialY = distance;
+      }
+      el.style.setProperty('--base-slide-duration', (el.dataset.slideDuration || '600') + 'ms');
+      el.style.setProperty('--base-slide-initial-x', initialX + 'px');
+      el.style.setProperty('--base-slide-initial-y', initialY + 'px');
+      el.style.setProperty('--base-slide-final-x', (el.dataset.slideFinalX || '0') + 'px');
+      el.style.setProperty('--base-slide-final-y', (el.dataset.slideFinalY || '0') + 'px');
+    });
+
+    const replay = el => {
+      if (!el) return;
+      el.classList.remove('animate-in');
+      void el.offsetWidth;
+      requestAnimationFrame(() => el.classList.add('animate-in'));
+    };
+
+    if (!('IntersectionObserver' in window)) {
+      targets.forEach(replay);
+      return;
+    }
+
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        const el = entry.target;
+        const visible = entry.isIntersecting && entry.intersectionRatio >= 0.12;
+        const wasVisible = el.getAttribute('data-v162-in-view') === 'true';
+        if (visible && !wasVisible) {
+          el.setAttribute('data-v162-in-view', 'true');
+          replay(el);
+        } else if (!visible && wasVisible) {
+          el.setAttribute('data-v162-in-view', 'false');
+          el.classList.remove('animate-in');
+        }
+      });
+    }, { threshold: [0, 0.01, 0.12, 0.35, 0.6, 1], rootMargin: '0px 0px -6% 0px' });
+
+    targets.forEach(el => observer.observe(el));
+    window.__previewScrollReplayObserverV162 = observer;
+  }
+
+  // 匯出頁：包住 buildExportJS，讓每個根目錄 HTML 分頁都帶有 scroll replay runtime。
+  if (typeof buildExportJS === 'function' && !window.__buildExportJSWrappedV162ScrollReplay) {
+    window.__buildExportJSWrappedV162ScrollReplay = true;
+    const previousBuildExportJSV162 = buildExportJS;
+    buildExportJS = function(exportPagesJSON, currentPageIdJSON){
+      return previousBuildExportJSV162.apply(this, arguments) + scrollReplayRuntimeSourceV162();
+    };
+    window.buildExportJS = buildExportJS;
+  }
+
+  // 預覽頁：也補回同一個滑出/滑回重播邏輯，與匯出效果一致。
+  const previewBtn = document.getElementById('previewBtn');
+  if (previewBtn && !previewBtn.dataset.v162ScrollReplayBound) {
+    previewBtn.dataset.v162ScrollReplayBound = 'true';
+    previewBtn.addEventListener('click', () => {
+      setTimeout(() => installPreviewScrollReplayV162(document.getElementById('sitePage') || document), 280);
+      setTimeout(() => installPreviewScrollReplayV162(document.getElementById('sitePage') || document), 620);
+    }, true);
+  }
+
+  const exitPreviewBtn = document.getElementById('exitPreviewBtn');
+  if (exitPreviewBtn && !exitPreviewBtn.dataset.v162ScrollReplayExitBound) {
+    exitPreviewBtn.dataset.v162ScrollReplayExitBound = 'true';
+    exitPreviewBtn.addEventListener('click', () => {
+      if (window.__previewScrollReplayObserverV162) {
+        try { window.__previewScrollReplayObserverV162.disconnect(); } catch (error) {}
+        window.__previewScrollReplayObserverV162 = null;
+      }
+      document.querySelectorAll('[data-slide-animation="true"].animate-in').forEach(el => el.classList.remove('animate-in'));
+    }, true);
+  }
+
+  window.installPreviewScrollReplayV162 = installPreviewScrollReplayV162;
+
+  window.addEventListener('load', () => {
+    const title = document.querySelector('.editor-title');
+    if (title) title.innerHTML = '<i class="bi bi-play-circle me-1"></i> 自訂網站編輯器 V162 <span class="low-spec-badge">動畫重播修正</span>';
+    document.title = '自訂網站編輯器 V162';
+  });
+})();
