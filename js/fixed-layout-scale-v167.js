@@ -1,24 +1,24 @@
-/* v168: lock element layout to a design width without transform, keeping preview/export identical. */
+/* v169: lock layout to design width and auto-zoom the page, keeping preview/export identical. */
 (function fixedLayoutScaleV167() {
   if (window.__fixedLayoutScaleV167) return;
   window.__fixedLayoutScaleV167 = true;
 
   const WIDTHS = {
-    desktop: 1440,
+    desktop: 1920,
     tablet: 768,
     mobile: 390
   };
 
   const cssV167 = `
 :root {
-  --fixed-layout-design-width-v167: 1440px;
+  --fixed-layout-design-width-v167: 1920px;
   --fixed-layout-scale-v167: 1;
 }
 
 body.preview-mode.device-desktop,
 body.exported-site.export-mode-desktop,
 body.exported-site.preview-mode.export-mode-desktop {
-  --fixed-layout-design-width-v167: 1440px;
+  --fixed-layout-design-width-v167: 1920px;
 }
 
 body.preview-mode.device-tablet,
@@ -36,7 +36,7 @@ body.exported-site.preview-mode.export-mode-mobile {
 body.preview-mode,
 body.exported-site,
 body.exported-site.preview-mode {
-  overflow-x: auto !important;
+  overflow-x: hidden !important;
   background-size: cover !important;
   background-position: center center !important;
   background-repeat: no-repeat !important;
@@ -60,8 +60,8 @@ body.exported-site.preview-mode .canvas-area,
 body.exported-site .export-preview-canvas-v161,
 body.exported-site.preview-mode .export-preview-canvas-v161 {
   width: 100vw !important;
-  max-width: none !important;
-  overflow-x: auto !important;
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
   display: flex !important;
   justify-content: center !important;
   align-items: flex-start !important;
@@ -81,6 +81,7 @@ body.exported-site.preview-mode .site-page {
   max-width: var(--fixed-layout-design-width-v167) !important;
   transform: none !important;
   transform-origin: top center !important;
+  zoom: var(--fixed-layout-scale-v167) !important;
   flex: 0 0 var(--fixed-layout-design-width-v167) !important;
   box-sizing: border-box !important;
   margin-left: auto !important;
@@ -113,6 +114,7 @@ body.exported-site.preview-mode .block-canvas {
 
 body:not(.preview-mode):not(.exported-site) #sitePage.site-page {
   transform: none !important;
+  zoom: 1 !important;
 }
 `;
 
@@ -132,6 +134,15 @@ body:not(.preview-mode):not(.exported-site) #sitePage.site-page {
 
   function designWidthForMode(mode = modeFromBody()) {
     return WIDTHS[mode] || WIDTHS.desktop;
+  }
+
+  function viewportWidth() {
+    return Math.max(320, window.innerWidth || document.documentElement.clientWidth || designWidthForMode());
+  }
+
+  function scaleForMode(mode = modeFromBody()) {
+    const designWidth = designWidthForMode(mode);
+    return Math.min(1, viewportWidth() / designWidth);
   }
 
   function getPage() {
@@ -156,18 +167,20 @@ body:not(.preview-mode):not(.exported-site) #sitePage.site-page {
 
     const mode = modeFromBody();
     const designWidth = designWidthForMode(mode);
+    const scale = scaleForMode(mode);
     const pageHeight = Math.max(page.scrollHeight, page.offsetHeight, window.innerHeight || 0);
     const canvas = getCanvas();
 
     document.documentElement.style.setProperty('--fixed-layout-design-width-v167', designWidth + 'px');
-    document.documentElement.style.setProperty('--fixed-layout-scale-v167', '1');
+    document.documentElement.style.setProperty('--fixed-layout-scale-v167', String(scale));
     document.body.style.setProperty('--fixed-layout-design-width-v167', designWidth + 'px');
-    document.body.style.setProperty('--fixed-layout-scale-v167', '1');
+    document.body.style.setProperty('--fixed-layout-scale-v167', String(scale));
     page.style.setProperty('--fixed-layout-design-width-v167', designWidth + 'px');
-    page.style.setProperty('--fixed-layout-scale-v167', '1');
+    page.style.setProperty('--fixed-layout-scale-v167', String(scale));
+    page.style.zoom = String(scale);
 
     if (canvas) {
-      canvas.style.minHeight = Math.max(window.innerHeight || 0, pageHeight) + 'px';
+      canvas.style.minHeight = Math.max(window.innerHeight || 0, Math.ceil(pageHeight * scale)) + 'px';
     }
   }
 
@@ -219,21 +232,23 @@ body:not(.preview-mode):not(.exported-site) #sitePage.site-page {
 (function(){
   if (window.__fixedLayoutScaleRuntimeV167) return;
   window.__fixedLayoutScaleRuntimeV167 = true;
-  var WIDTHS = { desktop: 1440, tablet: 768, mobile: 390 };
+  var WIDTHS = { desktop: 1920, tablet: 768, mobile: 390 };
   function mode(){ if (document.body.classList.contains('export-mode-mobile') || document.body.classList.contains('device-mobile')) return 'mobile'; if (document.body.classList.contains('export-mode-tablet') || document.body.classList.contains('device-tablet')) return 'tablet'; return 'desktop'; }
   function width(){ return WIDTHS[mode()] || WIDTHS.desktop; }
+  function scale(){ return Math.min(1, Math.max(320, window.innerWidth || document.documentElement.clientWidth || width()) / width()); }
   function page(){ return document.getElementById('sitePage') || document.querySelector('.site-page'); }
   function canvas(){ return document.querySelector('.canvas-area') || document.querySelector('.export-preview-canvas-v161') || document.body; }
   function apply(){
     var p = page(); if (!p) return;
-    var w = width(); var c = canvas();
+    var w = width(); var s = scale(); var c = canvas();
     document.documentElement.style.setProperty('--fixed-layout-design-width-v167', w + 'px');
-    document.documentElement.style.setProperty('--fixed-layout-scale-v167', '1');
+    document.documentElement.style.setProperty('--fixed-layout-scale-v167', String(s));
     document.body.style.setProperty('--fixed-layout-design-width-v167', w + 'px');
-    document.body.style.setProperty('--fixed-layout-scale-v167', '1');
+    document.body.style.setProperty('--fixed-layout-scale-v167', String(s));
     p.style.setProperty('--fixed-layout-design-width-v167', w + 'px');
-    p.style.setProperty('--fixed-layout-scale-v167', '1');
-    if (c) c.style.minHeight = Math.max(window.innerHeight || 0, Math.max(p.scrollHeight, p.offsetHeight, window.innerHeight || 0)) + 'px';
+    p.style.setProperty('--fixed-layout-scale-v167', String(s));
+    p.style.zoom = String(s);
+    if (c) c.style.minHeight = Math.max(window.innerHeight || 0, Math.ceil(Math.max(p.scrollHeight, p.offsetHeight, window.innerHeight || 0) * s)) + 'px';
   }
   function schedule(){ requestAnimationFrame(function(){ apply(); setTimeout(apply, 80); setTimeout(apply, 260); }); }
   window.addEventListener('resize', schedule);
