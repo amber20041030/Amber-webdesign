@@ -6339,3 +6339,147 @@ body:not(.preview-mode).template-multi-setting-v140 .select-switcher-block .free
 body:not(.preview-mode).template-multi-setting-v140 .drag-select-marquee {
   z-index: 2147483000 !important;
 }
+
+
+/* v147：下拉式收合標題 / 內文背景透明度、換色與滑鼠移入文字修正 */
+.accordion-item-template {
+  --accordion-head-bg-v147: var(--accordion-head-bg, #f8f9fa);
+  --accordion-body-bg-v147: var(--accordion-body-bg, #ffffff);
+  --accordion-head-text-color-v147: var(--element-text-color, #212529);
+  --accordion-body-text-color-v147: var(--element-text-color, #495057);
+}
+
+.accordion-item-template .accordion-item-head {
+  background: var(--accordion-head-bg-v147, var(--accordion-head-bg, #f8f9fa)) !important;
+  color: var(--accordion-head-text-color-v147, var(--element-text-color, #212529)) !important;
+}
+
+.accordion-item-template .accordion-item-head,
+.accordion-item-template .accordion-item-head * {
+  color: var(--accordion-head-text-color-v147, var(--element-text-color, #212529)) !important;
+}
+
+.accordion-item-template .accordion-item-body,
+.accordion-item-template .accordion-item-content {
+  background: var(--accordion-body-bg-v147, var(--accordion-body-bg, #ffffff)) !important;
+}
+
+.accordion-item-template .accordion-item-content,
+.accordion-item-template .accordion-item-content * {
+  color: var(--accordion-body-text-color-v147, var(--element-text-color, #495057)) !important;
+}
+
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head,
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-body,
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-body,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-head,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-body,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-content {
+  background: var(--element-hover-bg-color, #0d6efd) !important;
+}
+
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head,
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head *,
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content,
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content *,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head *,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content *,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-head,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-head *,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-content,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-content * {
+  color: var(--element-hover-text-color, #ffffff) !important;
+}
+
+
+/* v148：下拉式收合 hover 只改標題文字 + ICON，不再改背景；移除模板外框線 */
+.accordion-dropdown-template .accordion-dropdown-inner {
+  border: 0 !important;
+}
+
+body.preview-mode .accordion-dropdown-template,
+body.exported-site .accordion-dropdown-template {
+  border: 0 !important;
+  outline: 0 !important;
+}
+
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover {
+  background: inherit !important;
+}
+
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-head {
+  background: var(--accordion-head-bg-v147, var(--accordion-head-bg, #f8f9fa)) !important;
+  color: var(--element-hover-text-color, #ffffff) !important;
+}
+
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head *,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head *,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-head * {
+  color: var(--element-hover-text-color, #ffffff) !important;
+}
+
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head::after,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head::after,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-head::after {
+  color: var(--element-hover-text-color, #ffffff) !important;
+  border-top-color: var(--element-hover-text-color, #ffffff) !important;
+  background-color: var(--element-hover-text-color, #ffffff) !important;
+}
+
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-body,
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-body,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-body,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-content {
+  background: var(--accordion-body-bg-v147, var(--accordion-body-bg, #ffffff)) !important;
+}
+
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content,
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content *,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-content *,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-content,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-content * {
+  color: var(--accordion-body-text-color-v147, var(--element-text-color, #495057)) !important;
+}
+
+
+/* v149：修正下拉式收合 hover 後 ICON 變成色塊；只讓 ICON 本身換成標題 hover 文字色 */
+body.preview-mode .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head::after,
+body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head::after,
+.accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-head::after {
+  color: var(--element-hover-text-color, #ffffff) !important;
+  fill: var(--element-hover-text-color, #ffffff) !important;
+  stroke: var(--element-hover-text-color, #ffffff) !important;
+  border-top-color: var(--element-hover-text-color, #ffffff) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+body.preview-mode .accordion-dropdown-template[data-accordion-icon-style="plus-x"] .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head::after,
+body.exported-site .accordion-dropdown-template[data-accordion-icon-style="plus-x"] .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head::after,
+.accordion-dropdown-template[data-accordion-icon-style="plus-x"] .accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-head::after,
+body.preview-mode .accordion-dropdown-template:not([data-accordion-icon-style="triangle-line"]) .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head::after,
+body.exported-site .accordion-dropdown-template:not([data-accordion-icon-style="triangle-line"]) .accordion-item-template[data-hover-color-enabled="true"]:hover .accordion-item-head::after,
+.accordion-dropdown-template:not([data-accordion-icon-style="triangle-line"]) .accordion-item-template[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-head::after {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+body.preview-mode .accordion-dropdown-template[data-accordion-icon-style="triangle-line"] .accordion-item-template.open[data-hover-color-enabled="true"]:hover .accordion-item-head::after,
+body.exported-site .accordion-dropdown-template[data-accordion-icon-style="triangle-line"] .accordion-item-template.open[data-hover-color-enabled="true"]:hover .accordion-item-head::after,
+.accordion-dropdown-template[data-accordion-icon-style="triangle-line"] .accordion-item-template.open[data-hover-color-enabled="true"].hover-color-effect-preview:hover .accordion-item-head::after {
+  border-color: transparent !important;
+  background: var(--element-hover-text-color, #ffffff) !important;
+  background-color: var(--element-hover-text-color, #ffffff) !important;
+}
