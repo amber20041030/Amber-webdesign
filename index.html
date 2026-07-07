@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>自訂網站編輯器 V134</title>
+  <title>自訂網站編輯器 V137</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
@@ -64,6 +64,10 @@
       <span class="manual-save-status no-export" id="manualSaveStatus">
         <i class="bi bi-dot"></i> 手動存檔
       </span>
+
+      <button class="btn btn-outline-secondary btn-sm" id="manualSaveHistoryBtn">
+        <i class="bi bi-clock-history"></i> 歷史紀錄
+      </button>
 
       <button class="btn btn-outline-secondary btn-sm" id="loadBtn">
         <i class="bi bi-arrow-clockwise"></i> 載入
@@ -1956,7 +1960,7 @@
           <button class="btn btn-outline-danger btn-sm" id="deleteBtn">刪除</button>
         </div>
         <div class="small text-muted mt-2">
-          Delete 刪除、Ctrl+C 複製、Ctrl+V 貼上、方向鍵微調元件
+          Delete 刪除選取元件、Ctrl+C 複製、Ctrl+V 貼上、方向鍵微調元件
         </div>
       </div>
     </aside>

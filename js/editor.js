@@ -8728,6 +8728,9 @@ const AUTO_SAVE_KEY = 'bootstrap-editor-v77-autosave';
 const INDEXED_DB_NAME_V86 = 'bootstrap-editor-project-db';
 const INDEXED_DB_STORE_V86 = 'projectStore';
 const INDEXED_DB_RECORD_KEY_V86 = 'latestProject';
+const MANUAL_SAVE_HISTORY_KEY_V136 = 'bootstrap-editor-v136-manual-save-history';
+const MANUAL_SAVE_HISTORY_INDEXED_DB_KEY_V136 = 'manualSaveHistoryV136';
+const MANUAL_SAVE_HISTORY_MAX_V136 = 5;
 
 function getSerializableProjectPayload(includeFonts = false) {
   captureCurrentPage();
@@ -8996,6 +8999,292 @@ function importProjectBackupFile(file) {
   reader.readAsText(file);
 }
 
+
+/* v136：手動存檔歷史紀錄，最多保留 5 筆 */
+function normalizeManualSaveHistoryList(history) {
+  return Array.isArray(history)
+    ? history.filter(item => item && item.id && item.payload && item.payload.pages).slice(0, MANUAL_SAVE_HISTORY_MAX_V136)
+    : [];
+}
+
+async function loadManualSaveHistoryFromIndexedDB() {
+  const db = await openProjectIndexedDB();
+  if (!db) return null;
+
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction(INDEXED_DB_STORE_V86, 'readonly');
+      const store = tx.objectStore(INDEXED_DB_STORE_V86);
+      const request = store.get(MANUAL_SAVE_HISTORY_INDEXED_DB_KEY_V136);
+
+      request.onsuccess = () => {
+        const record = request.result;
+        db.close();
+        resolve(record && 'payload' in record ? normalizeManualSaveHistoryList(record.payload) : null);
+      };
+      request.onerror = () => {
+        db.close();
+        resolve(null);
+      };
+    } catch (error) {
+      try { db.close(); } catch (closeError) {}
+      resolve(null);
+    }
+  });
+}
+
+async function saveManualSaveHistoryToIndexedDB(history) {
+  const db = await openProjectIndexedDB();
+  if (!db) return false;
+
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction(INDEXED_DB_STORE_V86, 'readwrite');
+      const store = tx.objectStore(INDEXED_DB_STORE_V86);
+      store.put({ id: MANUAL_SAVE_HISTORY_INDEXED_DB_KEY_V136, payload: normalizeManualSaveHistoryList(history) });
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve(true);
+      };
+      tx.onerror = () => {
+        db.close();
+        resolve(false);
+      };
+      tx.onabort = () => {
+        db.close();
+        resolve(false);
+      };
+    } catch (error) {
+      try { db.close(); } catch (closeError) {}
+      resolve(false);
+    }
+  });
+}
+
+function loadManualSaveHistoryFromLocalStorage() {
+  try {
+    return normalizeManualSaveHistoryList(JSON.parse(localStorage.getItem(MANUAL_SAVE_HISTORY_KEY_V136) || '[]'));
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveManualSaveHistoryToLocalStorage(history) {
+  return trySetLocalStorage(MANUAL_SAVE_HISTORY_KEY_V136, JSON.stringify(normalizeManualSaveHistoryList(history)), { cleanup: false });
+}
+
+async function loadManualSaveHistory() {
+  const dbHistory = await loadManualSaveHistoryFromIndexedDB();
+  if (dbHistory !== null) return dbHistory;
+  const localHistory = loadManualSaveHistoryFromLocalStorage();
+  return localHistory;
+}
+
+async function saveManualSaveHistory(history) {
+  const safeHistory = normalizeManualSaveHistoryList(history);
+  const okDB = await saveManualSaveHistoryToIndexedDB(safeHistory);
+  if (okDB) {
+    // 同步一份很小的索引資訊給舊瀏覽器讀取時使用，不強制保存大型 payload。
+    try { localStorage.setItem(MANUAL_SAVE_HISTORY_KEY_V136 + '-index', JSON.stringify(safeHistory.map(item => ({ id: item.id, name: item.name, savedAt: item.savedAt })))); } catch (error) {}
+    return true;
+  }
+  return saveManualSaveHistoryToLocalStorage(safeHistory);
+}
+
+function padManualSaveHistoryNumber(value) {
+  return String(value).padStart(2, '0');
+}
+
+function formatManualSaveHistoryDate(timestamp) {
+  const date = new Date(timestamp || Date.now());
+  return [date.getFullYear(), padManualSaveHistoryNumber(date.getMonth() + 1), padManualSaveHistoryNumber(date.getDate())].join('-');
+}
+
+function formatManualSaveHistoryDateTime(timestamp) {
+  const date = new Date(timestamp || Date.now());
+  return formatManualSaveHistoryDate(timestamp) + ' ' + [padManualSaveHistoryNumber(date.getHours()), padManualSaveHistoryNumber(date.getMinutes()), padManualSaveHistoryNumber(date.getSeconds())].join(':');
+}
+
+function getManualSaveHistoryVersionCounter(dateKey, history) {
+  let maxVersion = 0;
+  const pattern = new RegExp('^' + dateKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' 版本 (\\d+)$');
+
+  normalizeManualSaveHistoryList(history).forEach(item => {
+    const match = String(item.name || '').match(pattern);
+    if (match) maxVersion = Math.max(maxVersion, parseInt(match[1], 10) || 0);
+  });
+
+  try {
+    const savedCounter = parseInt(localStorage.getItem(MANUAL_SAVE_HISTORY_KEY_V136 + '-counter-' + dateKey) || '0', 10) || 0;
+    maxVersion = Math.max(maxVersion, savedCounter);
+  } catch (error) {}
+
+  const nextVersion = maxVersion + 1;
+  try { localStorage.setItem(MANUAL_SAVE_HISTORY_KEY_V136 + '-counter-' + dateKey, String(nextVersion)); } catch (error) {}
+  return nextVersion;
+}
+
+function cloneManualSaveHistoryPayload(payload, savedAt) {
+  const cloned = JSON.parse(JSON.stringify(payload || {}));
+  cloned.savedAt = savedAt;
+  cloned.version = 'v136-history';
+  return cloned;
+}
+
+async function addManualSaveHistorySnapshot(payload) {
+  if (!payload || !payload.pages || !Object.keys(payload.pages).length) return false;
+
+  const history = await loadManualSaveHistory();
+  const savedAt = Date.now();
+  const dateKey = formatManualSaveHistoryDate(savedAt);
+  const versionNumber = getManualSaveHistoryVersionCounter(dateKey, history);
+  const entry = {
+    id: 'manual-history-' + savedAt + '-' + Math.random().toString(36).slice(2, 8),
+    name: dateKey + ' 版本 ' + versionNumber,
+    savedAt,
+    payload: cloneManualSaveHistoryPayload(payload, savedAt)
+  };
+
+  return saveManualSaveHistory([entry, ...history].slice(0, MANUAL_SAVE_HISTORY_MAX_V136));
+}
+
+function ensureManualSaveHistoryPanel() {
+  let modal = document.getElementById('manualSaveHistoryModal');
+  if (modal) return modal;
+
+  modal = document.createElement('div');
+  modal.id = 'manualSaveHistoryModal';
+  modal.className = 'manual-save-history-modal no-export';
+  modal.innerHTML = `
+    <div class="manual-save-history-card" role="dialog" aria-modal="true" aria-labelledby="manualSaveHistoryTitle">
+      <div class="manual-save-history-head">
+        <div>
+          <div class="manual-save-history-title" id="manualSaveHistoryTitle">歷史存檔紀錄</div>
+          <div class="manual-save-history-subtitle">每次手動存檔會新增 1 筆，最多保留 5 筆。</div>
+        </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-history-close="true">關閉</button>
+      </div>
+      <div class="manual-save-history-body" id="manualSaveHistoryBody"></div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  modal.addEventListener('click', event => {
+    if (event.target === modal || event.target.closest('[data-history-close="true"]')) {
+      closeManualSaveHistoryPanel();
+    }
+  });
+
+  return modal;
+}
+
+function escapeManualSaveHistoryHTML(value) {
+  return String(value || '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
+}
+
+async function renderManualSaveHistoryPanel() {
+  const body = document.getElementById('manualSaveHistoryBody');
+  if (!body) return;
+
+  const history = await loadManualSaveHistory();
+  if (!history.length) {
+    body.innerHTML = '<div class="manual-save-history-empty">目前沒有歷史紀錄。按「儲存」後會自動建立第一筆。</div>';
+    return;
+  }
+
+  body.innerHTML = `
+    <div class="manual-save-history-list">
+      ${history.map(item => `
+        <div class="manual-save-history-item" data-history-id="${escapeManualSaveHistoryHTML(item.id)}">
+          <div>
+            <div class="manual-save-history-name">${escapeManualSaveHistoryHTML(item.name)}</div>
+            <div class="manual-save-history-time">存檔時間：${escapeManualSaveHistoryHTML(formatManualSaveHistoryDateTime(item.savedAt))}</div>
+          </div>
+          <div class="manual-save-history-actions">
+            <button type="button" class="btn btn-primary btn-sm" data-history-restore="${escapeManualSaveHistoryHTML(item.id)}">還原此版本</button>
+            <button type="button" class="btn btn-outline-danger btn-sm" data-history-delete="${escapeManualSaveHistoryHTML(item.id)}">刪除</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+async function openManualSaveHistoryPanel() {
+  const modal = ensureManualSaveHistoryPanel();
+  modal.classList.add('show');
+  await renderManualSaveHistoryPanel();
+}
+
+function closeManualSaveHistoryPanel() {
+  const modal = document.getElementById('manualSaveHistoryModal');
+  if (modal) modal.classList.remove('show');
+}
+
+async function restoreManualSaveHistoryEntry(id) {
+  const history = await loadManualSaveHistory();
+  const entry = history.find(item => item.id === id);
+  if (!entry) {
+    alert('找不到這筆歷史紀錄，可能已被刪除。');
+    await renderManualSaveHistoryPanel();
+    return;
+  }
+
+  if (!confirm('確定要還原「' + entry.name + '」嗎？目前畫面會改成該版本。')) return;
+
+  const ok = applySavedPayload(entry.payload, true);
+  if (!ok) {
+    alert('還原失敗：這筆歷史紀錄內容不完整。');
+    return;
+  }
+
+  const payload = getProjectPayloadForBrowserStorage();
+  const json = JSON.stringify(payload);
+  const okDB = await saveProjectToIndexedDB(payload);
+  const okLocal = trySetLocalStorage(MAIN_SAVE_KEY_V84, json, { cleanup: true });
+
+  if (okDB || okLocal) {
+    clearAutosaveFailureState();
+    setManualSaveStatus('已還原歷史版本', 'is-saved');
+    alert('已還原「' + entry.name + '」。');
+  } else {
+    setManualSaveStatus('已還原但尚未完成瀏覽器存檔', 'is-error');
+    alert('已還原畫面，但瀏覽器儲存空間不足，請再按一次「儲存」或匯出 ZIP。');
+  }
+}
+
+async function deleteManualSaveHistoryEntry(id) {
+  const history = await loadManualSaveHistory();
+  const entry = history.find(item => item.id === id);
+  if (!entry) {
+    await renderManualSaveHistoryPanel();
+    return;
+  }
+
+  if (!confirm('確定要刪除「' + entry.name + '」嗎？')) return;
+
+  const nextHistory = history.filter(item => item.id !== id);
+  const ok = await saveManualSaveHistory(nextHistory);
+  if (!ok) {
+    alert('刪除失敗：瀏覽器儲存空間不足或被封鎖。');
+    return;
+  }
+  await renderManualSaveHistoryPanel();
+}
+
+document.addEventListener('click', event => {
+  const restoreBtn = event.target && event.target.closest ? event.target.closest('[data-history-restore]') : null;
+  if (restoreBtn) {
+    event.preventDefault();
+    restoreManualSaveHistoryEntry(restoreBtn.dataset.historyRestore);
+    return;
+  }
+
+  const deleteBtn = event.target && event.target.closest ? event.target.closest('[data-history-delete]') : null;
+  if (deleteBtn) {
+    event.preventDefault();
+    deleteManualSaveHistoryEntry(deleteBtn.dataset.historyDelete);
+  }
+});
+
 /* v85/v86：手動存檔獨立於自動存檔，Auto Save 失敗也不影響手動存檔 */
 let lastManualSaveResult = null;
 
@@ -9040,11 +9329,14 @@ async function saveEditor() {
     const okLocal = trySetLocalStorage(MAIN_SAVE_KEY_V84, json, { cleanup: true });
 
     if (okDB || okLocal) {
+      const okHistory = await addManualSaveHistorySnapshot(payload);
       clearAutosaveFailureState();
-      setManualSaveStatus(okLocal ? '手動存檔成功' : '手動存檔成功（大型儲存）', 'is-saved');
-      alert(okLocal
-        ? '手動存檔成功，已儲存到此瀏覽器。'
-        : '手動存檔成功，已改存到瀏覽器大型儲存區。');
+      setManualSaveStatus(okHistory ? '手動存檔成功，已建立歷史紀錄' : '手動存檔成功', 'is-saved');
+      alert(okHistory
+        ? '手動存檔成功，已建立 1 筆歷史紀錄（最多保留 5 筆）。'
+        : (okLocal
+          ? '手動存檔成功，已儲存到此瀏覽器，但歷史紀錄建立失敗。'
+          : '手動存檔成功，已改存到瀏覽器大型儲存區，但歷史紀錄建立失敗。'));
       return true;
     }
 
@@ -11919,6 +12211,7 @@ document.getElementById('carouselDeleteSlideBtn').addEventListener('click', () =
 
 document.getElementById('exportBtn').addEventListener('click', exportHTML);
 document.getElementById('saveBtn').addEventListener('click', saveEditor);
+document.getElementById('manualSaveHistoryBtn')?.addEventListener('click', openManualSaveHistoryPanel);
 document.getElementById('loadBtn').addEventListener('click', loadEditor);
 document.getElementById('clearBtn').addEventListener('click', clearEditor);
 
@@ -12232,6 +12525,7 @@ document.addEventListener('keydown', e => {
   }
 
   if (e.key === 'Escape') {
+    closeManualSaveHistoryPanel();
     selectBlock(null);
   }
 });
@@ -20397,4 +20691,607 @@ body.exported-site [data-select-switcher-toolbar="true"] {
   }
 
   window.addEventListener('load', normalizeAllSwitcherControls);
+})();
+
+
+/* v135：下拉式換組模板內的下拉式元件與展開選項保持最上圖層，不被其他元件干擾 */
+(function installSelectSwitcherControlTopLayerV135(){
+  if (window.__selectSwitcherControlTopLayerInstalledV135) return;
+  window.__selectSwitcherControlTopLayerInstalledV135 = true;
+
+  const css = `
+/* v135：下拉式換組模板內的下拉式元件與展開選項固定為最上圖層 */
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"] {
+  z-index: 2147483000 !important;
+  overflow: visible !important;
+  isolation: isolate;
+  pointer-events: auto !important;
+}
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"].selected,
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"]:hover,
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"].dropdown-open,
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"].menu-open,
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"].select-hover-open-v127 {
+  z-index: 2147483000 !important;
+}
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-combo,
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-title,
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-menu,
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-option {
+  pointer-events: auto !important;
+}
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-combo {
+  position: relative !important;
+  z-index: 2147483001 !important;
+  overflow: visible !important;
+}
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-title {
+  position: relative !important;
+  z-index: 2147483002 !important;
+}
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-menu {
+  position: absolute !important;
+  z-index: 2147483647 !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
+}
+.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"] .editable-select-option {
+  position: relative !important;
+  z-index: 2147483647 !important;
+  pointer-events: auto !important;
+}
+.js-css-select-switcher .select-switcher-groups,
+.js-css-select-switcher .select-switcher-group,
+.js-css-select-switcher .select-switcher-group-canvas {
+  position: relative;
+  z-index: 1;
+}
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher.select-switcher-control-top-v135,
+body.preview-mode .js-css-select-switcher.select-switcher-control-top-v135,
+body.exported-site .js-css-select-switcher.select-switcher-control-top-v135,
+.js-css-select-switcher:has(.select-switcher-select-element[data-select-switcher-control="true"].selected),
+.js-css-select-switcher:has(.select-switcher-select-element[data-select-switcher-control="true"]:hover),
+.js-css-select-switcher:has(.select-switcher-select-element[data-select-switcher-control="true"].dropdown-open),
+.js-css-select-switcher:has(.select-switcher-select-element[data-select-switcher-control="true"].menu-open),
+.js-css-select-switcher:has(.select-switcher-select-element[data-select-switcher-control="true"].select-hover-open-v127) {
+  z-index: 2147482400 !important;
+  overflow: visible !important;
+}
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher.select-switcher-control-top-v135 > .editor-actions,
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher.select-switcher-control-top-v135 > .select-switcher-editor-panel {
+  z-index: 2147482300 !important;
+}
+`;
+
+  function installCSS() {
+    let style = document.getElementById('selectSwitcherControlTopLayerCSSV135');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'selectSwitcherControlTopLayerCSSV135';
+      document.head.appendChild(style);
+    }
+    if (style.textContent !== css) style.textContent = css;
+  }
+
+  function qsa(root, selector) {
+    return Array.prototype.slice.call((root || document).querySelectorAll(selector));
+  }
+
+  function rectContains(rect, x, y) {
+    return !!rect && rect.width > 0 && rect.height > 0 && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  }
+
+  function isVisible(el) {
+    if (!el || !el.isConnected) return false;
+    const rect = el.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) return false;
+    const style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+    return !(style && (style.display === 'none' || style.visibility === 'hidden' || style.pointerEvents === 'none'));
+  }
+
+  function isControlActive(control) {
+    if (!control) return false;
+    if (control.classList.contains('selected') || control.classList.contains('dropdown-open') || control.classList.contains('menu-open') || control.classList.contains('select-hover-open-v127')) return true;
+    try { if (control.matches(':hover') || control.matches(':focus-within')) return true; } catch (error) {}
+    const menu = control.querySelector('.editable-select-menu');
+    return !!(menu && isVisible(menu));
+  }
+
+  function refreshTopLayers() {
+    qsa(document, '.js-css-select-switcher[data-type="select-switcher"]').forEach(block => {
+      const control = block.querySelector('.select-switcher-select-element[data-select-switcher-control="true"]');
+      const active = isControlActive(control);
+      block.classList.toggle('select-switcher-control-top-v135', active);
+      if (control) control.classList.toggle('select-switcher-control-top-v135', active);
+    });
+  }
+
+  function findSwitcherOptionAtPoint(x, y) {
+    const controls = qsa(document, '.js-css-select-switcher .select-switcher-select-element[data-select-switcher-control="true"]')
+      .filter(isControlActive);
+    for (const control of controls) {
+      const options = qsa(control, '.editable-select-option');
+      for (let i = options.length - 1; i >= 0; i--) {
+        const option = options[i];
+        if (isVisible(option) && rectContains(option.getBoundingClientRect(), x, y)) return option;
+      }
+    }
+    return null;
+  }
+
+  function protectSwitcherDropdownHit(event) {
+    if (typeof event.clientX !== 'number' || typeof event.clientY !== 'number') return;
+    const option = findSwitcherOptionAtPoint(event.clientX, event.clientY);
+    if (!option) return;
+    const direct = event.target && event.target.closest && event.target.closest('.js-css-select-switcher .editable-select-option');
+    if (direct === option) return;
+    event.preventDefault();
+    event.stopPropagation();
+    option.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX: event.clientX, clientY: event.clientY }));
+  }
+
+  installCSS();
+  refreshTopLayers();
+
+  ['pointerdown', 'pointerup', 'click', 'focusin', 'focusout', 'change', 'keyup'].forEach(type => {
+    document.addEventListener(type, () => setTimeout(refreshTopLayers, 0), true);
+  });
+  document.addEventListener('pointermove', refreshTopLayers, true);
+  document.addEventListener('pointerup', protectSwitcherDropdownHit, true);
+  document.addEventListener('click', protectSwitcherDropdownHit, true);
+  window.addEventListener('scroll', refreshTopLayers, true);
+  window.addEventListener('resize', refreshTopLayers, true);
+
+  if (window.MutationObserver && document.body) {
+    let timer = null;
+    new MutationObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(refreshTopLayers, 40);
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'data-select-switcher-control'] });
+  }
+
+  if (typeof buildExportCSS === 'function' && !window.__selectSwitcherControlTopLayerExportCSSWrappedV135) {
+    window.__selectSwitcherControlTopLayerExportCSSWrappedV135 = true;
+    const originalBuildExportCSSV135 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV135.apply(this, arguments) + '\n' + css;
+    };
+  }
+
+  if (typeof buildExportJS === 'function' && !window.__selectSwitcherControlTopLayerExportJSWrappedV135) {
+    window.__selectSwitcherControlTopLayerExportJSWrappedV135 = true;
+    const originalBuildExportJSV135 = buildExportJS;
+    buildExportJS = function(exportPagesJSON, currentPageIdJSON) {
+      return originalBuildExportJSV135.apply(this, arguments) + `
+(function(){
+  if (window.__selectSwitcherControlTopLayerInstalledExportV135) return;
+  window.__selectSwitcherControlTopLayerInstalledExportV135 = true;
+  function qsa(root, selector){ return Array.prototype.slice.call((root || document).querySelectorAll(selector)); }
+  function isVisible(el){ if (!el || !el.isConnected) return false; var rect = el.getBoundingClientRect(); if (!rect || rect.width <= 0 || rect.height <= 0) return false; var style = window.getComputedStyle ? window.getComputedStyle(el) : null; return !(style && (style.display === 'none' || style.visibility === 'hidden' || style.pointerEvents === 'none')); }
+  function isControlActive(control){ if (!control) return false; if (control.classList.contains('selected') || control.classList.contains('dropdown-open') || control.classList.contains('menu-open') || control.classList.contains('select-hover-open-v127')) return true; try { if (control.matches(':hover') || control.matches(':focus-within')) return true; } catch(e) {} var menu = control.querySelector('.editable-select-menu'); return !!(menu && isVisible(menu)); }
+  function refresh(){ qsa(document, '.js-css-select-switcher[data-type="select-switcher"]').forEach(function(block){ var control = block.querySelector('.select-switcher-select-element[data-select-switcher-control="true"]'); var active = isControlActive(control); block.classList.toggle('select-switcher-control-top-v135', active); if (control) control.classList.toggle('select-switcher-control-top-v135', active); }); }
+  ['pointerdown','pointerup','click','focusin','focusout','change','keyup'].forEach(function(type){ document.addEventListener(type, function(){ setTimeout(refresh, 0); }, true); });
+  document.addEventListener('pointermove', refresh, true);
+  window.addEventListener('scroll', refresh, true);
+  window.addEventListener('resize', refresh, true);
+  if (window.MutationObserver && document.body) { var timer = null; new MutationObserver(function(){ clearTimeout(timer); timer = setTimeout(refresh, 40); }).observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class','style','data-select-switcher-control'] }); }
+  refresh();
+})();`;
+    };
+  }
+})();
+
+/* v135：補強沒有 :has 支援時的下拉換組置頂 class 規則 */
+(function installSelectSwitcherControlTopLayerCompatV135(){
+  if (window.__selectSwitcherControlTopLayerCompatInstalledV135) return;
+  window.__selectSwitcherControlTopLayerCompatInstalledV135 = true;
+  const css = `
+/* v135 補強：將 :has 與 class 型規則分開，確保沒有 :has 支援時仍能用 JS class 置頂 */
+body:not(.preview-mode):not(.exported-site) .js-css-select-switcher.select-switcher-control-top-v135,
+body.preview-mode .js-css-select-switcher.select-switcher-control-top-v135,
+body.exported-site .js-css-select-switcher.select-switcher-control-top-v135 {
+  z-index: 2147482400 !important;
+  overflow: visible !important;
+}
+@supports selector(:has(*)) {
+  .js-css-select-switcher:has(.select-switcher-select-element[data-select-switcher-control="true"].selected),
+  .js-css-select-switcher:has(.select-switcher-select-element[data-select-switcher-control="true"]:hover),
+  .js-css-select-switcher:has(.select-switcher-select-element[data-select-switcher-control="true"].dropdown-open),
+  .js-css-select-switcher:has(.select-switcher-select-element[data-select-switcher-control="true"].menu-open),
+  .js-css-select-switcher:has(.select-switcher-select-element[data-select-switcher-control="true"].select-hover-open-v127) {
+    z-index: 2147482400 !important;
+    overflow: visible !important;
+  }
+}`;
+  let style = document.getElementById('selectSwitcherControlTopLayerCompatCSSV135');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'selectSwitcherControlTopLayerCompatCSSV135';
+    document.head.appendChild(style);
+  }
+  style.textContent = css;
+  if (typeof buildExportCSS === 'function' && !window.__selectSwitcherControlTopLayerCompatExportCSSWrappedV135) {
+    window.__selectSwitcherControlTopLayerCompatExportCSSWrappedV135 = true;
+    const originalBuildExportCSSCompatV135 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSCompatV135.apply(this, arguments) + '\n' + css;
+    };
+  }
+})();
+
+
+/* v137：匯出網站與預覽模式一致
+   - 匯出 body 同時加入 preview-mode，讓預覽 CSS 在正式匯出網站中也能生效
+   - 匯出 css/style.css 會自動收集目前編輯器實際載入的 CSS / 動態 style，避免新功能預覽正常但匯出缺樣式
+   - 匯出 JS 加上通用互動初始化，補齊圖片 hover、下拉選項、頁面跳轉、連結、輪播等預覽互動
+   - 不改資料結構、不改原本編輯 / 儲存 / 換組邏輯
+*/
+(function installExportPreviewParityV137(){
+  if (window.__exportPreviewParityInstalledV137) return;
+  window.__exportPreviewParityInstalledV137 = true;
+
+  function getRuntimeCSSForExportV137() {
+    const parts = [];
+    const seen = new Set();
+
+    function add(css, label) {
+      if (!css || typeof css !== 'string') return;
+      const normalized = css.trim();
+      if (!normalized || seen.has(normalized)) return;
+      seen.add(normalized);
+      parts.push(label ? '\n/* ' + label + ' */\n' + normalized : normalized);
+    }
+
+    Array.from(document.styleSheets || []).forEach((sheet, index) => {
+      try {
+        const href = sheet.href || '';
+        // Bootstrap / Bootstrap Icons 仍由 CDN 載入，不重複包進 css/style.css。
+        if (/cdn\.jsdelivr\.net\/npm\/(bootstrap|bootstrap-icons)/i.test(href)) return;
+        const rules = Array.from(sheet.cssRules || []).map(rule => rule.cssText).join('\n');
+        add(rules, 'v137 runtime stylesheet ' + (href ? href.split('/').pop() : ('inline-' + index)));
+      } catch (error) {
+        // 跨網域 stylesheet 讀不到時略過，避免匯出中斷。
+      }
+    });
+
+    document.querySelectorAll('style').forEach((style, index) => {
+      add(style.textContent || '', 'v137 inline style ' + (style.id || index));
+    });
+
+    return parts.join('\n\n');
+  }
+
+  const exportPreviewParityCSSV137 = `
+/* v137：正式匯出網站強制套用預覽模式，不顯示任何編輯器 UI */
+body.exported-site {
+  margin: 0 !important;
+  background: #ffffff !important;
+  cursor: default;
+}
+
+body.exported-site.preview-mode .editor-topbar,
+body.exported-site.preview-mode .editor-sidebar,
+body.exported-site.preview-mode .editor-inspector,
+body.exported-site.preview-mode .canvas-hint,
+body.exported-site.preview-mode .no-export,
+body.exported-site.preview-mode .editor-actions,
+body.exported-site.preview-mode .move-handle,
+body.exported-site.preview-mode .element-toolbar,
+body.exported-site.preview-mode .resize-handle,
+body.exported-site.preview-mode .zone-label,
+body.exported-site.preview-mode .zone-empty,
+body.exported-site.preview-mode .block-label,
+body.exported-site.preview-mode .block-empty,
+body.exported-site.preview-mode .group-empty,
+body.exported-site.preview-mode .select-switcher-empty-group,
+body.exported-site.preview-mode .hover-slide-empty-group,
+body.exported-site.preview-mode .accordion-editor-panel,
+body.exported-site.preview-mode .carousel-editor-panel,
+body.exported-site.preview-mode .select-switcher-editor-panel,
+body.exported-site.preview-mode .vertical-carousel-editor-panel,
+body.exported-site.preview-mode .vertical-news-editor-panel,
+body.exported-site.preview-mode .hover-slide-editor-panel,
+body.exported-site.preview-mode .alignment-guide,
+body.exported-site.preview-mode #exitPreviewBtn,
+body.exported-site.preview-mode #floatingExitPreviewBtn {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.exported-site.preview-mode .editor-layout,
+body.exported-site.preview-mode .canvas-area,
+body.exported-site.preview-mode .site-page {
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 100vh;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+body.exported-site.preview-mode .html-zone,
+body.exported-site.preview-mode .html-block,
+body.exported-site.preview-mode .block-canvas {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+body.exported-site.preview-mode .html-block:hover,
+body.exported-site.preview-mode .free-element:hover,
+body.exported-site.preview-mode .html-block.selected,
+body.exported-site.preview-mode .free-element.selected,
+body.exported-site.preview-mode .free-element.multi-selected,
+body.exported-site.preview-mode .free-element.has-selected-child {
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+body.exported-site.preview-mode [data-editable-text],
+body.exported-site.preview-mode [data-editable-text] *,
+body.exported-site.preview-mode [contenteditable],
+body.exported-site.preview-mode [contenteditable] * {
+  cursor: default !important;
+  caret-color: transparent !important;
+  -webkit-user-modify: read-only !important;
+  user-select: auto !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+body.exported-site.preview-mode [data-css-function-enabled="true"],
+body.exported-site.preview-mode [data-css-scroll-enabled="true"],
+body.exported-site.preview-mode [data-css-page-enabled="true"],
+body.exported-site.preview-mode [data-link-enabled="true"],
+body.exported-site.preview-mode a[href],
+body.exported-site.preview-mode button,
+body.exported-site.preview-mode [role="button"],
+body.exported-site.preview-mode .carousel-nav-btn,
+body.exported-site.preview-mode .carousel-dot,
+body.exported-site.preview-mode .accordion-item-head,
+body.exported-site.preview-mode [data-side-drawer-toggle],
+body.exported-site.preview-mode .editable-select-title,
+body.exported-site.preview-mode .editable-select-option,
+body.exported-site.preview-mode .nav-dropdown-title,
+body.exported-site.preview-mode .nav-dropdown-option {
+  cursor: pointer !important;
+}
+
+body.exported-site.preview-mode .editable-youtube:not([src]),
+body.exported-site.preview-mode .editable-youtube[src=""] {
+  display: none !important;
+}
+
+body.exported-site.preview-mode .editable-youtube[src] {
+  display: block;
+}
+`;
+
+  if (typeof buildExportCSS === 'function' && !window.__exportPreviewParityCSSWrappedV137) {
+    window.__exportPreviewParityCSSWrappedV137 = true;
+    const originalBuildExportCSSV137 = buildExportCSS;
+    buildExportCSS = function() {
+      const base = originalBuildExportCSSV137.apply(this, arguments) || '';
+      const runtimeCSS = getRuntimeCSSForExportV137();
+      return base + '\n\n' + exportPreviewParityCSSV137 + '\n\n/* v137：目前預覽實際載入的 CSS 快照 */\n' + runtimeCSS;
+    };
+  }
+
+  if (typeof buildExportHTML === 'function' && !window.__exportPreviewParityHTMLWrappedV137) {
+    window.__exportPreviewParityHTMLWrappedV137 = true;
+    const originalBuildExportHTMLV137 = buildExportHTML;
+    buildExportHTML = function(bodyHTML, pageBg, inlineJS, assetPrefix, pageId, mode) {
+      let html = originalBuildExportHTMLV137.apply(this, arguments);
+      html = html.replace(/<body class="exported-site(?![^\"]*preview-mode)([^\"]*)"/i, '<body class="exported-site preview-mode$1"');
+      return html;
+    };
+  }
+
+  if (typeof buildExportJS === 'function' && !window.__exportPreviewParityJSWrappedV137) {
+    window.__exportPreviewParityJSWrappedV137 = true;
+    const originalBuildExportJSV137 = buildExportJS;
+    buildExportJS = function(exportPagesJSON, currentPageIdJSON) {
+      return originalBuildExportJSV137.apply(this, arguments) + `
+
+/* v137：匯出網站通用預覽互動補強 */
+(function initExportPreviewParityV137(){
+  if (window.__exportPreviewParityRuntimeInstalledV137) return;
+  window.__exportPreviewParityRuntimeInstalledV137 = true;
+
+  function qs(selector, root){ return (root || document).querySelector(selector); }
+  function qsa(selector, root){ return Array.prototype.slice.call((root || document).querySelectorAll(selector)); }
+
+  function addPreviewBodyClass(){
+    document.body.classList.add('exported-site');
+    document.body.classList.add('preview-mode');
+  }
+
+  function lockTextEditing(){
+    qsa('.selected, .multi-selected, .is-editing, .has-selected-child').forEach(function(el){
+      el.classList.remove('selected', 'multi-selected', 'is-editing', 'has-selected-child');
+    });
+    qsa('[contenteditable], [data-editable-text]').forEach(function(el){
+      el.setAttribute('contenteditable', 'false');
+      el.setAttribute('aria-readonly', 'true');
+      el.style.caretColor = 'transparent';
+    });
+  }
+
+  function normalizeYoutubeIframes(){
+    qsa('iframe.editable-youtube, .youtube-inner iframe').forEach(function(iframe){
+      var src = iframe.getAttribute('src') || '';
+      iframe.setAttribute('title', iframe.getAttribute('title') || 'YouTube video player');
+      iframe.setAttribute('frameborder', '0');
+      iframe.setAttribute('allow', iframe.getAttribute('allow') || 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+      iframe.setAttribute('referrerpolicy', iframe.getAttribute('referrerpolicy') || 'strict-origin-when-cross-origin');
+      iframe.setAttribute('allowfullscreen', '');
+      if (src) iframe.classList.remove('d-none');
+    });
+  }
+
+  function initImageHoverZoom(){
+    qsa('.free-element[data-type="image"][data-hover-zoom-enabled="true"]').forEach(function(el){
+      if (el.getAttribute('data-export-preview-image-hover-ready-v137') === 'true') return;
+      el.setAttribute('data-export-preview-image-hover-ready-v137', 'true');
+      var move = function(event){
+        el.classList.add('image-hover-active');
+        el.classList.add('image-hover-zoom-active');
+        if (typeof updateExportImageZoomBoundary === 'function') updateExportImageZoomBoundary(el, event);
+      };
+      var leave = function(){
+        el.classList.remove('image-hover-active');
+        el.classList.remove('image-hover-zoom-active');
+        if (typeof resetExportImageZoomBoundary === 'function') resetExportImageZoomBoundary(el);
+      };
+      el.addEventListener('mouseenter', move);
+      el.addEventListener('mousemove', move);
+      el.addEventListener('mouseleave', leave);
+      if (typeof resetExportImageZoomBoundary === 'function') resetExportImageZoomBoundary(el);
+    });
+  }
+
+  function syncSelectCombo(root){
+    var select = qs('select.editable-select', root);
+    var combo = qs('.editable-select-combo', root) || (select && select.closest('.editable-select-combo'));
+    if (!select || !combo) return;
+    var selected = select.options[select.selectedIndex] || select.options[0];
+    var titleSpan = qs('.editable-select-title span', combo);
+    if (titleSpan && selected) titleSpan.textContent = selected.textContent || '';
+    qsa('.editable-select-option', combo).forEach(function(option){
+      option.classList.toggle('is-active', String(option.getAttribute('data-option-index') || '0') === String(select.selectedIndex || 0));
+    });
+  }
+
+  function openSelect(root, force){
+    if (!root) return;
+    var mode = root.getAttribute('data-dropdown-style-mode') || root.getAttribute('data-nav-style-mode') || 'hover-title';
+    if (mode === 'vertical-list') {
+      root.classList.add('dropdown-open');
+      root.classList.add('menu-open');
+      return;
+    }
+    root.classList.toggle('dropdown-open', force === undefined ? !root.classList.contains('dropdown-open') : !!force);
+    root.classList.toggle('menu-open', root.classList.contains('dropdown-open'));
+  }
+
+  function initEditableSelects(){
+    qsa('.free-element[data-type="select"]').forEach(function(root){
+      if (root.getAttribute('data-export-preview-select-ready-v137') === 'true') {
+        syncSelectCombo(root);
+        return;
+      }
+      root.setAttribute('data-export-preview-select-ready-v137', 'true');
+      syncSelectCombo(root);
+      var title = qs('.editable-select-title', root);
+      if (title) title.addEventListener('click', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        openSelect(root);
+      });
+      qsa('.editable-select-option', root).forEach(function(option){
+        option.addEventListener('click', function(event){
+          event.preventDefault();
+          event.stopPropagation();
+          var select = qs('select.editable-select', root);
+          var index = parseInt(option.getAttribute('data-option-index') || '0', 10) || 0;
+          if (select) {
+            select.selectedIndex = index;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          syncSelectCombo(root);
+          root.classList.remove('dropdown-open', 'menu-open', 'select-hover-open-v127');
+        });
+      });
+      root.addEventListener('mouseenter', function(){
+        var mode = root.getAttribute('data-dropdown-style-mode') || 'hover-title';
+        if (mode === 'hover-title') root.classList.add('select-hover-open-v127');
+      });
+      root.addEventListener('mouseleave', function(){
+        root.classList.remove('select-hover-open-v127');
+        if ((root.getAttribute('data-dropdown-style-mode') || '') === 'hover-title') root.classList.remove('dropdown-open', 'menu-open');
+      });
+    });
+  }
+
+  function initNavDropdowns(){
+    qsa('.nav-dropdown').forEach(function(root){
+      if (root.getAttribute('data-export-preview-nav-ready-v137') === 'true') return;
+      root.setAttribute('data-export-preview-nav-ready-v137', 'true');
+      var title = qs('.nav-dropdown-title', root);
+      if (title) title.addEventListener('click', function(event){
+        var mode = root.getAttribute('data-nav-style-mode') || root.getAttribute('data-dropdown-style-mode') || 'hover-title';
+        if (mode !== 'hover-title') {
+          event.preventDefault();
+          event.stopPropagation();
+          root.classList.toggle('dropdown-open');
+          root.classList.toggle('menu-open', root.classList.contains('dropdown-open'));
+        }
+      });
+      root.addEventListener('mouseenter', function(){ root.classList.add('menu-open'); });
+      root.addEventListener('mouseleave', function(){
+        setTimeout(function(){ if (!root.matches(':hover')) root.classList.remove('menu-open'); }, 120);
+      });
+    });
+  }
+
+  function initPublicActions(){
+    if (window.__exportPreviewPublicActionsBoundV137) return;
+    window.__exportPreviewPublicActionsBoundV137 = true;
+    document.addEventListener('click', function(event){
+      var el = event.target.closest && event.target.closest('[data-css-function-enabled="true"], [data-css-scroll-enabled="true"], [data-css-page-enabled="true"]');
+      if (el && typeof handlePageAndScroll === 'function' && handlePageAndScroll(el, event)) return;
+      var link = event.target.closest && event.target.closest('[data-link-enabled="true"]');
+      if (link && typeof handleElementLink === 'function' && handleElementLink(link, event)) return;
+    }, true);
+    document.addEventListener('change', function(event){
+      var select = event.target.closest && event.target.closest('select.editable-select');
+      if (!select) return;
+      var root = select.closest('.free-element[data-type="select"]');
+      if (root) syncSelectCombo(root);
+    }, true);
+    document.addEventListener('click', function(event){
+      var inside = event.target.closest && event.target.closest('.free-element[data-type="select"], .nav-dropdown');
+      if (inside) return;
+      qsa('.free-element[data-type="select"].dropdown-open, .free-element[data-type="select"].menu-open, .nav-dropdown.dropdown-open, .nav-dropdown.menu-open').forEach(function(root){
+        root.classList.remove('dropdown-open', 'menu-open', 'select-hover-open-v127');
+      });
+    }, true);
+  }
+
+  function runAll(){
+    addPreviewBodyClass();
+    lockTextEditing();
+    normalizeYoutubeIframes();
+    initImageHoverZoom();
+    initEditableSelects();
+    initNavDropdowns();
+    initPublicActions();
+    if (typeof initExportRuntime === 'function') {
+      // initExportRuntime 內會重新整理輪播、下拉換組、側邊欄、手風琴、動畫等原本匯出互動。
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runAll);
+  } else {
+    runAll();
+  }
+
+  if (window.MutationObserver) {
+    var timer = null;
+    new MutationObserver(function(){
+      clearTimeout(timer);
+      timer = setTimeout(runAll, 60);
+    }).observe(document.body || document.documentElement, { childList: true, subtree: true });
+  }
+})();
+`;
+    };
+  }
 })();
