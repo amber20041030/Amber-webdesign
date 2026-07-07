@@ -21295,3 +21295,210 @@ body.exported-site.preview-mode .editable-youtube[src] {
     };
   }
 })();
+
+
+/* v138：修正 v137 匯出後元件消失
+   - 匯出清理只移除編輯器控制項，不再重組 header/main/footer DOM
+   - 保留預覽時實際使用的 html-zone / html-block / block-canvas / free-element 結構
+   - 移除 v137 匯出時額外抓取整個編輯器 runtime CSS 的快照，避免把編輯器狀態樣式帶進正式網站造成元件被隱藏
+*/
+(function installExportKeepElementsV138(){
+  if (window.__exportKeepElementsInstalledV138) return;
+  window.__exportKeepElementsInstalledV138 = true;
+
+  function cleanExportCloneKeepElementsV138(clone) {
+    if (!clone) return '';
+
+    clone.querySelectorAll([
+      '.editor-shell',
+      '.editor-topbar',
+      '.editor-sidebar',
+      '.editor-inspector',
+      '.canvas-hint',
+      '.no-export',
+      '.editor-actions',
+      '.move-handle',
+      '.element-toolbar',
+      '.resize-handle',
+      '.zone-label',
+      '.zone-empty',
+      '.block-label',
+      '.block-empty',
+      '.group-empty',
+      '.select-switcher-empty-group',
+      '.hover-slide-empty-group',
+      '.accordion-editor-panel',
+      '.carousel-editor-panel',
+      '.select-switcher-editor-panel',
+      '.vertical-carousel-editor-panel',
+      '.vertical-news-editor-panel',
+      '.hover-slide-editor-panel',
+      '.side-drawer-editor-panel',
+      '.alignment-guide',
+      '.drag-select-marquee',
+      '.carousel-loop-clone',
+      '.youtube-placeholder',
+      '[data-element-action]',
+      '[data-block-action]',
+      '[data-resize]',
+      '[data-accordion-action]',
+      '[data-carousel-action]',
+      '[data-select-switcher-action]',
+      '[data-vertical-carousel-action]',
+      '[data-hover-slide-action]'
+    ].join(',')).forEach(function(el){
+      el.remove();
+    });
+
+    clone.querySelectorAll('.html-zone, .html-block, .block-canvas, .free-element, .carousel-slide, .select-switcher-group, .hover-slide-group, .accordion-item-template').forEach(function(el){
+      el.classList.remove('selected', 'multi-selected', 'is-editing', 'has-selected-child');
+      el.removeAttribute('contenteditable');
+      el.removeAttribute('data-original-scale-enabled');
+      el.removeAttribute('data-original-scale');
+    });
+
+    clone.querySelectorAll('[contenteditable], [data-editable-text]').forEach(function(el){
+      el.removeAttribute('contenteditable');
+      el.setAttribute('aria-readonly', 'true');
+    });
+
+    clone.querySelectorAll('iframe.editable-youtube, .youtube-inner iframe').forEach(function(iframe){
+      if (iframe.getAttribute('src')) iframe.classList.remove('d-none');
+      iframe.setAttribute('title', iframe.getAttribute('title') || 'YouTube video player');
+      iframe.setAttribute('frameborder', '0');
+      iframe.setAttribute('allow', iframe.getAttribute('allow') || 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+      iframe.setAttribute('allowfullscreen', '');
+    });
+
+    clone.querySelectorAll('.free-element').forEach(function(el){
+      const linkEnabled = el.getAttribute('data-link-enabled') === 'true';
+      const linkUrl = el.getAttribute('data-link-url') || '';
+
+      el.querySelectorAll('a').forEach(function(anchor){
+        if (linkEnabled && linkUrl) {
+          anchor.setAttribute('href', linkUrl);
+        } else if (!anchor.getAttribute('href')) {
+          anchor.removeAttribute('href');
+        }
+      });
+    });
+
+    return clone.innerHTML;
+  }
+
+  cleanPageCloneForExport = function(clone) {
+    return cleanExportCloneKeepElementsV138(clone);
+  };
+
+  cleanForExport = function() {
+    return cleanExportCloneKeepElementsV138(sitePage.cloneNode(true));
+  };
+
+  cleanHTMLForExport = function(html) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'site-page';
+    wrapper.innerHTML = html || '';
+    return cleanExportCloneKeepElementsV138(wrapper);
+  };
+
+  if (typeof buildExportCSS === 'function' && !window.__exportKeepElementsCSSWrappedV138) {
+    window.__exportKeepElementsCSSWrappedV138 = true;
+    const originalBuildExportCSSV138 = buildExportCSS;
+    buildExportCSS = function() {
+      let css = originalBuildExportCSSV138.apply(this, arguments) || '';
+      const runtimeMarker = '/* v137：目前預覽實際載入的 CSS 快照 */';
+      const markerIndex = css.indexOf(runtimeMarker);
+      if (markerIndex >= 0) {
+        css = css.slice(0, markerIndex);
+      }
+
+      return css + `
+
+/* v138：匯出後保留所有正式內容元件 */
+body.exported-site.preview-mode .site-page,
+body.exported-site.preview-mode .html-zone,
+body.exported-site.preview-mode .html-block,
+body.exported-site.preview-mode .block-canvas {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+body.exported-site.preview-mode .html-zone {
+  position: relative !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+body.exported-site.preview-mode .html-block {
+  position: relative !important;
+  width: 100% !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  overflow: visible !important;
+}
+
+body.exported-site.preview-mode .block-canvas,
+body.exported-site.preview-mode .select-switcher-group-canvas,
+body.exported-site.preview-mode .hover-slide-group-canvas,
+body.exported-site.preview-mode .group-inner {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+body.exported-site.preview-mode .free-element {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: absolute !important;
+}
+
+body.exported-site.preview-mode .free-element > .inner {
+  display: block;
+  visibility: visible;
+  opacity: 1;
+}
+
+body.exported-site.preview-mode .carousel-slide,
+body.exported-site.preview-mode .select-switcher-group.active,
+body.exported-site.preview-mode .hover-slide-group,
+body.exported-site.preview-mode .accordion-item-template {
+  visibility: visible !important;
+}
+
+body.exported-site.preview-mode .select-switcher-group:not(.active) {
+  display: none !important;
+}
+
+body.exported-site.preview-mode .no-export,
+body.exported-site.preview-mode .editor-actions,
+body.exported-site.preview-mode .move-handle,
+body.exported-site.preview-mode .element-toolbar,
+body.exported-site.preview-mode .resize-handle,
+body.exported-site.preview-mode [data-element-action],
+body.exported-site.preview-mode [data-block-action],
+body.exported-site.preview-mode [data-resize] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+`;
+    };
+  }
+
+  if (typeof buildExportHTML === 'function' && !window.__exportKeepElementsHTMLWrappedV138) {
+    window.__exportKeepElementsHTMLWrappedV138 = true;
+    const originalBuildExportHTMLV138 = buildExportHTML;
+    buildExportHTML = function(bodyHTML, pageBg, inlineJS, assetPrefix, pageId, mode) {
+      let safeBodyHTML = bodyHTML || '';
+      if (!safeBodyHTML.trim()) {
+        safeBodyHTML = cleanForExport();
+      }
+      let html = originalBuildExportHTMLV138.call(this, safeBodyHTML, pageBg, inlineJS, assetPrefix, pageId, mode);
+      html = html.replace(/<body class="exported-site(?![^\"]*preview-mode)([^\"]*)"/i, '<body class="exported-site preview-mode$1"');
+      return html;
+    };
+  }
+})();
