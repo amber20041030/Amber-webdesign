@@ -23462,3 +23462,335 @@ body.exported-site .free-element.multi-selected {
 
   document.body.classList.add('v143-multi-selected-setting-sync');
 })();
+
+/* v144：動畫設定支援元件多選同步，只套用正在變動的動畫欄位 */
+(function initMultiSelectedAnimationSettingV144() {
+  if (window.__v144MultiSelectedAnimationSettingInstalled) return;
+  window.__v144MultiSelectedAnimationSettingInstalled = true;
+
+  const animationControlIdsV144 = [
+    'baseSlideAnimationToggle',
+    'baseSlideAnimationDirection',
+    'baseSlideAnimationDistance',
+    'baseSlideAnimationDistanceInput',
+    'baseSlideAnimationDuration',
+    'baseSlideAnimationDurationInput',
+    'baseSlideInitialXInput',
+    'baseSlideInitialYInput',
+    'baseSlideFinalXInput',
+    'baseSlideFinalYInput'
+  ];
+
+  let lastAnimationControlIdV144 = '';
+
+  function qV144(id) {
+    return document.getElementById(id);
+  }
+
+  function uniqueV144(items) {
+    return Array.from(new Set((items || []).filter(Boolean)));
+  }
+
+  function getMultiAnimationTargetsV144() {
+    const list = [];
+    if (Array.isArray(selectedElements)) list.push(...selectedElements);
+    if (selectedElement) list.push(selectedElement);
+
+    return uniqueV144(list).filter(el => (
+      el &&
+      el.isConnected &&
+      el.classList &&
+      el.classList.contains('free-element')
+    ));
+  }
+
+  function hasMultiAnimationTargetsV144() {
+    return getMultiAnimationTargetsV144().length > 1;
+  }
+
+  function isLockedV144(el) {
+    return typeof isElementLocked === 'function' && isElementLocked(el);
+  }
+
+  function clampV144(value, min, max, fallback) {
+    const numeric = parseFloat(value);
+    const safeValue = Number.isFinite(numeric) ? numeric : fallback;
+    return Math.max(min, Math.min(max, safeValue));
+  }
+
+  function readNumberV144(id, fallback, min = -9999, max = 9999) {
+    const input = qV144(id);
+    return clampV144(input ? input.value : fallback, min, max, fallback);
+  }
+
+  function setPanelValueV144(id, value) {
+    const input = qV144(id);
+    if (!input) return;
+    input.value = value;
+  }
+
+  function readDirectionV144() {
+    return qV144('baseSlideAnimationDirection')?.value || 'up';
+  }
+
+  function readDistanceV144() {
+    const value = qV144('baseSlideAnimationDistanceInput')?.value || qV144('baseSlideAnimationDistance')?.value || 40;
+    return clampV144(value, 0, 160, 40);
+  }
+
+  function readDurationV144() {
+    const value = qV144('baseSlideAnimationDurationInput')?.value || qV144('baseSlideAnimationDuration')?.value || 600;
+    return clampV144(value, 100, 2000, 600);
+  }
+
+  function getDirectionPresetV144(direction, distance) {
+    if (typeof getAnimationPresetFromDirection === 'function') {
+      return getAnimationPresetFromDirection(direction, distance);
+    }
+
+    const d = parseFloat(distance) || 0;
+    if (direction === 'down') return { initialX: 0, initialY: -d };
+    if (direction === 'left') return { initialX: d, initialY: 0 };
+    if (direction === 'right') return { initialX: -d, initialY: 0 };
+    return { initialX: 0, initialY: d };
+  }
+
+  function syncDistancePanelV144(value) {
+    setPanelValueV144('baseSlideAnimationDistance', value);
+    setPanelValueV144('baseSlideAnimationDistanceInput', value);
+  }
+
+  function syncDurationPanelV144(value) {
+    setPanelValueV144('baseSlideAnimationDuration', value);
+    setPanelValueV144('baseSlideAnimationDurationInput', value);
+  }
+
+  function writeAnimationPayloadV144(target, payload) {
+    if (!target || isLockedV144(target)) return;
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'slideAnimation')) {
+      target.dataset.slideAnimation = payload.slideAnimation ? 'true' : 'false';
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'slideDirection')) {
+      target.dataset.slideDirection = payload.slideDirection || 'up';
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'slideDistance')) {
+      target.dataset.slideDistance = payload.slideDistance;
+      target.style.setProperty('--base-slide-distance', payload.slideDistance + 'px');
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'slideDuration')) {
+      target.dataset.slideDuration = payload.slideDuration;
+      target.style.setProperty('--base-slide-duration', payload.slideDuration + 'ms');
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'slideInitialX')) {
+      target.dataset.slideInitialX = payload.slideInitialX;
+      target.style.setProperty('--base-slide-initial-x', payload.slideInitialX + 'px');
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'slideInitialY')) {
+      target.dataset.slideInitialY = payload.slideInitialY;
+      target.style.setProperty('--base-slide-initial-y', payload.slideInitialY + 'px');
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'slideFinalX')) {
+      target.dataset.slideFinalX = payload.slideFinalX;
+      target.style.setProperty('--base-slide-final-x', payload.slideFinalX + 'px');
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'slideFinalY')) {
+      target.dataset.slideFinalY = payload.slideFinalY;
+      target.style.setProperty('--base-slide-final-y', payload.slideFinalY + 'px');
+    }
+
+    target.classList.remove('animate-in');
+  }
+
+  function buildAnimationPayloadV144(changedId, options = {}) {
+    const payload = {};
+    const direction = readDirectionV144();
+    const distance = readDistanceV144();
+    const duration = readDurationV144();
+    const shouldApplyPreset = options.useDirectionPreset ||
+      changedId === 'baseSlideAnimationDirection' ||
+      changedId === 'baseSlideAnimationDistance' ||
+      changedId === 'baseSlideAnimationDistanceInput';
+
+    if (changedId === 'baseSlideAnimationToggle') {
+      payload.slideAnimation = !!qV144('baseSlideAnimationToggle')?.checked;
+      return payload;
+    }
+
+    if (changedId === 'baseSlideAnimationDirection') {
+      payload.slideDirection = direction;
+      const preset = getDirectionPresetV144(direction, distance);
+      payload.slideInitialX = preset.initialX;
+      payload.slideInitialY = preset.initialY;
+      setPanelValueV144('baseSlideInitialXInput', preset.initialX);
+      setPanelValueV144('baseSlideInitialYInput', preset.initialY);
+      return payload;
+    }
+
+    if (changedId === 'baseSlideAnimationDistance' || changedId === 'baseSlideAnimationDistanceInput') {
+      payload.slideDistance = distance;
+      syncDistancePanelV144(distance);
+      const preset = getDirectionPresetV144(direction, distance);
+      payload.slideInitialX = preset.initialX;
+      payload.slideInitialY = preset.initialY;
+      setPanelValueV144('baseSlideInitialXInput', preset.initialX);
+      setPanelValueV144('baseSlideInitialYInput', preset.initialY);
+      return payload;
+    }
+
+    if (changedId === 'baseSlideAnimationDuration' || changedId === 'baseSlideAnimationDurationInput') {
+      payload.slideDuration = duration;
+      syncDurationPanelV144(duration);
+      return payload;
+    }
+
+    if (changedId === 'baseSlideInitialXInput') {
+      payload.slideInitialX = readNumberV144('baseSlideInitialXInput', 0);
+      return payload;
+    }
+
+    if (changedId === 'baseSlideInitialYInput') {
+      payload.slideInitialY = readNumberV144('baseSlideInitialYInput', 0);
+      return payload;
+    }
+
+    if (changedId === 'baseSlideFinalXInput') {
+      payload.slideFinalX = readNumberV144('baseSlideFinalXInput', 0);
+      return payload;
+    }
+
+    if (changedId === 'baseSlideFinalYInput') {
+      payload.slideFinalY = readNumberV144('baseSlideFinalYInput', 0);
+      return payload;
+    }
+
+    payload.slideAnimation = !!qV144('baseSlideAnimationToggle')?.checked;
+    payload.slideDirection = direction;
+    payload.slideDistance = distance;
+    payload.slideDuration = duration;
+    payload.slideInitialX = readNumberV144('baseSlideInitialXInput', shouldApplyPreset ? getDirectionPresetV144(direction, distance).initialX : 0);
+    payload.slideInitialY = readNumberV144('baseSlideInitialYInput', shouldApplyPreset ? getDirectionPresetV144(direction, distance).initialY : 0);
+    payload.slideFinalX = readNumberV144('baseSlideFinalXInput', 0);
+    payload.slideFinalY = readNumberV144('baseSlideFinalYInput', 0);
+
+    if (shouldApplyPreset) {
+      const preset = getDirectionPresetV144(direction, distance);
+      payload.slideInitialX = preset.initialX;
+      payload.slideInitialY = preset.initialY;
+      setPanelValueV144('baseSlideInitialXInput', preset.initialX);
+      setPanelValueV144('baseSlideInitialYInput', preset.initialY);
+    }
+
+    syncDistancePanelV144(distance);
+    syncDurationPanelV144(duration);
+    return payload;
+  }
+
+  function applyAnimationPayloadToMultiV144(payload) {
+    const targets = getMultiAnimationTargetsV144();
+    if (targets.length <= 1) return false;
+
+    targets.forEach(target => writeAnimationPayloadV144(target, payload));
+    return true;
+  }
+
+  function applyChangedAnimationToMultiV144(event, options = {}) {
+    if (!hasMultiAnimationTargetsV144()) return false;
+
+    const changedId = options.changedId || event?.target?.id || lastAnimationControlIdV144 || '';
+    if (changedId) lastAnimationControlIdV144 = changedId;
+    const payload = buildAnimationPayloadV144(changedId, options);
+    return applyAnimationPayloadToMultiV144(payload);
+  }
+
+  function applyAllPositionInputsToMultiV144() {
+    const payload = {
+      slideInitialX: readNumberV144('baseSlideInitialXInput', 0),
+      slideInitialY: readNumberV144('baseSlideInitialYInput', 0),
+      slideFinalX: readNumberV144('baseSlideFinalXInput', 0),
+      slideFinalY: readNumberV144('baseSlideFinalYInput', 0)
+    };
+    return applyAnimationPayloadToMultiV144(payload);
+  }
+
+  const originalApplyBaseAnimationSettingsV144 = typeof applyBaseAnimationSettings === 'function' ? applyBaseAnimationSettings : null;
+  if (originalApplyBaseAnimationSettingsV144) {
+    window.applyBaseAnimationSettings = applyBaseAnimationSettings = function(useDirectionPreset = false) {
+      if (hasMultiAnimationTargetsV144()) {
+        const isEvent = useDirectionPreset && typeof useDirectionPreset === 'object';
+        const changedId = isEvent ? useDirectionPreset.target?.id : lastAnimationControlIdV144;
+        applyChangedAnimationToMultiV144(isEvent ? useDirectionPreset : null, {
+          changedId,
+          useDirectionPreset: useDirectionPreset === true
+        });
+        return;
+      }
+      return originalApplyBaseAnimationSettingsV144.apply(this, arguments);
+    };
+  }
+
+  const originalForceApplyBaseAnimationNumericInputsV144 = typeof forceApplyBaseAnimationNumericInputs === 'function' ? forceApplyBaseAnimationNumericInputs : null;
+  if (originalForceApplyBaseAnimationNumericInputsV144) {
+    window.forceApplyBaseAnimationNumericInputs = forceApplyBaseAnimationNumericInputs = function() {
+      if (hasMultiAnimationTargetsV144()) {
+        applyAllPositionInputsToMultiV144();
+        return;
+      }
+      return originalForceApplyBaseAnimationNumericInputsV144.apply(this, arguments);
+    };
+  }
+
+  const originalApplyBaseAnimationPositionValuesV144 = typeof applyBaseAnimationPositionValues === 'function' ? applyBaseAnimationPositionValues : null;
+  if (originalApplyBaseAnimationPositionValuesV144) {
+    window.applyBaseAnimationPositionValues = applyBaseAnimationPositionValues = function() {
+      if (hasMultiAnimationTargetsV144()) {
+        applyAllPositionInputsToMultiV144();
+        if (typeof syncBaseAnimationPanel === 'function') syncBaseAnimationPanel();
+        return;
+      }
+      return originalApplyBaseAnimationPositionValuesV144.apply(this, arguments);
+    };
+  }
+
+  function bindAnimationCaptureV144(id, events) {
+    const node = qV144(id);
+    if (!node) return;
+
+    events.forEach(eventName => {
+      node.addEventListener(eventName, event => {
+        if (eventName === 'keydown' && event.key !== 'Enter') return;
+        if (!hasMultiAnimationTargetsV144()) return;
+
+        lastAnimationControlIdV144 = event.target.id || id;
+        event.preventDefault?.();
+        event.stopImmediatePropagation?.();
+        applyChangedAnimationToMultiV144(event, { changedId: lastAnimationControlIdV144 });
+        if (eventName === 'keydown') event.target.blur?.();
+      }, true);
+    });
+  }
+
+  animationControlIdsV144.forEach(id => {
+    if (id === 'baseSlideAnimationToggle' || id === 'baseSlideAnimationDirection') {
+      bindAnimationCaptureV144(id, ['change']);
+    } else {
+      bindAnimationCaptureV144(id, ['input', 'change', 'keydown']);
+    }
+  });
+
+  qV144('applyBaseSlidePositionBtn')?.addEventListener('click', event => {
+    if (!hasMultiAnimationTargetsV144()) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    applyAllPositionInputsToMultiV144();
+  }, true);
+
+  document.body.classList.add('v144-multi-selected-animation-sync');
+})();
