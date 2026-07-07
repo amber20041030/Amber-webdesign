@@ -921,6 +921,62 @@ function addSubPage() {
   alert(`子頁面「${name}」已新增。`);
 }
 
+/* v142：複製目前分頁 */
+function deepClonePageDataV142(page) {
+  try {
+    return JSON.parse(JSON.stringify(page || {}));
+  } catch (error) {
+    return {
+      name: page && page.name ? page.name : '未命名分頁',
+      html: page && page.html ? page.html : defaultPageHTML(),
+      bg: page && page.bg ? page.bg : '#ffffff'
+    };
+  }
+}
+
+function getUniqueCopiedPageNameV142(baseName) {
+  const cleanBase = String(baseName || '分頁').trim() || '分頁';
+  const existingNames = new Set(Object.values(pages).map(page => page && page.name));
+  let name = cleanBase + ' 複製';
+  let index = 2;
+
+  while (existingNames.has(name)) {
+    name = cleanBase + ' 複製 ' + index;
+    index += 1;
+  }
+
+  return name;
+}
+
+function duplicateCurrentPage() {
+  const current = pages[currentPageId];
+
+  if (!current) {
+    alert('目前沒有可複製的分頁。');
+    return;
+  }
+
+  captureCurrentPage();
+  normalizeResponsivePage(current);
+
+  const defaultName = getUniqueCopiedPageNameV142(current.name || '分頁');
+  const name = (prompt('請輸入複製分頁名稱', defaultName) || '').trim();
+
+  if (!name) return;
+
+  const id = createUniquePageId();
+  const copiedPage = deepClonePageDataV142(current);
+
+  copiedPage.name = name;
+  pages[id] = normalizeResponsivePage(copiedPage);
+
+  loadPage(id, false);
+  refreshPageTargetOptions();
+  scheduleAutoSave();
+
+  alert(`已複製分頁為「${name}」。`);
+}
+
 function renameCurrentPage() {
   const current = pages[currentPageId];
   if (!current) return;
@@ -9128,7 +9184,7 @@ function getManualSaveHistoryVersionCounter(dateKey, history) {
 function cloneManualSaveHistoryPayload(payload, savedAt) {
   const cloned = JSON.parse(JSON.stringify(payload || {}));
   cloned.savedAt = savedAt;
-  cloned.version = 'v136-history';
+  cloned.version = 'v139-history';
   return cloned;
 }
 
@@ -9161,7 +9217,7 @@ function ensureManualSaveHistoryPanel() {
       <div class="manual-save-history-head">
         <div>
           <div class="manual-save-history-title" id="manualSaveHistoryTitle">歷史存檔紀錄</div>
-          <div class="manual-save-history-subtitle">每次手動存檔會新增 1 筆，最多保留 5 筆。</div>
+          <div class="manual-save-history-subtitle">每次手動存檔會新增 1 筆，最多保留 5 筆。快捷鍵：Ctrl+P。</div>
         </div>
         <button type="button" class="btn btn-outline-secondary btn-sm" data-history-close="true">關閉</button>
       </div>
@@ -9489,12 +9545,35 @@ async function saveEditorSilently() {
   }
 }
 
+const LOW_SPEC_AUTOSAVE_DELAY_V139 = 4500;
+const DEFAULT_AUTOSAVE_DELAY_V139 = 1800;
+let lowSpecMutationSavePendingV139 = false;
+
+function getAutoSaveDelayV139() {
+  return document.body.classList.contains('low-spec-editor') ? LOW_SPEC_AUTOSAVE_DELAY_V139 : DEFAULT_AUTOSAVE_DELAY_V139;
+}
+
 function scheduleAutoSave() {
   if (!autosaveReady) return;
   if (document.body.classList.contains('preview-mode')) return;
 
   window.clearTimeout(autosaveTimer);
-  autosaveTimer = window.setTimeout(saveEditorSilently, 1800);
+  autosaveTimer = window.setTimeout(saveEditorSilently, getAutoSaveDelayV139());
+}
+
+function scheduleAutoSaveFromMutationV139() {
+  if (!document.body.classList.contains('low-spec-editor')) {
+    scheduleAutoSave();
+    return;
+  }
+
+  if (lowSpecMutationSavePendingV139) return;
+  lowSpecMutationSavePendingV139 = true;
+
+  window.setTimeout(() => {
+    lowSpecMutationSavePendingV139 = false;
+    scheduleAutoSave();
+  }, 650);
 }
 
 async function loadAutoSavedEditor() {
@@ -9545,7 +9624,7 @@ function initAutoSave() {
     autosaveObserver.disconnect();
   }
 
-  autosaveObserver = new MutationObserver(() => scheduleAutoSave());
+  autosaveObserver = new MutationObserver(() => scheduleAutoSaveFromMutationV139());
   autosaveObserver.observe(sitePage, {
     subtree: true,
     childList: true,
@@ -12220,6 +12299,7 @@ document.getElementById('pageSelect').addEventListener('change', e => {
 });
 
 document.getElementById('addPageBtn').addEventListener('click', addSubPage);
+document.getElementById('duplicatePageBtn')?.addEventListener('click', duplicateCurrentPage);
 document.getElementById('renamePageBtn').addEventListener('click', renameCurrentPage);
 document.getElementById('deletePageBtn').addEventListener('click', deleteCurrentPage);
 
@@ -12479,6 +12559,12 @@ document.addEventListener('keydown', e => {
   if (isTypingNow()) return;
 
   const key = e.key.toLowerCase();
+
+  if ((e.ctrlKey || e.metaKey) && key === 'p') {
+    e.preventDefault();
+    openManualSaveHistoryPanel();
+    return;
+  }
 
   if ((e.ctrlKey || e.metaKey) && key === 'z') {
     e.preventDefault();
@@ -21501,4 +21587,896 @@ body.exported-site.preview-mode [data-resize] {
       return html;
     };
   }
+})();
+
+
+/* v139：低階桌機效能模式與歷史紀錄快捷鍵說明 */
+(function initLowSpecDesktopModeV139() {
+  try {
+    document.body.classList.add('low-spec-editor', 'no-touch-device');
+    const historyBtn = document.getElementById('manualSaveHistoryBtn');
+    if (historyBtn) historyBtn.setAttribute('title', '歷史紀錄（Ctrl+P）');
+  } catch (error) {}
+
+  if (typeof buildExportCSS === 'function' && !window.__lowSpecExportCSSWrappedV139) {
+    window.__lowSpecExportCSSWrappedV139 = true;
+    const originalBuildExportCSSV139 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV139() + `
+/* v139：匯出網站不帶編輯器低效能 UI 標籤 */
+.low-spec-badge,
+.shortcut-hint {
+  display: none !important;
+}
+`;
+    };
+  }
+})();
+
+
+/* v140：模板內反藍多選 + 多選元件設定同步套用 */
+(function initTemplateMarqueeMultiSettingV140() {
+  const TEMPLATE_SCOPE_SELECTOR_V140 = '.select-switcher-block';
+
+  function isElementVisibleV140(el) {
+    if (!el || !el.isConnected) return false;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    const style = window.getComputedStyle(el);
+    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+  }
+
+  function uniqueElementsV140(items) {
+    return Array.from(new Set((items || []).filter(Boolean)));
+  }
+
+  function getSelectSwitcherScopeElementsV140(scope) {
+    const items = [];
+
+    // 下拉式換組模板本體中的控制下拉元件。
+    scope.querySelectorAll(':scope > .select-switcher-select-element.free-element, :scope > .free-element[data-select-switcher-control="true"]').forEach(el => {
+      items.push(el);
+    });
+
+    // 只抓目前啟用組別內的元件，避免把隱藏組別一起選到造成位置/樣式錯亂。
+    const activeGroupCanvas = scope.querySelector(':scope > .select-switcher-groups > .select-switcher-group.active > .block-canvas') ||
+      scope.querySelector('.select-switcher-group.active .block-canvas');
+
+    if (activeGroupCanvas) {
+      Array.from(activeGroupCanvas.children).forEach(child => {
+        if (child.classList && child.classList.contains('free-element')) items.push(child);
+      });
+    }
+
+    return uniqueElementsV140(items).filter(isElementVisibleV140);
+  }
+
+  function getActiveMultiSettingTargetsV140() {
+    const cleanSelected = uniqueElementsV140(selectedElements || [])
+      .filter(el => el && el.isConnected && el.classList && el.classList.contains('free-element'));
+
+    if (cleanSelected.length > 1) return cleanSelected;
+    if (selectedElement && selectedElement.isConnected && selectedElement.classList?.contains('free-element')) return [selectedElement];
+    return [];
+  }
+
+  function applyToMultiTargetsV140(callback) {
+    const targets = getActiveMultiSettingTargetsV140();
+    targets.forEach(el => {
+      if (!el || isElementLocked?.(el)) return;
+      callback(el);
+    });
+    return targets;
+  }
+
+  function setTextAlignOnElementV140(el, align) {
+    if (!el) return;
+    el.style.textAlign = align;
+
+    const editableItems = el.querySelectorAll('[data-editable-text]');
+    editableItems.forEach(item => {
+      item.style.textAlign = align;
+      const display = window.getComputedStyle(item).display;
+      const isFlex = display.includes('flex') || item.classList.contains('d-flex');
+      if (isFlex) {
+        if (align === 'left') item.style.justifyContent = 'flex-start';
+        if (align === 'center') item.style.justifyContent = 'center';
+        if (align === 'right') item.style.justifyContent = 'flex-end';
+      }
+    });
+  }
+
+  function setElementBasicStyleV140(el, data) {
+    if (!el) return;
+    if (data.fontSize !== null) el.style.fontSize = data.fontSize + 'px';
+    if (data.lineHeight !== null) el.style.lineHeight = data.lineHeight + 'px';
+    if (data.letterSpacing !== null) el.style.letterSpacing = data.letterSpacing + 'px';
+    if (data.radius !== null) el.style.borderRadius = data.radius + 'px';
+    if (data.zIndex !== null) el.style.zIndex = data.zIndex;
+    if (typeof applyAccordionBackgroundStyles === 'function') applyAccordionBackgroundStyles(el);
+  }
+
+  function setElementPositionPercentV140(el, data) {
+    if (!el) return;
+    if (data.left !== null) el.style.left = data.left + '%';
+    if (data.top !== null) el.style.top = data.top + 'px';
+    if (data.width !== null) el.style.width = data.width + '%';
+    if (data.height !== null) el.style.height = data.height + 'px';
+    if (el.dataset.type === 'line' && typeof applyLineStyleToElement === 'function') applyLineStyleToElement(el);
+  }
+
+  function setElementPositionPxV140(el, data) {
+    if (!el) return;
+    const context = getElementPositionContext(el);
+    const contextWidth = context?.getBoundingClientRect?.().width || 1;
+    if (data.xPx !== null) el.style.left = (data.xPx / contextWidth * 100) + '%';
+    if (data.yPx !== null) el.style.top = data.yPx + 'px';
+    if (data.wPx !== null) el.style.width = (data.wPx / contextWidth * 100) + '%';
+    if (data.hPx !== null) el.style.height = data.hPx + 'px';
+    if (el.dataset.type === 'line' && typeof applyLineStyleToElement === 'function') applyLineStyleToElement(el);
+  }
+
+  const originalGetMarqueeSelectScopeV140 = typeof getMarqueeSelectScope === 'function' ? getMarqueeSelectScope : null;
+  window.getMarqueeSelectScope = getMarqueeSelectScope = function(target) {
+    if (!target || !sitePage.contains(target)) return null;
+
+    const switcherScope = target.closest?.(TEMPLATE_SCOPE_SELECTOR_V140);
+    if (switcherScope && sitePage.contains(switcherScope)) return switcherScope;
+
+    return originalGetMarqueeSelectScopeV140 ? originalGetMarqueeSelectScopeV140(target) : target.closest('.group-inner, .block-canvas');
+  };
+
+  const originalGetScopeSelectableElementsV140 = typeof getScopeSelectableElements === 'function' ? getScopeSelectableElements : null;
+  window.getScopeSelectableElements = getScopeSelectableElements = function(scope) {
+    if (!scope) return [];
+
+    if (scope.matches?.(TEMPLATE_SCOPE_SELECTOR_V140)) {
+      return getSelectSwitcherScopeElementsV140(scope);
+    }
+
+    return originalGetScopeSelectableElementsV140 ? originalGetScopeSelectableElementsV140(scope) : [];
+  };
+
+  const originalIsMarqueeSelectableStartV140 = typeof isMarqueeSelectableStart === 'function' ? isMarqueeSelectableStart : null;
+  window.isMarqueeSelectableStart = isMarqueeSelectableStart = function(event) {
+    if (!originalIsMarqueeSelectableStartV140) return false;
+
+    const target = event?.target;
+    const switcherScope = target?.closest?.(TEMPLATE_SCOPE_SELECTOR_V140);
+
+    if (switcherScope && sitePage.contains(switcherScope)) {
+      if (document.body.classList.contains('preview-mode')) return false;
+      if (event.button !== 0) return false;
+      if (typeof isTypingNow === 'function' && isTypingNow()) return false;
+      if (target.closest('.editor-actions, .move-handle, .element-toolbar, .resize-handle, [data-block-action], [data-element-action], [data-carousel-action], [data-select-switcher-action], [data-vertical-carousel-action], [data-hover-slide-action], [data-accordion-action], input, textarea, select, button, a, [contenteditable="true"]')) return false;
+
+      // 點到元件本體仍保留原本選取/拖移；只有模板內空白處才反藍框選。
+      const nearestElement = target.closest('.free-element');
+      if (nearestElement) return false;
+      return true;
+    }
+
+    return originalIsMarqueeSelectableStartV140(event);
+  };
+
+  window.applyTextAlignToSelected = applyTextAlignToSelected = function(align) {
+    const targets = getActiveMultiSettingTargetsV140();
+    if (!targets.length) return;
+    targets.forEach(el => {
+      if (!isElementLocked?.(el)) setTextAlignOnElementV140(el, align);
+    });
+    if (typeof syncTextStyleButtons === 'function') syncTextStyleButtons();
+  };
+
+  window.applySelectedTextColorFromPanel = applySelectedTextColorFromPanel = function() {
+    const targets = getActiveMultiSettingTargetsV140();
+    if (!targets.length) return;
+
+    const base = selectedElement || targets[0];
+    const elementTextColor = document.getElementById('elementTextColor')?.value || base.dataset.textColor || '#212529';
+    const elementTextOpacity = clampNumber(numberValue('elementTextOpacity', 100), 0, 100);
+    const rgba = textColorWithOpacity(elementTextColor, elementTextOpacity);
+
+    applyToMultiTargetsV140(el => {
+      el.dataset.textColor = elementTextColor;
+      el.dataset.textOpacity = elementTextOpacity;
+      applyElementTextColorDeep(el, rgba);
+    });
+
+    setValue('elementTextOpacityPercent', elementTextOpacity);
+    if (typeof syncTextStyleButtons === 'function') syncTextStyleButtons();
+  };
+
+  window.applySelectedBackgroundFromPanel = applySelectedBackgroundFromPanel = function(event) {
+    const targets = getActiveMultiSettingTargetsV140();
+    if (!targets.length) return;
+
+    const base = selectedElement || targets[0];
+    const elementBgColor = normalizeHexColor(document.getElementById('elementBgColor')?.value || base.dataset.elementBgColor || '#ffffff', '#ffffff');
+    let elementBgOpacity = clampNumber(numberValue('elementBgOpacity', 100), 0, 100);
+    const material = document.getElementById('elementMaterial')?.value || base.dataset.elementMaterial || 'none';
+
+    if (event?.target?.id === 'elementBgColor' && elementBgOpacity <= 0) {
+      elementBgOpacity = 100;
+      setValue('elementBgOpacity', elementBgOpacity);
+    }
+
+    applyToMultiTargetsV140(el => {
+      el.dataset.elementMaterial = material;
+      applyElementBackgroundState(el, elementBgColor, elementBgOpacity);
+      applyElementMaterial(el);
+      applyAccordionBackgroundStyles(el);
+    });
+
+    setValue('elementBgColor', elementBgColor);
+    setValue('elementBgOpacity', elementBgOpacity);
+    setValue('elementBgOpacityPercent', elementBgOpacity);
+  };
+
+  window.applySelectedFontFromPanel = applySelectedFontFromPanel = function() {
+    const fontFamily = document.getElementById('elementFontFamily')?.value || '';
+    const targets = applyToMultiTargetsV140(el => applyFontToElementDeep(el, fontFamily));
+    if (!targets.length) return;
+    setValue('elementFontFamily', fontFamily);
+  };
+
+  window.updateSelectedStyle = updateSelectedStyle = function(event) {
+    const targets = getActiveMultiSettingTargetsV140();
+    if (!targets.length) return;
+
+    const targetId = event?.target?.id || '';
+
+    if (['elementTextColor', 'elementTextOpacity'].includes(targetId)) {
+      applySelectedTextColorFromPanel();
+      return;
+    }
+
+    if (['elementBgColor', 'elementBgOpacity', 'elementMaterial'].includes(targetId)) {
+      applySelectedBackgroundFromPanel(event);
+      return;
+    }
+
+    if (targetId === 'elementFontFamily') {
+      applySelectedFontFromPanel();
+      return;
+    }
+
+    const fontSize = numberValue('elementFontSize', 0);
+    const lineHeight = numberValue('elementLineHeight', 0);
+    const letterSpacing = numberValue('elementLetterSpacing', 0);
+    const radius = numberValue('elementRadius', 0);
+    const zIndex = parseInt(String(document.getElementById('elementZIndex')?.value ?? '0'), 10);
+    const safeZIndex = Number.isNaN(zIndex) ? 0 : zIndex;
+
+    applyToMultiTargetsV140(el => setElementBasicStyleV140(el, {
+      fontSize,
+      lineHeight,
+      letterSpacing,
+      radius,
+      zIndex: safeZIndex
+    }));
+
+    setValue('elementFontSizePx', fontSize);
+    setValue('elementLineHeightPx', lineHeight);
+    setValue('elementLetterSpacingPx', letterSpacing);
+    setValue('elementRadiusPx', radius);
+    setValue('elementZIndexInput', safeZIndex);
+
+    if (typeof syncTextStyleButtons === 'function') syncTextStyleButtons();
+  };
+
+  window.updateSelectedStyleByManualInput = updateSelectedStyleByManualInput = function() {
+    const targets = getActiveMultiSettingTargetsV140();
+    if (!targets.length) return;
+
+    const fontSize = numberValue('elementFontSizePx', 0);
+    const lineHeight = numberValue('elementLineHeightPx', 0);
+    const letterSpacing = numberValue('elementLetterSpacingPx', 0);
+    const radius = numberValue('elementRadiusPx', 0);
+    const zIndex = parseInt(String(document.getElementById('elementZIndexInput')?.value ?? '0'), 10);
+    const safeZIndex = Number.isNaN(zIndex) ? 0 : zIndex;
+
+    setValue('elementFontSize', fontSize);
+    setValue('elementLineHeight', lineHeight);
+    setValue('elementLetterSpacing', letterSpacing);
+    setValue('elementRadius', radius);
+    setValue('elementZIndex', safeZIndex);
+
+    applyToMultiTargetsV140(el => setElementBasicStyleV140(el, {
+      fontSize,
+      lineHeight,
+      letterSpacing,
+      radius,
+      zIndex: safeZIndex
+    }));
+
+    if (typeof syncTextStyleButtons === 'function') syncTextStyleButtons();
+  };
+
+  window.updateSelectedPosition = updateSelectedPosition = function() {
+    const targets = getActiveMultiSettingTargetsV140();
+    if (!targets.length) return;
+
+    const data = {
+      left: numberValue('elX', 0),
+      top: numberValue('elY', 0),
+      width: numberValue('elW', 0),
+      height: numberValue('elH', 0)
+    };
+
+    applyToMultiTargetsV140(el => setElementPositionPercentV140(el, data));
+    refreshInspector();
+  };
+
+  window.updateSelectedPositionByPx = updateSelectedPositionByPx = function() {
+    const targets = getActiveMultiSettingTargetsV140();
+    if (!targets.length) return;
+
+    const data = {
+      xPx: numberValue('elXPx', 0),
+      yPx: numberValue('elYPx', 0),
+      wPx: numberValue('elWPx', 0),
+      hPx: numberValue('elHPx', 0)
+    };
+
+    applyToMultiTargetsV140(el => setElementPositionPxV140(el, data));
+    refreshInspector();
+  };
+
+  const originalApplyElementHoverColorSettingsV140 = typeof applyElementHoverColorSettings === 'function' ? applyElementHoverColorSettings : null;
+  if (originalApplyElementHoverColorSettingsV140) {
+    window.applyElementHoverColorSettings = applyElementHoverColorSettings = function() {
+      const targets = getActiveMultiSettingTargetsV140();
+      if (targets.length <= 1) return originalApplyElementHoverColorSettingsV140();
+
+      const enabled = document.getElementById('elementHoverColorToggle')?.checked ? 'true' : 'false';
+      const hoverBg = document.getElementById('elementHoverBgColor')?.value || '#0d6efd';
+      const hoverText = document.getElementById('elementHoverTextColor')?.value || '#ffffff';
+
+      applyToMultiTargetsV140(el => {
+        el.dataset.hoverColorEnabled = enabled;
+        el.dataset.hoverBgColor = hoverBg;
+        el.dataset.hoverTextColor = hoverText;
+        applyElementHoverColorVars(el);
+      });
+    };
+  }
+
+  const originalApplyElementShadowStyleV140 = typeof applyElementShadowStyle === 'function' ? applyElementShadowStyle : null;
+  if (originalApplyElementShadowStyleV140) {
+    window.applyElementShadowStyle = applyElementShadowStyle = function(showMessage = false) {
+      const targets = getActiveMultiSettingTargetsV140();
+      if (targets.length <= 1) return originalApplyElementShadowStyleV140(showMessage);
+
+      const reference = selectedElement;
+      applyToMultiTargetsV140(el => {
+        selectedElement = el;
+        originalApplyElementShadowStyleV140(false);
+      });
+      selectedElement = reference;
+      if (showMessage && typeof setStatus === 'function') setStatus('已套用陰影設定到多選元件');
+    };
+  }
+
+  const originalRefreshInspectorV140 = typeof refreshInspector === 'function' ? refreshInspector : null;
+  if (originalRefreshInspectorV140 && !window.__refreshInspectorMultiHintWrappedV140) {
+    window.__refreshInspectorMultiHintWrappedV140 = true;
+    window.refreshInspector = refreshInspector = function() {
+      originalRefreshInspectorV140();
+      const targets = getActiveMultiSettingTargetsV140();
+      if (targets.length > 1) {
+        const selectedName = document.getElementById('selectedName');
+        const selectedHint = document.getElementById('selectedHint');
+        if (selectedName) selectedName.textContent = `已選取 ${targets.length} 個元件`;
+        if (selectedHint) selectedHint.textContent = '已啟用多選設定同步：右側一般設定會一次套用到所有已反藍選取的元件。';
+      }
+    };
+  }
+
+  if (typeof buildExportCSS === 'function' && !window.__multiTemplateExportCSSWrappedV140) {
+    window.__multiTemplateExportCSSWrappedV140 = true;
+    const originalBuildExportCSSV140 = buildExportCSS;
+    buildExportCSS = function() {
+      return originalBuildExportCSSV140() + `
+/* v140：反藍多選只屬於編輯器狀態，匯出網站不顯示選取外框 */
+body.exported-site .drag-select-marquee,
+body.exported-site .free-element.multi-selected {
+  display: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+`;
+    };
+  }
+
+  document.body.classList.add('template-multi-setting-v140');
+})();
+
+/* v140 補強：重新綁定右側面板事件，確保多選狀態下會套用到全部選取元件。 */
+(function bindMultiSettingPanelEventsV140() {
+  if (window.__multiSettingPanelEventsBoundV140) return;
+  window.__multiSettingPanelEventsBoundV140 = true;
+
+  ['elX', 'elY', 'elW', 'elH'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', () => updateSelectedPosition());
+  });
+
+  ['elXPx', 'elYPx', 'elWPx', 'elHPx'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', () => updateSelectedPositionByPx());
+    document.getElementById(id)?.addEventListener('keydown', event => {
+      if (event.key === 'Enter') updateSelectedPositionByPx();
+    });
+  });
+
+  document.getElementById('elementTextColor')?.addEventListener('input', () => applySelectedTextColorFromPanel());
+  document.getElementById('elementTextOpacity')?.addEventListener('input', () => applySelectedTextColorFromPanel());
+
+  ['input', 'change'].forEach(eventName => {
+    document.getElementById('elementBgColor')?.addEventListener(eventName, event => applySelectedBackgroundFromPanel(event));
+    document.getElementById('elementBgOpacity')?.addEventListener(eventName, event => applySelectedBackgroundFromPanel(event));
+    document.getElementById('elementMaterial')?.addEventListener(eventName, event => applySelectedBackgroundFromPanel(event));
+  });
+
+  document.getElementById('elementFontFamily')?.addEventListener('input', () => applySelectedFontFromPanel());
+  document.getElementById('elementFontFamily')?.addEventListener('change', () => applySelectedFontFromPanel());
+
+  ['elementFontSize', 'elementLineHeight', 'elementLetterSpacing', 'elementRadius', 'elementZIndex'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', event => updateSelectedStyle(event));
+  });
+
+  ['elementFontSizePx', 'elementLineHeightPx', 'elementLetterSpacingPx', 'elementRadiusPx', 'elementZIndexInput'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', () => updateSelectedStyleByManualInput());
+    document.getElementById(id)?.addEventListener('change', () => updateSelectedStyleByManualInput());
+  });
+
+  ['elementHoverColorToggle', 'elementHoverBgColor', 'elementHoverTextColor'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', () => applyElementHoverColorSettings?.());
+    document.getElementById(id)?.addEventListener('change', () => applyElementHoverColorSettings?.());
+  });
+})();
+
+/* v141：多選設定只套用目前變動欄位 + 下拉換組選項文字永久保存 */
+(function initV141MultiSingleFieldAndSwitcherLabelFix() {
+  if (window.__v141MultiSingleFieldAndSwitcherLabelFixInstalled) return;
+  window.__v141MultiSingleFieldAndSwitcherLabelFixInstalled = true;
+
+  function safeCall(fn, ...args) {
+    try {
+      if (typeof fn === 'function') return fn(...args);
+    } catch (error) {
+      console.warn('[v141]', error);
+    }
+    return undefined;
+  }
+
+  function qsa(root, selector) {
+    return Array.from((root || document).querySelectorAll(selector));
+  }
+
+  function isLocked(el) {
+    try { return typeof isElementLocked === 'function' && isElementLocked(el); } catch (error) { return false; }
+  }
+
+  function getTargets() {
+    const multi = Array.from(new Set((selectedElements || []).filter(el => el && el.isConnected && el.classList?.contains('free-element'))));
+    if (multi.length > 1) return multi;
+    if (selectedElement && selectedElement.isConnected && selectedElement.classList?.contains('free-element')) return [selectedElement];
+    return [];
+  }
+
+  function applyTargets(callback) {
+    const targets = getTargets();
+    targets.forEach(el => {
+      if (!el || isLocked(el)) return;
+      callback(el);
+    });
+    return targets;
+  }
+
+  function toNumber(id, fallback = 0) {
+    try {
+      if (typeof numberValue === 'function') return numberValue(id, fallback);
+    } catch (error) {}
+    const value = parseFloat(document.getElementById(id)?.value ?? fallback);
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  function clampValue(value, min, max) {
+    if (typeof clampNumber === 'function') return clampNumber(value, min, max);
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function hex(value, fallback = '#ffffff') {
+    if (typeof normalizeHexColor === 'function') return normalizeHexColor(value, fallback);
+    return String(value || fallback);
+  }
+
+  function colorWithOpacity(color, opacity) {
+    if (typeof textColorWithOpacity === 'function') return textColorWithOpacity(color, opacity);
+    return color;
+  }
+
+  function setPanelValue(id, value) {
+    if (typeof setValue === 'function') return setValue(id, value);
+    const el = document.getElementById(id);
+    if (el) el.value = value;
+  }
+
+  function getElementBgColor(el) {
+    return hex(el?.dataset?.elementBgColor || el?.style?.getPropertyValue('--element-bg-color') || '#ffffff', '#ffffff');
+  }
+
+  function getElementBgOpacity(el) {
+    const value = parseFloat(el?.dataset?.elementBgOpacity || el?.style?.getPropertyValue('--element-bg-opacity') || '100');
+    return Number.isFinite(value) ? clampValue(value, 0, 100) : 100;
+  }
+
+  function applyBg(el, color, opacity) {
+    safeCall(applyElementBackgroundState, el, color, opacity);
+    safeCall(applyElementMaterial, el);
+    safeCall(applyAccordionBackgroundStyles, el);
+  }
+
+  function setTextAlignDeep(el, align) {
+    el.style.textAlign = align;
+    qsa(el, '[data-editable-text]').forEach(item => {
+      item.style.textAlign = align;
+      const display = window.getComputedStyle(item).display || '';
+      if (display.includes('flex') || item.classList.contains('d-flex')) {
+        if (align === 'left') item.style.justifyContent = 'flex-start';
+        if (align === 'center') item.style.justifyContent = 'center';
+        if (align === 'right') item.style.justifyContent = 'flex-end';
+      }
+    });
+  }
+
+  function setSingleBasicStyle(el, field, value) {
+    if (!el) return;
+    if (field === 'fontSize') el.style.fontSize = value + 'px';
+    if (field === 'lineHeight') el.style.lineHeight = value + 'px';
+    if (field === 'letterSpacing') el.style.letterSpacing = value + 'px';
+    if (field === 'radius') el.style.borderRadius = value + 'px';
+    if (field === 'zIndex') el.style.zIndex = String(value);
+    safeCall(applyAccordionBackgroundStyles, el);
+    if (el.dataset?.type === 'line') safeCall(applyLineStyleToElement, el);
+  }
+
+  const styleRangeMap = {
+    elementFontSize: ['fontSize', 'elementFontSizePx'],
+    elementLineHeight: ['lineHeight', 'elementLineHeightPx'],
+    elementLetterSpacing: ['letterSpacing', 'elementLetterSpacingPx'],
+    elementRadius: ['radius', 'elementRadiusPx'],
+    elementZIndex: ['zIndex', 'elementZIndexInput']
+  };
+
+  const styleManualMap = {
+    elementFontSizePx: ['fontSize', 'elementFontSize'],
+    elementLineHeightPx: ['lineHeight', 'elementLineHeight'],
+    elementLetterSpacingPx: ['letterSpacing', 'elementLetterSpacing'],
+    elementRadiusPx: ['radius', 'elementRadius'],
+    elementZIndexInput: ['zIndex', 'elementZIndex']
+  };
+
+  window.__lastManualStyleControlIdV141 = '';
+  Object.keys(styleManualMap).forEach(id => {
+    const node = document.getElementById(id);
+    if (!node) return;
+    ['input', 'change', 'keydown'].forEach(type => {
+      node.addEventListener(type, event => {
+        if (type === 'keydown' && event.key !== 'Enter') return;
+        window.__lastManualStyleControlIdV141 = id;
+      }, true);
+    });
+  });
+
+  window.applyTextAlignToSelected = applyTextAlignToSelected = function(align) {
+    const targets = applyTargets(el => setTextAlignDeep(el, align));
+    if (!targets.length) return;
+    safeCall(syncTextStyleButtons);
+    safeCall(scheduleAutoSave);
+  };
+
+  window.applySelectedTextColorFromPanel = applySelectedTextColorFromPanel = function(event) {
+    const targetId = event?.target?.id || window.__lastTextColorControlIdV141 || 'elementTextColor';
+    const panelColor = document.getElementById('elementTextColor')?.value || '#212529';
+    const panelOpacity = clampValue(toNumber('elementTextOpacity', 100), 0, 100);
+
+    const targets = applyTargets(el => {
+      const nextColor = targetId === 'elementTextOpacity' ? (el.dataset.textColor || panelColor) : panelColor;
+      const nextOpacity = targetId === 'elementTextColor' ? clampValue(parseFloat(el.dataset.textOpacity || '100'), 0, 100) : panelOpacity;
+      el.dataset.textColor = nextColor;
+      el.dataset.textOpacity = String(nextOpacity);
+      safeCall(applyElementTextColorDeep, el, colorWithOpacity(nextColor, nextOpacity));
+    });
+
+    if (!targets.length) return;
+    setPanelValue('elementTextOpacityPercent', panelOpacity);
+    safeCall(syncTextStyleButtons);
+    safeCall(scheduleAutoSave);
+  };
+
+  ['elementTextColor', 'elementTextOpacity'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', event => { window.__lastTextColorControlIdV141 = event.target.id; }, true);
+    document.getElementById(id)?.addEventListener('change', event => { window.__lastTextColorControlIdV141 = event.target.id; }, true);
+  });
+
+  window.applySelectedBackgroundFromPanel = applySelectedBackgroundFromPanel = function(event) {
+    const targetId = event?.target?.id || window.__lastBackgroundControlIdV141 || 'elementBgColor';
+    const panelColor = hex(document.getElementById('elementBgColor')?.value || '#ffffff', '#ffffff');
+    const panelOpacity = clampValue(toNumber('elementBgOpacity', 100), 0, 100);
+    const panelMaterial = document.getElementById('elementMaterial')?.value || 'none';
+
+    const targets = applyTargets(el => {
+      const currentColor = getElementBgColor(el);
+      const currentOpacity = getElementBgOpacity(el);
+      const currentMaterial = el.dataset.elementMaterial || 'none';
+
+      const nextColor = targetId === 'elementBgColor' ? panelColor : currentColor;
+      const nextOpacity = targetId === 'elementBgOpacity' ? panelOpacity : currentOpacity;
+      const nextMaterial = targetId === 'elementMaterial' ? panelMaterial : currentMaterial;
+
+      el.dataset.elementMaterial = nextMaterial;
+      applyBg(el, nextColor, nextOpacity);
+    });
+
+    if (!targets.length) return;
+    if (targetId === 'elementBgOpacity') setPanelValue('elementBgOpacityPercent', panelOpacity);
+    safeCall(scheduleAutoSave);
+  };
+
+  ['elementBgColor', 'elementBgOpacity', 'elementMaterial'].forEach(id => {
+    const node = document.getElementById(id);
+    if (!node) return;
+    ['input', 'change'].forEach(type => node.addEventListener(type, event => {
+      window.__lastBackgroundControlIdV141 = event.target.id;
+    }, true));
+  });
+
+  window.applySelectedFontFromPanel = applySelectedFontFromPanel = function() {
+    const fontFamily = document.getElementById('elementFontFamily')?.value || '';
+    const targets = applyTargets(el => safeCall(applyFontToElementDeep, el, fontFamily));
+    if (!targets.length) return;
+    setPanelValue('elementFontFamily', fontFamily);
+    safeCall(scheduleAutoSave);
+  };
+
+  window.updateSelectedStyle = updateSelectedStyle = function(event) {
+    const targetId = event?.target?.id || '';
+    if (targetId === 'elementTextColor' || targetId === 'elementTextOpacity') return applySelectedTextColorFromPanel(event);
+    if (targetId === 'elementBgColor' || targetId === 'elementBgOpacity' || targetId === 'elementMaterial') return applySelectedBackgroundFromPanel(event);
+    if (targetId === 'elementFontFamily') return applySelectedFontFromPanel();
+
+    const pair = styleRangeMap[targetId];
+    if (!pair) return;
+    const [field, mirrorId] = pair;
+    const raw = field === 'zIndex' ? parseInt(document.getElementById(targetId)?.value || '0', 10) : toNumber(targetId, 0);
+    const value = Number.isFinite(raw) ? raw : 0;
+
+    const targets = applyTargets(el => setSingleBasicStyle(el, field, value));
+    if (!targets.length) return;
+    setPanelValue(mirrorId, value);
+    safeCall(syncTextStyleButtons);
+    safeCall(scheduleAutoSave);
+  };
+
+  window.updateSelectedStyleByManualInput = updateSelectedStyleByManualInput = function(event) {
+    const targetId = event?.target?.id || window.__lastManualStyleControlIdV141 || '';
+    const pair = styleManualMap[targetId];
+    if (!pair) return;
+    const [field, mirrorId] = pair;
+    const raw = field === 'zIndex' ? parseInt(document.getElementById(targetId)?.value || '0', 10) : toNumber(targetId, 0);
+    const value = Number.isFinite(raw) ? raw : 0;
+
+    const targets = applyTargets(el => setSingleBasicStyle(el, field, value));
+    if (!targets.length) return;
+    setPanelValue(mirrorId, value);
+    safeCall(syncTextStyleButtons);
+    safeCall(scheduleAutoSave);
+  };
+
+  const originalApplyElementHoverColorSettingsV141 = typeof applyElementHoverColorSettings === 'function' ? applyElementHoverColorSettings : null;
+  window.applyElementHoverColorSettings = applyElementHoverColorSettings = function(event) {
+    const targets = getTargets();
+    if (targets.length <= 1 && originalApplyElementHoverColorSettingsV141) return originalApplyElementHoverColorSettingsV141.apply(this, arguments);
+
+    const targetId = event?.target?.id || window.__lastHoverControlIdV141 || '';
+    const enabled = document.getElementById('elementHoverColorToggle')?.checked ? 'true' : 'false';
+    const hoverBg = document.getElementById('elementHoverBgColor')?.value || '#0d6efd';
+    const hoverText = document.getElementById('elementHoverTextColor')?.value || '#ffffff';
+
+    applyTargets(el => {
+      if (targetId === 'elementHoverColorToggle' || !targetId) el.dataset.hoverColorEnabled = enabled;
+      if (targetId === 'elementHoverBgColor') el.dataset.hoverBgColor = hoverBg;
+      if (targetId === 'elementHoverTextColor') el.dataset.hoverTextColor = hoverText;
+      safeCall(applyElementHoverColorVars, el);
+    });
+    safeCall(scheduleAutoSave);
+  };
+
+  ['elementHoverColorToggle', 'elementHoverBgColor', 'elementHoverTextColor'].forEach(id => {
+    const node = document.getElementById(id);
+    if (!node) return;
+    ['input', 'change'].forEach(type => node.addEventListener(type, event => {
+      window.__lastHoverControlIdV141 = event.target.id;
+    }, true));
+  });
+
+  function isSwitcherControlElement(el) {
+    return !!(el && el.classList?.contains('select-switcher-select-element') && el.dataset.selectSwitcherControl === 'true');
+  }
+
+  function getSwitcherBlock(input) {
+    return input?.closest?.('.js-css-select-switcher[data-type="select-switcher"], .js-css-select-switcher') || null;
+  }
+
+  function getSwitcherSelect(block) {
+    return block?.querySelector?.('.select-switcher-select-element select.select-switcher-control, select.select-switcher-control') || null;
+  }
+
+  function escapeHTMLV141(value) {
+    if (typeof escapeHTML === 'function') return escapeHTML(value);
+    return String(value ?? '').replace(/[&<>"']/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[match]));
+  }
+
+  function parseStoredLabels(block) {
+    if (!block) return [];
+    try {
+      const data = JSON.parse(block.dataset.switcherOptionLabels || '[]');
+      if (Array.isArray(data)) return data.map(item => String(item || '').trim()).filter(Boolean);
+    } catch (error) {}
+    return [];
+  }
+
+  function currentGroupLabels(block) {
+    const groups = typeof getSelectSwitcherGroups === 'function' ? getSelectSwitcherGroups(block) : qsa(block, '.select-switcher-group');
+    return groups.map((group, index) => (group.dataset.switcherLabel || '').trim() || `選項 ${index + 1}`);
+  }
+
+  function currentSelectLabels(block) {
+    const select = getSwitcherSelect(block);
+    if (!select) return [];
+    const fromData = String(select.dataset.selectOptions || '').split('\n').map(item => item.trim()).filter(Boolean);
+    if (fromData.length) return fromData;
+    return Array.from(select.options || []).map(option => (option.textContent || '').trim()).filter(Boolean);
+  }
+
+  function chooseBestLabels(block) {
+    const stored = parseStoredLabels(block);
+    if (stored.length && !stored.every((item, i) => item === `選項 ${i + 1}`)) return stored;
+
+    const groupLabels = currentGroupLabels(block);
+    if (groupLabels.length && !groupLabels.every((item, i) => item === `選項 ${i + 1}`)) return groupLabels;
+
+    const selectLabels = currentSelectLabels(block);
+    if (selectLabels.length && !selectLabels.every((item, i) => item === `選項 ${i + 1}`)) return selectLabels;
+
+    return stored.length ? stored : (groupLabels.length ? groupLabels : selectLabels);
+  }
+
+  function persistSwitcherLabels(block, labels) {
+    if (!block) return [];
+    const groups = typeof getSelectSwitcherGroups === 'function' ? getSelectSwitcherGroups(block) : qsa(block, '.select-switcher-group');
+    const cleaned = (labels || []).map(item => String(item || '').trim()).filter(Boolean);
+    const finalLabels = groups.map((group, index) => cleaned[index] || group.dataset.switcherLabel || `選項 ${index + 1}`);
+
+    groups.forEach((group, index) => {
+      group.dataset.switcherLabel = finalLabels[index] || `選項 ${index + 1}`;
+    });
+
+    block.dataset.switcherOptionLabels = JSON.stringify(finalLabels);
+
+    const select = getSwitcherSelect(block);
+    if (select) {
+      const current = Math.max(0, Math.min(parseInt(block.dataset.switcherIndex || select.value || '0', 10) || 0, Math.max(finalLabels.length - 1, 0)));
+      select.innerHTML = finalLabels.map((label, index) => `<option value="${index}">${escapeHTMLV141(label)}</option>`).join('');
+      select.dataset.selectOptions = finalLabels.join('\n');
+      select.selectedIndex = current;
+      select.value = String(current);
+      safeCall(ensureEditableSelectCombo, select);
+      safeCall(syncEditableSelectComboTitle, select);
+      safeCall(window.syncEditableSelectComboTitle, select);
+      safeCall(applyOptionStylesToHost, select);
+    }
+    return finalLabels;
+  }
+
+  function hydrateSwitcherLabels(block) {
+    if (!block) return [];
+    return persistSwitcherLabels(block, chooseBestLabels(block));
+  }
+
+  const originalUpdateSelectSwitcherOptionsV141 = typeof updateSelectSwitcherOptions === 'function' ? updateSelectSwitcherOptions : null;
+  if (originalUpdateSelectSwitcherOptionsV141) {
+    window.updateSelectSwitcherOptions = updateSelectSwitcherOptions = function(block) {
+      hydrateSwitcherLabels(block);
+      const result = originalUpdateSelectSwitcherOptionsV141.apply(this, arguments);
+      hydrateSwitcherLabels(block);
+      return result;
+    };
+  }
+
+  const originalSetSelectSwitcherIndexV141 = typeof setSelectSwitcherIndex === 'function' ? setSelectSwitcherIndex : null;
+  if (originalSetSelectSwitcherIndexV141) {
+    window.setSelectSwitcherIndex = setSelectSwitcherIndex = function(block, nextIndex) {
+      hydrateSwitcherLabels(block);
+      const result = originalSetSelectSwitcherIndexV141.apply(this, arguments);
+      hydrateSwitcherLabels(block);
+      return result;
+    };
+  }
+
+  const originalApplySelectOptionsV141 = typeof applySelectOptions === 'function' ? applySelectOptions : null;
+  if (originalApplySelectOptionsV141) {
+    window.applySelectOptions = applySelectOptions = function() {
+      const selected = selectedElement;
+      const block = isSwitcherControlElement(selected) ? getSwitcherBlock(selected) : null;
+      const input = document.getElementById('selectOptionsInput');
+
+      if (block && input) {
+        const lines = input.value.split('\n').map(item => item.trim()).filter(Boolean);
+        if (!lines.length) {
+          alert('請至少輸入一個選項名稱。');
+          return;
+        }
+
+        if (typeof addSelectSwitcherGroup === 'function') {
+          while (((typeof getSelectSwitcherGroups === 'function' ? getSelectSwitcherGroups(block) : qsa(block, '.select-switcher-group')).length) < lines.length) {
+            addSelectSwitcherGroup(block);
+          }
+        }
+
+        persistSwitcherLabels(block, lines);
+        safeCall(syncSelectSwitcherSettingPanel);
+        safeCall(refreshSelectOptionActionOptions);
+        safeCall(refreshSelectOptionTargetOptions);
+        safeCall(setSelectOptionPanelsVisible);
+        safeCall(scheduleAutoSave);
+        alert('下拉換組選項名稱已套用。');
+        return;
+      }
+
+      return originalApplySelectOptionsV141.apply(this, arguments);
+    };
+  }
+
+  const originalSyncFormElementPanelV141 = typeof syncFormElementPanel === 'function' ? syncFormElementPanel : null;
+  if (originalSyncFormElementPanelV141) {
+    window.syncFormElementPanel = syncFormElementPanel = function() {
+      const result = originalSyncFormElementPanelV141.apply(this, arguments);
+      if (isSwitcherControlElement(selectedElement)) {
+        const block = getSwitcherBlock(selectedElement);
+        const labels = hydrateSwitcherLabels(block);
+        const labelNode = document.getElementById('selectOptionsLabel');
+        const input = document.getElementById('selectOptionsInput');
+        const hint = document.getElementById('selectSwitcherControlHint');
+        if (labelNode) labelNode.textContent = '下拉換組選項名稱';
+        if (input) input.value = labels.join('\n');
+        if (hint) hint.classList.remove('d-none');
+      }
+      return result;
+    };
+  }
+
+  document.addEventListener('input', event => {
+    if (event.target?.id !== 'selectOptionsInput') return;
+    if (!isSwitcherControlElement(selectedElement)) return;
+    const block = getSwitcherBlock(selectedElement);
+    if (!block) return;
+    const lines = event.target.value.split('\n').map(item => item.trim()).filter(Boolean);
+    if (lines.length) {
+      block.dataset.switcherOptionLabelsDraft = JSON.stringify(lines);
+    }
+  }, true);
+
+  document.addEventListener('change', event => {
+    const select = event.target?.closest?.('.select-switcher-control');
+    if (!select) return;
+    hydrateSwitcherLabels(getSwitcherBlock(select));
+  }, true);
+
+  setTimeout(() => {
+    qsa(document, '.js-css-select-switcher').forEach(block => hydrateSwitcherLabels(block));
+  }, 0);
+
+  document.body.classList.add('v141-multi-single-field-switcher-label-fix');
 })();

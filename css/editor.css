@@ -6236,3 +6236,106 @@ body.exported-site .js-css-select-switcher.select-switcher-control-top-v135 {
     justify-content: flex-end;
   }
 }
+
+
+/* v139：依 Intel Pentium Gold G6405 / 8GB RAM / 非觸控桌機調整的低效能模式 */
+.low-spec-badge,
+.shortcut-hint {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border: 1px solid #dfe5ef;
+  border-radius: 999px;
+  background: #f8f9fb;
+  color: #6c757d;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.shortcut-hint {
+  font-size: 10px;
+  padding: 1px 6px;
+}
+
+body.low-spec-editor,
+body.low-spec-editor * {
+  scroll-behavior: auto !important;
+}
+
+body.low-spec-editor .canvas-area {
+  background: #f3f5f8 !important;
+}
+
+body.low-spec-editor .block-canvas,
+body.low-spec-editor .select-switcher-group-canvas {
+  background-image: none !important;
+}
+
+body.low-spec-editor .editor-topbar,
+body.low-spec-editor .editor-sidebar,
+body.low-spec-editor .editor-inspector,
+body.low-spec-editor .site-page,
+body.low-spec-editor .setting-card,
+body.low-spec-editor .manual-save-history-card,
+body.low-spec-editor .move-handle,
+body.low-spec-editor .element-toolbar,
+body.low-spec-editor .carousel-editor-panel,
+body.low-spec-editor .select-switcher-editor-panel {
+  box-shadow: none !important;
+}
+
+body.low-spec-editor .setting-card-content,
+body.low-spec-editor .template-drawer-panel,
+body.low-spec-editor .free-element,
+body.low-spec-editor .free-element *,
+body.low-spec-editor .nav-dropdown-menu,
+body.low-spec-editor .accordion-body,
+body.low-spec-editor .manual-save-history-modal,
+body.low-spec-editor .manual-save-history-card {
+  transition: none !important;
+  animation: none !important;
+}
+
+body.low-spec-editor .free-element[data-type="image"] .editable-image,
+body.low-spec-editor .free-element[data-type="image"] img {
+  will-change: auto !important;
+}
+
+body.low-spec-editor .editor-sidebar,
+body.low-spec-editor .editor-inspector,
+body.low-spec-editor .canvas-area,
+body.low-spec-editor .manual-save-history-body {
+  -webkit-overflow-scrolling: auto;
+}
+
+body.low-spec-editor .free-element.selected,
+body.low-spec-editor .html-block.selected {
+  box-shadow: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+
+/* v140：模板內反藍多選提示與圖層 */
+body:not(.preview-mode).template-multi-setting-v140 .select-switcher-block {
+  overflow: visible !important;
+}
+
+body:not(.preview-mode).template-multi-setting-v140 .select-switcher-block .free-element.multi-selected {
+  outline: 2px solid #0d6efd !important;
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, .14) !important;
+}
+
+body:not(.preview-mode).template-multi-setting-v140 .drag-select-marquee {
+  z-index: 2147483000 !important;
+}
