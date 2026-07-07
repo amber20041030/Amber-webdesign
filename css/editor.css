@@ -6635,3 +6635,189 @@ body.exported-site .accordion-item-template[data-hover-color-enabled="true"]:hov
   background-image: none !important;
 }
 
+/* v153：背景獨立滿版層，背景依照不同螢幕填滿，元件不跟著縮放 */
+html,
+body {
+  width: 100%;
+  min-width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+.canvas-area {
+  position: relative;
+  background-color: transparent !important;
+}
+
+.site-background-layer-v153 {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  width: 100%;
+  min-width: 100%;
+  min-height: max(100%, 100vh);
+  background: var(--site-page-bg-v153, #ffffff);
+  background-size: cover !important;
+  background-position: center center !important;
+  background-repeat: no-repeat !important;
+  transform: scale(1.02);
+  transform-origin: center center;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.site-page {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+}
+
+body.preview-mode,
+body.preview-mode .editor-layout,
+body.preview-mode .canvas-area,
+body.preview-mode .site-page,
+body.exported-site,
+body.exported-site.preview-mode,
+body.exported-site.preview-mode .site-page {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+body.preview-mode .site-background-layer-v153,
+body.exported-site .site-background-layer-v153,
+body.exported-site .export-site-background-v153 {
+  position: fixed;
+  inset: -2vmax;
+  width: calc(100vw + 4vmax);
+  height: calc(100dvh + 4vmax);
+  min-height: calc(100vh + 4vmax);
+  max-width: none;
+  transform: scale(1.02);
+  z-index: 0;
+}
+
+body.preview-mode .canvas-area,
+body.exported-site.preview-mode .canvas-area {
+  width: 100vw !important;
+  max-width: none !important;
+  min-width: 100vw !important;
+  min-height: 100vh !important;
+  overflow: visible !important;
+}
+
+body.preview-mode .site-page,
+body.exported-site .site-page,
+body.exported-site.preview-mode .site-page {
+  position: relative !important;
+  z-index: 1 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-height: 100vh !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+}
+
+body.exported-site [data-slide-animation="true"] {
+  opacity: 0;
+  transition:
+    opacity var(--base-slide-duration, 600ms) ease,
+    transform var(--base-slide-duration, 600ms) ease;
+}
+
+body.exported-site [data-slide-animation="true"].animate-in {
+  opacity: 1 !important;
+  transform: translate(0, 0) !important;
+}
+
+
+
+/* v154：修正編輯器背景顏色跑掉
+   編輯模式：背景色顯示在 sitePage 本身，不讓滿版背景層染到整個編輯器。
+   預覽 / 匯出：才啟用滿版背景層，讓不同電腦尺寸都滿版。 */
+body:not(.preview-mode):not(.exported-site) .site-background-layer-v153,
+body:not(.preview-mode):not(.exported-site) .export-site-background-v153 {
+  display: none !important;
+}
+
+body:not(.preview-mode):not(.exported-site) .site-page {
+  position: relative !important;
+  z-index: 1 !important;
+  background: var(--site-page-bg-v153, #ffffff) !important;
+  background-color: var(--site-page-bg-color-v154, var(--site-page-bg-v153, #ffffff)) !important;
+  box-shadow: 0 8px 28px rgba(0,0,0,.10) !important;
+}
+
+body.preview-mode .site-background-layer-v153,
+body.exported-site .site-background-layer-v153,
+body.exported-site .export-site-background-v153 {
+  display: block !important;
+}
+
+body.preview-mode .site-page,
+body.exported-site .site-page,
+body.exported-site.preview-mode .site-page {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+
+/* v155：基礎動畫預覽 / 匯出重播修正 */
+[data-slide-animation="true"] {
+  --base-slide-initial-x: 0px;
+  --base-slide-initial-y: 40px;
+  --base-slide-final-x: 0px;
+  --base-slide-final-y: 0px;
+  --base-slide-duration: 600ms;
+}
+
+body.preview-mode [data-slide-animation="true"],
+body.exported-site [data-slide-animation="true"] {
+  opacity: 0 !important;
+  transform: translate(var(--base-slide-initial-x, 0px), var(--base-slide-initial-y, 40px)) !important;
+  transition:
+    opacity var(--base-slide-duration, 600ms) ease,
+    transform var(--base-slide-duration, 600ms) ease !important;
+  will-change: opacity, transform;
+}
+
+body.preview-mode [data-slide-animation="true"].animate-in,
+body.exported-site [data-slide-animation="true"].animate-in {
+  opacity: 1 !important;
+  transform: translate(var(--base-slide-final-x, 0px), var(--base-slide-final-y, 0px)) !important;
+}
+
+body:not(.preview-mode):not(.exported-site) [data-slide-animation="true"] {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+
+/* v156：匯出動畫預覽一致 */
+body.exported-site,
+body.exported-site.preview-mode {
+  overflow-x: hidden;
+}
+
+body.exported-site [data-slide-animation="true"],
+body.exported-site.preview-mode [data-slide-animation="true"] {
+  opacity: 0 !important;
+  transform: translate(var(--base-slide-initial-x, 0px), var(--base-slide-initial-y, 40px)) !important;
+  transition:
+    opacity var(--base-slide-duration, 600ms) ease,
+    transform var(--base-slide-duration, 600ms) ease !important;
+  will-change: opacity, transform;
+}
+
+body.exported-site [data-slide-animation="true"].animate-in,
+body.exported-site.preview-mode [data-slide-animation="true"].animate-in {
+  opacity: 1 !important;
+  transform: translate(var(--base-slide-final-x, 0px), var(--base-slide-final-y, 0px)) !important;
+}
+
+body.export-animation-priming-v156 [data-slide-animation="true"] {
+  opacity: 0 !important;
+  transform: translate(var(--base-slide-initial-x, 0px), var(--base-slide-initial-y, 40px)) !important;
+  transition: none !important;
+}
