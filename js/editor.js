@@ -22480,3 +22480,985 @@ body.exported-site .free-element.multi-selected {
 
   document.body.classList.add('v141-multi-single-field-switcher-label-fix');
 })();
+
+/* v143：元件多選後可一次更改設定，且只套用目前變動的欄位。 */
+(function initV143MultiSelectedElementSettingSync() {
+  if (window.__v143MultiSelectedElementSettingSyncInstalled) return;
+  window.__v143MultiSelectedElementSettingSyncInstalled = true;
+
+  const percentPositionMap = {
+    elX: 'left',
+    elY: 'top',
+    elW: 'width',
+    elH: 'height'
+  };
+
+  const pixelPositionMap = {
+    elXPx: 'leftPx',
+    elYPx: 'topPx',
+    elWPx: 'widthPx',
+    elHPx: 'heightPx'
+  };
+
+  const styleRangeMapV143 = {
+    elementFontSize: ['fontSize', 'elementFontSizePx'],
+    elementLineHeight: ['lineHeight', 'elementLineHeightPx'],
+    elementLetterSpacing: ['letterSpacing', 'elementLetterSpacingPx'],
+    elementRadius: ['radius', 'elementRadiusPx'],
+    elementZIndex: ['zIndex', 'elementZIndexInput']
+  };
+
+  const styleManualMapV143 = {
+    elementFontSizePx: ['fontSize', 'elementFontSize'],
+    elementLineHeightPx: ['lineHeight', 'elementLineHeight'],
+    elementLetterSpacingPx: ['letterSpacing', 'elementLetterSpacing'],
+    elementRadiusPx: ['radius', 'elementRadius'],
+    elementZIndexInput: ['zIndex', 'elementZIndex']
+  };
+
+  const lineDatasetMapV143 = {
+    lineColor: ['lineColor', 'value'],
+    lineWeight: ['lineWeight', 'number', 1, 80, 'lineWeightInput'],
+    lineWeightInput: ['lineWeight', 'number', 1, 80, 'lineWeight'],
+    lineOpacity: ['lineOpacity', 'number', 0, 100, 'lineOpacityInput'],
+    lineOpacityInput: ['lineOpacity', 'number', 0, 100, 'lineOpacity'],
+    lineStyle: ['lineStyle', 'value'],
+    lineCap: ['lineCap', 'value'],
+    lineStart: ['lineStart', 'value'],
+    lineEnd: ['lineEnd', 'value'],
+    lineArrowWidth: ['lineArrowWidth', 'number', 18, 320, 'lineArrowWidthInput'],
+    lineArrowWidthInput: ['lineArrowWidth', 'number', 18, 320, 'lineArrowWidth'],
+    lineArrowHeight: ['lineArrowHeight', 'number', 8, 240, 'lineArrowHeightInput'],
+    lineArrowHeightInput: ['lineArrowHeight', 'number', 8, 240, 'lineArrowHeight'],
+    lineAngle: ['rotateDeg', 'angle', 0, 359, 'lineAngleInput'],
+    lineAngleInput: ['rotateDeg', 'angle', 0, 359, 'lineAngle'],
+    lineGradientEnabled: ['lineGradientEnabled', 'checked'],
+    lineGradientMode: ['lineGradientMode', 'value'],
+    lineGradientStartColor: ['lineGradientStartColor', 'value'],
+    lineGradientEndColor: ['lineGradientEndColor', 'value'],
+    lineGradientStartOpacity: ['lineGradientStartOpacity', 'number', 0, 100, 'lineGradientStartOpacityInput'],
+    lineGradientStartOpacityInput: ['lineGradientStartOpacity', 'number', 0, 100, 'lineGradientStartOpacity'],
+    lineGradientEndOpacity: ['lineGradientEndOpacity', 'number', 0, 100, 'lineGradientEndOpacityInput'],
+    lineGradientEndOpacityInput: ['lineGradientEndOpacity', 'number', 0, 100, 'lineGradientEndOpacity']
+  };
+
+  let lastControlIdV143 = '';
+
+  function safeCall(fn, ...args) {
+    try {
+      if (typeof fn === 'function') return fn(...args);
+    } catch (error) {
+      console.warn('[v143 multi setting]', error);
+    }
+    return undefined;
+  }
+
+  function q(id) {
+    return document.getElementById(id);
+  }
+
+  function qsa(root, selector) {
+    return Array.from((root || document).querySelectorAll(selector));
+  }
+
+  function unique(items) {
+    return Array.from(new Set((items || []).filter(Boolean)));
+  }
+
+  function setPanelValue(id, value) {
+    if (typeof setValue === 'function') return setValue(id, value);
+    const node = q(id);
+    if (node) node.value = value;
+  }
+
+  function setPanelChecked(id, checked) {
+    const node = q(id);
+    if (node) node.checked = !!checked;
+  }
+
+  function clampValue(value, min, max) {
+    const num = parseFloat(value);
+    const safe = Number.isFinite(num) ? num : min;
+    if (typeof clampNumber === 'function') return clampNumber(safe, min, max);
+    return Math.max(min, Math.min(max, safe));
+  }
+
+  function numberFromPanel(id, fallback = 0) {
+    try {
+      if (typeof numberValue === 'function') return numberValue(id, fallback);
+    } catch (error) {}
+    const value = parseFloat(q(id)?.value ?? fallback);
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  function normalizeColor(value, fallback = '#ffffff') {
+    if (typeof normalizeHexColor === 'function') return normalizeHexColor(value, fallback);
+    const raw = String(value || '').trim();
+    return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw.toLowerCase() : fallback;
+  }
+
+  function withOpacity(color, opacity) {
+    if (typeof colorWithOpacity === 'function') return colorWithOpacity(color, opacity);
+    if (typeof textColorWithOpacity === 'function') return textColorWithOpacity(color, opacity);
+    return color;
+  }
+
+  function isLocked(el) {
+    try {
+      return typeof isElementLocked === 'function' && isElementLocked(el);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function isFreeElement(el) {
+    return !!(el && el.isConnected && el.classList && el.classList.contains('free-element'));
+  }
+
+  function activeTargets(type = null, includeLocked = false) {
+    const fromMulti = unique(Array.isArray(selectedElements) ? selectedElements : [])
+      .filter(isFreeElement);
+
+    if (isFreeElement(selectedElement) && !fromMulti.includes(selectedElement)) {
+      fromMulti.push(selectedElement);
+    }
+
+    const base = fromMulti.length > 1
+      ? fromMulti
+      : (isFreeElement(selectedElement) ? [selectedElement] : []);
+
+    return base.filter(el => {
+      if (type && el.dataset.type !== type) return false;
+      if (!includeLocked && isLocked(el)) return false;
+      return true;
+    });
+  }
+
+  function multiTargets(type = null) {
+    const targets = activeTargets(type);
+    return targets.length > 1 ? targets : [];
+  }
+
+  function hasMulti(type = null) {
+    return multiTargets(type).length > 1;
+  }
+
+  function changedId(event, fallback = '') {
+    const activeId = document.activeElement && document.activeElement.id ? document.activeElement.id : '';
+    const id = event?.target?.id || event?.target?.dataset?.settingId || fallback || activeId || lastControlIdV143 || '';
+    if (id) lastControlIdV143 = id;
+    return id;
+  }
+
+  function refreshAfterApply() {
+    safeCall(syncTextStyleButtons);
+    safeCall(syncGroupSelectionState);
+    safeCall(updateFloatingGroupButtons);
+    safeCall(scheduleAutoSave);
+  }
+
+  function getElementTextColor(el, fallback = '#212529') {
+    return normalizeColor(el?.dataset?.textColor || safeCall(rgbToHex, window.getComputedStyle(el).color) || fallback, fallback);
+  }
+
+  function getElementTextOpacityValue(el) {
+    const direct = parseFloat(el?.dataset?.textOpacity || '');
+    if (Number.isFinite(direct)) return clampValue(direct, 0, 100);
+    const viaFn = safeCall(getElementTextOpacity, el);
+    const viaNum = parseFloat(viaFn);
+    return Number.isFinite(viaNum) ? clampValue(viaNum, 0, 100) : 100;
+  }
+
+  function getElementBgColorValue(el) {
+    const computed = window.getComputedStyle(el).backgroundColor;
+    return normalizeColor(el?.dataset?.elementBgColor || computed || '#ffffff', '#ffffff');
+  }
+
+  function getElementBgOpacityValue(el) {
+    const direct = parseFloat(el?.dataset?.elementBgOpacity || '');
+    if (Number.isFinite(direct)) return clampValue(direct, 0, 100);
+    const computed = window.getComputedStyle(el).backgroundColor;
+    const alpha = safeCall(getColorAlphaPercent, computed);
+    const alphaNum = parseFloat(alpha);
+    return Number.isFinite(alphaNum) ? clampValue(alphaNum, 0, 100) : 100;
+  }
+
+  function applyElementTextColorMulti(event) {
+    const id = changedId(event, 'elementTextColor');
+    const targets = activeTargets();
+    if (!targets.length) return;
+
+    const panelColor = normalizeColor(q('elementTextColor')?.value || '#212529', '#212529');
+    const panelOpacity = clampValue(numberFromPanel(id === 'elementTextOpacityPercent' ? 'elementTextOpacityPercent' : 'elementTextOpacity', 100), 0, 100);
+    const changingOpacity = id === 'elementTextOpacity' || id === 'elementTextOpacityPercent';
+
+    targets.forEach(el => {
+      const nextColor = changingOpacity ? getElementTextColor(el, panelColor) : panelColor;
+      const nextOpacity = changingOpacity ? panelOpacity : getElementTextOpacityValue(el);
+      el.dataset.textColor = nextColor;
+      el.dataset.textOpacity = String(nextOpacity);
+      safeCall(applyElementTextColorDeep, el, withOpacity(nextColor, nextOpacity));
+    });
+
+    if (changingOpacity) {
+      setPanelValue('elementTextOpacity', panelOpacity);
+      setPanelValue('elementTextOpacityPercent', panelOpacity);
+    }
+    refreshAfterApply();
+  }
+
+  function applyElementBackgroundMulti(event) {
+    const id = changedId(event, 'elementBgColor');
+    const targets = activeTargets();
+    if (!targets.length) return;
+
+    const panelColor = normalizeColor(q('elementBgColor')?.value || '#ffffff', '#ffffff');
+    const opacitySource = id === 'elementBgOpacityPercent' ? 'elementBgOpacityPercent' : 'elementBgOpacity';
+    let panelOpacity = clampValue(numberFromPanel(opacitySource, 100), 0, 100);
+    const panelMaterial = q('elementMaterial')?.value || 'none';
+
+    const changingColor = id === 'elementBgColor';
+    const changingOpacity = id === 'elementBgOpacity' || id === 'elementBgOpacityPercent';
+    const changingMaterial = id === 'elementMaterial';
+
+    if (changingColor && panelOpacity <= 0) {
+      panelOpacity = 100;
+      setPanelValue('elementBgOpacity', panelOpacity);
+      setPanelValue('elementBgOpacityPercent', panelOpacity);
+    }
+
+    targets.forEach(el => {
+      const nextColor = changingColor ? panelColor : getElementBgColorValue(el);
+      const nextOpacity = changingOpacity || changingColor ? panelOpacity : getElementBgOpacityValue(el);
+      const nextMaterial = changingMaterial ? panelMaterial : (el.dataset.elementMaterial || 'none');
+      el.dataset.elementMaterial = nextMaterial;
+      safeCall(applyElementBackgroundState, el, nextColor, nextOpacity);
+      safeCall(applyElementMaterial, el);
+      safeCall(applyAccordionBackgroundStyles, el);
+    });
+
+    if (changingOpacity || changingColor) {
+      setPanelValue('elementBgOpacity', panelOpacity);
+      setPanelValue('elementBgOpacityPercent', panelOpacity);
+    }
+    refreshAfterApply();
+  }
+
+  function applyFontMulti() {
+    const targets = activeTargets();
+    if (!targets.length) return;
+    const fontFamily = q('elementFontFamily')?.value || '';
+    targets.forEach(el => safeCall(applyFontToElementDeep, el, fontFamily));
+    setPanelValue('elementFontFamily', fontFamily);
+    refreshAfterApply();
+  }
+
+  function setBasicStyleOnElement(el, field, value) {
+    if (!el) return;
+    if (field === 'fontSize') el.style.fontSize = value + 'px';
+    if (field === 'lineHeight') el.style.lineHeight = value + 'px';
+    if (field === 'letterSpacing') el.style.letterSpacing = value + 'px';
+    if (field === 'radius') el.style.borderRadius = value + 'px';
+    if (field === 'zIndex') el.style.zIndex = String(value);
+    safeCall(applyAccordionBackgroundStyles, el);
+    if (el.dataset.type === 'line') safeCall(applyLineStyleToElement, el);
+    if (el.dataset.type === 'image') {
+      const img = el.querySelector('img.editable-image');
+      if (field === 'radius' && img) img.style.borderRadius = 'inherit';
+    }
+  }
+
+  function updateBasicStyleMulti(event, manual = false) {
+    const id = changedId(event, manual ? '' : event?.target?.id);
+    const pair = manual ? styleManualMapV143[id] : styleRangeMapV143[id];
+    if (!pair) return;
+
+    const [field, mirrorId] = pair;
+    const raw = field === 'zIndex'
+      ? parseInt(String(q(id)?.value ?? '0'), 10)
+      : numberFromPanel(id, 0);
+    const value = Number.isFinite(raw) ? raw : 0;
+
+    activeTargets().forEach(el => setBasicStyleOnElement(el, field, value));
+    setPanelValue(mirrorId, value);
+    refreshAfterApply();
+  }
+
+  function applyPositionPercentMulti(event) {
+    const id = changedId(event, event?.target?.id);
+    const field = percentPositionMap[id];
+    if (!field) return;
+    const value = numberFromPanel(id, 0);
+
+    activeTargets().forEach(el => {
+      if (field === 'left') el.style.left = value + '%';
+      if (field === 'top') el.style.top = value + 'px';
+      if (field === 'width') el.style.width = value + '%';
+      if (field === 'height') el.style.height = value + 'px';
+      if (el.dataset.type === 'line') safeCall(applyLineStyleToElement, el);
+    });
+
+    safeCall(refreshInspector);
+    safeCall(scheduleAutoSave);
+  }
+
+  function applyPositionPixelMulti(event) {
+    const id = changedId(event, event?.target?.id);
+    const field = pixelPositionMap[id];
+    if (!field) return;
+    const value = numberFromPanel(id, 0);
+
+    activeTargets().forEach(el => {
+      const context = safeCall(getElementPositionContext, el) || el.parentElement;
+      const contextWidth = context?.getBoundingClientRect?.().width || 1;
+      if (field === 'leftPx') el.style.left = (value / contextWidth * 100) + '%';
+      if (field === 'topPx') el.style.top = value + 'px';
+      if (field === 'widthPx') el.style.width = (value / contextWidth * 100) + '%';
+      if (field === 'heightPx') el.style.height = value + 'px';
+      if (el.dataset.type === 'line') safeCall(applyLineStyleToElement, el);
+    });
+
+    safeCall(refreshInspector);
+    safeCall(scheduleAutoSave);
+  }
+
+  function setTextAlignDeepV143(el, align) {
+    el.style.textAlign = align;
+    qsa(el, '[data-editable-text]').forEach(item => {
+      item.style.textAlign = align;
+      const display = window.getComputedStyle(item).display || '';
+      if (display.includes('flex') || item.classList.contains('d-flex')) {
+        if (align === 'left') item.style.justifyContent = 'flex-start';
+        if (align === 'center') item.style.justifyContent = 'center';
+        if (align === 'right') item.style.justifyContent = 'flex-end';
+      }
+    });
+  }
+
+  function applyTextAlignMulti(align) {
+    const targets = activeTargets();
+    if (!targets.length) return;
+    targets.forEach(el => setTextAlignDeepV143(el, align));
+    refreshAfterApply();
+  }
+
+  function applyTextToggleMulti(type) {
+    const targets = activeTargets();
+    if (!targets.length) return;
+    const base = selectedElement || targets[0];
+    if (!base) return;
+
+    if (type === 'bold') {
+      const isBold = parseInt(window.getComputedStyle(base).fontWeight, 10) >= 600;
+      const next = isBold ? '400' : '700';
+      targets.forEach(el => { el.style.fontWeight = next; });
+    }
+
+    if (type === 'italic') {
+      const isItalic = window.getComputedStyle(base).fontStyle === 'italic';
+      const next = isItalic ? 'normal' : 'italic';
+      targets.forEach(el => { el.style.fontStyle = next; });
+    }
+
+    if (type === 'underline') {
+      const hasUnderline = window.getComputedStyle(base).textDecorationLine.includes('underline');
+      const next = hasUnderline ? 'none' : 'underline';
+      targets.forEach(el => { el.style.textDecoration = next; });
+    }
+
+    refreshAfterApply();
+  }
+
+  function readShapeGradientColorsFromPanel() {
+    return typeof selectedShapeGradientColors === 'function' ? selectedShapeGradientColors() : [];
+  }
+
+  function readShapeDirectionsFromPanel() {
+    return typeof selectedShapeGradientDirections === 'function' ? selectedShapeGradientDirections() : [];
+  }
+
+  function serializeShapeGradientColorsFromPanel() {
+    return typeof serializeShapeGradientColors === 'function' ? serializeShapeGradientColors() : '[]';
+  }
+
+  function parseShapeGradientColorsSafe(value) {
+    const parsed = safeCall(parseShapeGradientColors, value);
+    return Array.isArray(parsed) ? parsed : [];
+  }
+
+  function applyShapeVisualFromDataset(el) {
+    const color = normalizeColor(el.dataset.shapeColor || '#0d6efd', '#0d6efd');
+    const opacity = clampValue(el.dataset.shapeOpacity || 100, 0, 100);
+    const radius = Math.max(0, parseFloat(el.dataset.shapeRadius || '0') || 0);
+    const gradientEnabled = el.dataset.shapeGradientEnabled === 'true';
+    const directions = String(el.dataset.shapeGradientDirections || '').split(',').filter(Boolean);
+    const depth = clampValue(el.dataset.shapeGradientDepth || 100, 0, 100);
+    const gradientColors = parseShapeGradientColorsSafe(el.dataset.shapeGradientColors);
+    const background = typeof buildShapeBackground === 'function'
+      ? buildShapeBackground(color, opacity, gradientEnabled, directions, depth, gradientColors)
+      : withOpacity(color, opacity);
+
+    el.style.background = background;
+    el.style.backgroundColor = withOpacity(color, opacity);
+    el.style.borderRadius = radius + 'px';
+    el.dataset.shapeColor = color;
+    el.dataset.shapeOpacity = String(opacity);
+    el.dataset.shapeRadius = String(radius);
+    safeCall(applyShapeColorVars, el, color, opacity);
+
+    const fill = el.querySelector('.shape-fill');
+    if (fill) {
+      fill.style.background = background;
+      fill.style.backgroundColor = withOpacity(color, opacity);
+      fill.style.borderRadius = radius + 'px';
+    }
+
+    safeCall(applyShapeMaterial, el);
+  }
+
+  function applyShapeStyleMulti(event) {
+    const targets = activeTargets('shape');
+    if (!targets.length) return;
+    const id = changedId(event, 'shapeColor');
+
+    let color = normalizeColor(q('shapeColor')?.value || '#0d6efd', '#0d6efd');
+    let opacity = clampValue(numberFromPanel(id === 'shapeOpacityPercent' ? 'shapeOpacityPercent' : 'shapeOpacity', 100), 0, 100);
+    const radius = Math.max(0, numberFromPanel(id === 'shapeRadiusPx' ? 'shapeRadiusPx' : 'shapeRadius', 0));
+    const material = q('shapeMaterial')?.value || 'none';
+    const depth = clampValue(numberFromPanel(id === 'shapeGradientDepthPercent' ? 'shapeGradientDepthPercent' : 'shapeGradientDepth', 100), 0, 100);
+
+    if (id === 'shapeColor' && opacity <= 0) {
+      opacity = 100;
+      setPanelValue('shapeOpacity', opacity);
+      setPanelValue('shapeOpacityPercent', opacity);
+    }
+
+    const isGradientControl = id === 'shapeGradientEnabled' || id === 'shapeGradientDepth' || id === 'shapeGradientDepthPercent' ||
+      event?.target?.matches?.('[data-shape-gradient], [data-gradient-color-enabled], [data-gradient-color], [data-gradient-opacity], [data-gradient-opacity-input]');
+
+    targets.forEach(el => {
+      if (id === 'shapeColor') el.dataset.shapeColor = color;
+      if (id === 'shapeOpacity' || id === 'shapeOpacityPercent' || id === 'shapeColor') el.dataset.shapeOpacity = String(opacity);
+      if (id === 'shapeRadius' || id === 'shapeRadiusPx') el.dataset.shapeRadius = String(radius);
+      if (id === 'shapeMaterial') el.dataset.shapeMaterial = material;
+      if (isGradientControl) {
+        el.dataset.shapeGradientEnabled = q('shapeGradientEnabled')?.checked ? 'true' : 'false';
+        el.dataset.shapeGradientDirections = readShapeDirectionsFromPanel().join(',');
+        el.dataset.shapeGradientColors = serializeShapeGradientColorsFromPanel();
+        el.dataset.shapeGradientDepth = String(depth);
+      }
+      applyShapeVisualFromDataset(el);
+    });
+
+    if (id === 'shapeOpacity' || id === 'shapeOpacityPercent' || id === 'shapeColor') {
+      setPanelValue('shapeOpacity', opacity);
+      setPanelValue('shapeOpacityPercent', opacity);
+    }
+    if (id === 'shapeRadius' || id === 'shapeRadiusPx') {
+      setPanelValue('shapeRadius', radius);
+      setPanelValue('shapeRadiusPx', radius);
+    }
+    if (isGradientControl) {
+      setPanelValue('shapeGradientDepth', depth);
+      setPanelValue('shapeGradientDepthPercent', depth);
+    }
+    refreshAfterApply();
+  }
+
+  function lineValueForControl(id, config) {
+    const node = q(id);
+    if (!node && config?.[1] !== 'checked') return '';
+    const mode = config?.[1];
+    if (mode === 'checked') return node?.checked ? 'true' : 'false';
+    if (mode === 'number') {
+      const value = clampValue(node?.value ?? config[2], config[2], config[3]);
+      if (config[4]) setPanelValue(config[4], value);
+      setPanelValue(id, value);
+      return String(value);
+    }
+    if (mode === 'angle') {
+      const raw = parseInt(String(node?.value ?? '0'), 10) || 0;
+      const value = ((raw % 360) + 360) % 360;
+      if (config[4]) setPanelValue(config[4], value);
+      setPanelValue(id, value);
+      return String(value);
+    }
+    return node?.value || '';
+  }
+
+  function applyLineStyleMulti(event) {
+    const targets = activeTargets('line');
+    if (!targets.length) return;
+    const id = changedId(event, event?.target?.id || 'lineColor');
+    const config = lineDatasetMapV143[id];
+    if (!config) return;
+
+    const [datasetKey] = config;
+    const value = lineValueForControl(id, config);
+    targets.forEach(el => {
+      el.dataset[datasetKey] = value;
+      safeCall(applyLineStyleToElement, el);
+    });
+    refreshAfterApply();
+  }
+
+  function applyLineArrowPresetMulti(preset) {
+    const targets = activeTargets('line');
+    if (!targets.length) return;
+    let start = 'none';
+    let end = 'none';
+    if (preset === 'left') start = 'arrow';
+    if (preset === 'right') end = 'arrow';
+    if (preset === 'both') { start = 'arrow'; end = 'arrow'; }
+    if (preset === 'left2') start = 'arrow2';
+    if (preset === 'right2') end = 'arrow2';
+    if (preset === 'both2') { start = 'arrow2'; end = 'arrow2'; }
+    setPanelValue('lineStart', start);
+    setPanelValue('lineEnd', end);
+    targets.forEach(el => {
+      el.dataset.lineStart = start;
+      el.dataset.lineEnd = end;
+      safeCall(applyLineStyleToElement, el);
+    });
+    refreshAfterApply();
+  }
+
+  function imageTargets() {
+    return activeTargets('image');
+  }
+
+  function applyImageRadiusMulti(event) {
+    const targets = imageTargets();
+    if (!targets.length) return;
+    const id = changedId(event, 'imageRadius');
+    const source = id === 'imageRadiusPx' ? 'imageRadiusPx' : 'imageRadius';
+    const radius = clampValue(numberFromPanel(source, 0), 0, 200);
+    setPanelValue('imageRadius', radius);
+    setPanelValue('imageRadiusPx', radius);
+    targets.forEach(el => {
+      el.style.borderRadius = radius + 'px';
+      el.dataset.imageRadius = String(radius);
+      const img = el.querySelector('img.editable-image');
+      if (img) img.style.borderRadius = 'inherit';
+    });
+    refreshAfterApply();
+  }
+
+  function applyImageCropVisual(el) {
+    const img = el.querySelector('img.editable-image');
+    if (!img) return;
+    const fit = el.dataset.imageCropFit || img.style.objectFit || 'cover';
+    const x = clampValue(el.dataset.imageCropX || 50, 0, 100);
+    const y = clampValue(el.dataset.imageCropY || 50, 0, 100);
+    const zoom = clampValue(el.dataset.imageCropZoom || 100, 100, 300);
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.style.objectFit = fit;
+    img.style.objectPosition = `${x}% ${y}%`;
+    img.style.transformOrigin = `${x}% ${y}%`;
+    img.style.transform = `scale(${zoom / 100})`;
+    el.style.overflow = 'hidden';
+  }
+
+  function applyImageCropMulti(event) {
+    const targets = imageTargets();
+    if (!targets.length) return;
+    const id = changedId(event, 'imageCropFit');
+    if (!['imageCropFit', 'imageCropX', 'imageCropXInput', 'imageCropY', 'imageCropYInput', 'imageCropZoom', 'imageCropZoomInput'].includes(id)) return;
+
+    const fit = q('imageCropFit')?.value || 'cover';
+    const x = clampValue(numberFromPanel(id === 'imageCropXInput' ? 'imageCropXInput' : 'imageCropX', 50), 0, 100);
+    const y = clampValue(numberFromPanel(id === 'imageCropYInput' ? 'imageCropYInput' : 'imageCropY', 50), 0, 100);
+    const zoom = clampValue(numberFromPanel(id === 'imageCropZoomInput' ? 'imageCropZoomInput' : 'imageCropZoom', 100), 100, 300);
+
+    targets.forEach(el => {
+      if (id === 'imageCropFit') el.dataset.imageCropFit = fit;
+      if (id === 'imageCropX' || id === 'imageCropXInput') el.dataset.imageCropX = String(x);
+      if (id === 'imageCropY' || id === 'imageCropYInput') el.dataset.imageCropY = String(y);
+      if (id === 'imageCropZoom' || id === 'imageCropZoomInput') el.dataset.imageCropZoom = String(zoom);
+      applyImageCropVisual(el);
+    });
+
+    if (id === 'imageCropX' || id === 'imageCropXInput') { setPanelValue('imageCropX', x); setPanelValue('imageCropXInput', x); }
+    if (id === 'imageCropY' || id === 'imageCropYInput') { setPanelValue('imageCropY', y); setPanelValue('imageCropYInput', y); }
+    if (id === 'imageCropZoom' || id === 'imageCropZoomInput') { setPanelValue('imageCropZoom', zoom); setPanelValue('imageCropZoomInput', zoom); }
+    refreshAfterApply();
+  }
+
+  function applyImageHoverZoomMulti(event) {
+    const targets = imageTargets();
+    if (!targets.length) return;
+    const id = changedId(event, 'imageHoverZoomEnabled');
+
+    const enabled = q('imageHoverZoomEnabled')?.checked ? 'true' : 'false';
+    const mode = q('imageHoverZoomMode')?.value || 'element';
+    const normal = clampValue(numberFromPanel(id === 'imageZoomNormalScaleInput' ? 'imageZoomNormalScaleInput' : 'imageZoomNormalScale', 100), 50, 200);
+    const hover = clampValue(numberFromPanel(id === 'imageZoomHoverScaleInput' ? 'imageZoomHoverScaleInput' : 'imageZoomHoverScale', 120), 50, 300);
+    const boundaryEnabled = q('imageZoomBoundaryEnabled')?.checked ? 'true' : 'false';
+    const gap = clampValue(numberFromPanel(id === 'imageZoomBoundaryGapInput' ? 'imageZoomBoundaryGapInput' : 'imageZoomBoundaryGap', 10), 0, 80);
+    const centerEnabled = q('imageZoomCenterEnabled')?.checked ? 'true' : 'false';
+
+    targets.forEach(el => {
+      if (id === 'imageHoverZoomEnabled') el.dataset.hoverZoomEnabled = enabled;
+      if (id === 'imageHoverZoomMode') el.dataset.hoverZoomMode = mode;
+      if (id === 'imageZoomNormalScale' || id === 'imageZoomNormalScaleInput') el.dataset.zoomNormal = String(normal);
+      if (id === 'imageZoomHoverScale' || id === 'imageZoomHoverScaleInput') el.dataset.zoomHover = String(hover);
+      if (id === 'imageZoomBoundaryEnabled') el.dataset.hoverZoomBoundary = boundaryEnabled;
+      if (id === 'imageZoomBoundaryGap' || id === 'imageZoomBoundaryGapInput') el.dataset.hoverZoomBoundaryGap = String(gap);
+      if (id === 'imageZoomCenterEnabled') el.dataset.hoverZoomCenter = centerEnabled;
+      safeCall(syncImageHoverZoomElementStyle, el);
+    });
+
+    if (id === 'imageZoomNormalScale' || id === 'imageZoomNormalScaleInput') { setPanelValue('imageZoomNormalScale', normal); setPanelValue('imageZoomNormalScaleInput', normal); }
+    if (id === 'imageZoomHoverScale' || id === 'imageZoomHoverScaleInput') { setPanelValue('imageZoomHoverScale', hover); setPanelValue('imageZoomHoverScaleInput', hover); }
+    if (id === 'imageZoomBoundaryGap' || id === 'imageZoomBoundaryGapInput') { setPanelValue('imageZoomBoundaryGap', gap); setPanelValue('imageZoomBoundaryGapInput', gap); }
+    q('imageHoverZoomControls')?.classList.toggle('d-none', enabled !== 'true');
+    safeCall(window.refreshImageHoverEffectsV99);
+    refreshAfterApply();
+  }
+
+  function applyImageGrayscaleMulti() {
+    const targets = imageTargets();
+    if (!targets.length) return;
+    const enabled = q('imageGrayscaleHoverToggle')?.checked ? 'true' : 'false';
+    targets.forEach(el => {
+      el.dataset.grayscaleHover = enabled;
+      if (enabled === 'true') el.dataset.pureBlackWhite = 'false';
+      el.classList.toggle('hover-color-preview', enabled === 'true');
+      el.classList.toggle('pure-black-white-preview', false);
+    });
+    if (enabled === 'true') setPanelChecked('imagePureBlackWhiteToggle', false);
+    refreshAfterApply();
+  }
+
+  function applyImagePureBlackWhiteMulti() {
+    const targets = imageTargets();
+    if (!targets.length) return;
+    const enabled = q('imagePureBlackWhiteToggle')?.checked ? 'true' : 'false';
+    targets.forEach(el => {
+      el.dataset.pureBlackWhite = enabled;
+      if (enabled === 'true') el.dataset.grayscaleHover = 'false';
+      el.classList.toggle('pure-black-white-preview', enabled === 'true');
+      el.classList.toggle('hover-color-preview', false);
+    });
+    if (enabled === 'true') setPanelChecked('imageGrayscaleHoverToggle', false);
+    refreshAfterApply();
+  }
+
+  function applyOriginalScaleMulti(event) {
+    const targets = imageTargets();
+    if (!targets.length) return;
+    const id = changedId(event, 'imageOriginalScaleRange');
+    const enabled = q('imageOriginalScaleToggle')?.checked ? 'true' : 'false';
+    const scale = clampValue(numberFromPanel(id === 'imageOriginalScaleInput' ? 'imageOriginalScaleInput' : 'imageOriginalScaleRange', 100), 5, 200);
+    setPanelValue('imageOriginalScaleRange', scale);
+    setPanelValue('imageOriginalScaleInput', scale);
+    targets.forEach(el => {
+      if (id === 'imageOriginalScaleToggle') el.dataset.originalScaleEnabled = enabled;
+      if (id === 'imageOriginalScaleRange' || id === 'imageOriginalScaleInput') el.dataset.originalScale = String(scale);
+      const reference = selectedElement;
+      selectedElement = el;
+      safeCall(applyImageOriginalScale);
+      selectedElement = reference;
+    });
+    refreshAfterApply();
+  }
+
+  function shadowTargets() {
+    return activeTargets().filter(el => {
+      if (typeof isShadowSupportedElement === 'function') return isShadowSupportedElement(el);
+      return ['image', 'shape'].includes(el.dataset.type);
+    });
+  }
+
+  function applyShadowVisual(el) {
+    const enabled = el.dataset.shadowEnabled === 'true';
+    const color = el.dataset.shadowColor || '#000000';
+    const opacity = clampValue(el.dataset.shadowOpacity || 25, 0, 100);
+    const x = parseFloat(el.dataset.shadowX || '0') || 0;
+    const y = parseFloat(el.dataset.shadowY || '12') || 0;
+    const blur = Math.max(0, parseFloat(el.dataset.shadowBlur || '24') || 0);
+    const spread = parseFloat(el.dataset.shadowSpread || '0') || 0;
+    const rgba = typeof hexToRgba === 'function' ? hexToRgba(color, opacity) : withOpacity(color, opacity);
+    el.style.boxShadow = enabled ? `${x}px ${y}px ${blur}px ${spread}px ${rgba}` : 'none';
+  }
+
+  function applyShadowMulti(event) {
+    const targets = shadowTargets();
+    if (!targets.length) return;
+    const id = changedId(event, 'elementShadowEnabled');
+    const valueMap = {
+      elementShadowEnabled: q('elementShadowEnabled')?.checked ? 'true' : 'false',
+      elementShadowColor: q('elementShadowColor')?.value || '#000000',
+      elementShadowOpacity: String(clampValue(numberFromPanel('elementShadowOpacity', 25), 0, 100)),
+      elementShadowOpacityInput: String(clampValue(numberFromPanel('elementShadowOpacityInput', 25), 0, 100)),
+      elementShadowX: String(clampValue(numberFromPanel('elementShadowX', 0), -80, 80)),
+      elementShadowXInput: String(clampValue(numberFromPanel('elementShadowXInput', 0), -80, 80)),
+      elementShadowY: String(clampValue(numberFromPanel('elementShadowY', 12), -80, 80)),
+      elementShadowYInput: String(clampValue(numberFromPanel('elementShadowYInput', 12), -80, 80)),
+      elementShadowBlur: String(clampValue(numberFromPanel('elementShadowBlur', 24), 0, 120)),
+      elementShadowBlurInput: String(clampValue(numberFromPanel('elementShadowBlurInput', 24), 0, 120)),
+      elementShadowSpread: String(clampValue(numberFromPanel('elementShadowSpread', 0), -40, 80)),
+      elementShadowSpreadInput: String(clampValue(numberFromPanel('elementShadowSpreadInput', 0), -40, 80))
+    };
+    const datasetMap = {
+      elementShadowEnabled: 'shadowEnabled',
+      elementShadowColor: 'shadowColor',
+      elementShadowOpacity: 'shadowOpacity',
+      elementShadowOpacityInput: 'shadowOpacity',
+      elementShadowX: 'shadowX',
+      elementShadowXInput: 'shadowX',
+      elementShadowY: 'shadowY',
+      elementShadowYInput: 'shadowY',
+      elementShadowBlur: 'shadowBlur',
+      elementShadowBlurInput: 'shadowBlur',
+      elementShadowSpread: 'shadowSpread',
+      elementShadowSpreadInput: 'shadowSpread'
+    };
+    const key = datasetMap[id];
+    if (!key) return;
+    const value = valueMap[id];
+    targets.forEach(el => {
+      el.dataset[key] = value;
+      applyShadowVisual(el);
+    });
+    if (id.endsWith('Input')) setPanelValue(id.replace('Input', ''), value);
+    if (!id.endsWith('Input') && q(id + 'Input')) setPanelValue(id + 'Input', value);
+    safeCall(setShadowControlsVisible);
+    refreshAfterApply();
+  }
+
+  function applyHoverColorMulti(event) {
+    const targets = activeTargets();
+    if (!targets.length) return;
+    const id = changedId(event, 'elementHoverColorToggle');
+    const enabled = q('elementHoverColorToggle')?.checked ? 'true' : 'false';
+    const text = q('elementHoverTextColor')?.value || '#ffffff';
+    const bg = q('elementHoverBgColor')?.value || '#0d6efd';
+    const opacity = clampValue(numberFromPanel(id === 'elementHoverBgOpacityInput' ? 'elementHoverBgOpacityInput' : 'elementHoverBgOpacity', 100), 0, 100);
+    targets.forEach(el => {
+      if (id === 'elementHoverColorToggle') el.dataset.hoverColorEnabled = enabled;
+      if (id === 'elementHoverTextColor') el.dataset.hoverTextColor = text;
+      if (id === 'elementHoverBgColor') el.dataset.hoverBgColor = bg;
+      if (id === 'elementHoverBgOpacity' || id === 'elementHoverBgOpacityInput') el.dataset.hoverBgOpacity = String(opacity);
+      safeCall(applyElementHoverColorVars, el);
+    });
+    if (id === 'elementHoverBgOpacity' || id === 'elementHoverBgOpacityInput') {
+      setPanelValue('elementHoverBgOpacity', opacity);
+      setPanelValue('elementHoverBgOpacityInput', opacity);
+    }
+    refreshAfterApply();
+  }
+
+  // 對外函式覆寫：讓工具列按鈕或其他程式呼叫也支援多選。
+  window.applyTextAlignToSelected = applyTextAlignToSelected = function(align) {
+    applyTextAlignMulti(align);
+  };
+
+  window.applySelectedTextColorFromPanel = applySelectedTextColorFromPanel = function(event) {
+    applyElementTextColorMulti(event);
+  };
+
+  window.applySelectedBackgroundFromPanel = applySelectedBackgroundFromPanel = function(event) {
+    applyElementBackgroundMulti(event);
+  };
+
+  window.applySelectedFontFromPanel = applySelectedFontFromPanel = function() {
+    applyFontMulti();
+  };
+
+  window.updateSelectedStyle = updateSelectedStyle = function(event) {
+    const id = changedId(event, event?.target?.id);
+    if (id === 'elementTextColor' || id === 'elementTextOpacity' || id === 'elementTextOpacityPercent') return applyElementTextColorMulti(event);
+    if (id === 'elementBgColor' || id === 'elementBgOpacity' || id === 'elementBgOpacityPercent' || id === 'elementMaterial') return applyElementBackgroundMulti(event);
+    if (id === 'elementFontFamily') return applyFontMulti();
+    updateBasicStyleMulti(event, false);
+  };
+
+  window.updateSelectedStyleByManualInput = updateSelectedStyleByManualInput = function(event) {
+    updateBasicStyleMulti(event, true);
+  };
+
+  window.updateSelectedPosition = updateSelectedPosition = function(event) {
+    applyPositionPercentMulti(event);
+  };
+
+  window.updateSelectedPositionByPx = updateSelectedPositionByPx = function(event) {
+    applyPositionPixelMulti(event);
+  };
+
+  window.applyShapeStyle = applyShapeStyle = function(event) {
+    applyShapeStyleMulti(event);
+  };
+
+  window.applyShapeStyleFromPercentInput = applyShapeStyleFromPercentInput = function(event) {
+    lastControlIdV143 = 'shapeOpacityPercent';
+    applyShapeStyleMulti(event || { target: q('shapeOpacityPercent') });
+  };
+
+  window.applyShapeRadiusFromManualInput = applyShapeRadiusFromManualInput = function(event) {
+    lastControlIdV143 = 'shapeRadiusPx';
+    applyShapeStyleMulti(event || { target: q('shapeRadiusPx') });
+  };
+
+  window.applyShapeGradientDepthFromManualInput = applyShapeGradientDepthFromManualInput = function(event) {
+    lastControlIdV143 = 'shapeGradientDepthPercent';
+    applyShapeStyleMulti(event || { target: q('shapeGradientDepthPercent') });
+  };
+
+  window.applyLineStyleFromPanel = applyLineStyleFromPanel = function(event) {
+    applyLineStyleMulti(event);
+  };
+
+  window.applyLineNumberInput = applyLineNumberInput = function(inputId, rangeId, min, max) {
+    const value = clampValue(numberFromPanel(inputId, min), min, max);
+    setPanelValue(inputId, value);
+    setPanelValue(rangeId, value);
+    lastControlIdV143 = inputId;
+    applyLineStyleMulti({ target: q(inputId) });
+  };
+
+  window.applyLineArrowPreset = applyLineArrowPreset = function(preset) {
+    applyLineArrowPresetMulti(preset || 'none');
+  };
+
+  window.applyImageRadiusSetting = applyImageRadiusSetting = function(event) {
+    applyImageRadiusMulti(event);
+  };
+
+  window.applyImageRadiusSettingFromInput = applyImageRadiusSettingFromInput = function(event) {
+    lastControlIdV143 = 'imageRadiusPx';
+    applyImageRadiusMulti(event || { target: q('imageRadiusPx') });
+  };
+
+  window.applyImageCropSettings = applyImageCropSettings = function(event) {
+    applyImageCropMulti(event);
+  };
+
+  window.applyImageHoverZoomSettings = applyImageHoverZoomSettings = function(event) {
+    applyImageHoverZoomMulti(event);
+  };
+
+  window.applyImageGrayscaleHoverSetting = applyImageGrayscaleHoverSetting = function() {
+    applyImageGrayscaleMulti();
+  };
+
+  window.applyImagePureBlackWhiteSetting = applyImagePureBlackWhiteSetting = function() {
+    applyImagePureBlackWhiteMulti();
+  };
+
+  window.applyElementShadowStyle = applyElementShadowStyle = function(showMessageOrEvent = false) {
+    const event = showMessageOrEvent && typeof showMessageOrEvent === 'object' ? showMessageOrEvent : null;
+    applyShadowMulti(event || { target: q(lastControlIdV143 || 'elementShadowEnabled') });
+  };
+
+  window.applyElementHoverColorSettings = applyElementHoverColorSettings = function(event) {
+    applyHoverColorMulti(event);
+  };
+
+  // 多選時攔截原本單選事件，避免後續舊事件又只改 selectedElement 或重寫其他欄位。
+  function captureMulti(ids, events, handler, type = null) {
+    ids.forEach(id => {
+      const node = q(id);
+      if (!node) return;
+      events.forEach(eventName => {
+        node.addEventListener(eventName, event => {
+          if (eventName === 'keydown' && event.key !== 'Enter') return;
+          if (!hasMulti(type)) return;
+          lastControlIdV143 = event.target.id;
+          event.preventDefault?.();
+          event.stopImmediatePropagation?.();
+          handler(event);
+          if (eventName === 'keydown') event.target.blur?.();
+        }, true);
+      });
+    });
+  }
+
+  captureMulti(['elX', 'elY', 'elW', 'elH'], ['input', 'change'], applyPositionPercentMulti);
+  captureMulti(['elXPx', 'elYPx', 'elWPx', 'elHPx'], ['change', 'keydown'], applyPositionPixelMulti);
+  captureMulti(['elementTextColor', 'elementTextOpacity', 'elementTextOpacityPercent'], ['input', 'change', 'keydown'], applyElementTextColorMulti);
+  captureMulti(['elementBgColor', 'elementBgOpacity', 'elementBgOpacityPercent', 'elementMaterial'], ['input', 'change', 'keydown'], applyElementBackgroundMulti);
+  captureMulti(['elementFontFamily'], ['input', 'change'], applyFontMulti);
+  captureMulti(Object.keys(styleRangeMapV143), ['input', 'change'], event => updateBasicStyleMulti(event, false));
+  captureMulti(Object.keys(styleManualMapV143), ['change', 'keydown'], event => updateBasicStyleMulti(event, true));
+  captureMulti(['elementHoverColorToggle', 'elementHoverTextColor', 'elementHoverBgColor', 'elementHoverBgOpacity', 'elementHoverBgOpacityInput'], ['input', 'change', 'keydown'], applyHoverColorMulti);
+  captureMulti(['shapeColor', 'shapeOpacity', 'shapeOpacityPercent', 'shapeMaterial', 'shapeRadius', 'shapeRadiusPx', 'shapeGradientEnabled', 'shapeGradientDepth', 'shapeGradientDepthPercent'], ['input', 'change', 'keydown'], applyShapeStyleMulti, 'shape');
+  captureMulti(Object.keys(lineDatasetMapV143), ['input', 'change', 'keydown'], applyLineStyleMulti, 'line');
+  captureMulti(['imageRadius', 'imageRadiusPx'], ['input', 'change', 'keydown'], applyImageRadiusMulti, 'image');
+  captureMulti(['imageCropFit', 'imageCropX', 'imageCropXInput', 'imageCropY', 'imageCropYInput', 'imageCropZoom', 'imageCropZoomInput'], ['input', 'change', 'keydown'], applyImageCropMulti, 'image');
+  captureMulti(['imageHoverZoomEnabled', 'imageHoverZoomMode', 'imageZoomNormalScale', 'imageZoomNormalScaleInput', 'imageZoomHoverScale', 'imageZoomHoverScaleInput', 'imageZoomBoundaryEnabled', 'imageZoomBoundaryGap', 'imageZoomBoundaryGapInput', 'imageZoomCenterEnabled'], ['input', 'change', 'keydown'], applyImageHoverZoomMulti, 'image');
+  captureMulti(['imageGrayscaleHoverToggle'], ['change'], applyImageGrayscaleMulti, 'image');
+  captureMulti(['imagePureBlackWhiteToggle'], ['change'], applyImagePureBlackWhiteMulti, 'image');
+  captureMulti(['imageOriginalScaleToggle', 'imageOriginalScaleRange', 'imageOriginalScaleInput'], ['input', 'change', 'keydown'], applyOriginalScaleMulti, 'image');
+  captureMulti(['elementShadowEnabled', 'elementShadowColor', 'elementShadowOpacity', 'elementShadowOpacityInput', 'elementShadowX', 'elementShadowXInput', 'elementShadowY', 'elementShadowYInput', 'elementShadowBlur', 'elementShadowBlurInput', 'elementShadowSpread', 'elementShadowSpreadInput'], ['input', 'change', 'keydown'], applyShadowMulti);
+
+  document.querySelectorAll('[data-text-align]').forEach(btn => {
+    btn.addEventListener('click', event => {
+      if (!hasMulti()) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      applyTextAlignMulti(btn.dataset.textAlign || 'left');
+    }, true);
+  });
+
+  q('boldBtn')?.addEventListener('click', event => {
+    if (!hasMulti()) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    applyTextToggleMulti('bold');
+  }, true);
+
+  q('italicBtn')?.addEventListener('click', event => {
+    if (!hasMulti()) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    applyTextToggleMulti('italic');
+  }, true);
+
+  q('underlineBtn')?.addEventListener('click', event => {
+    if (!hasMulti()) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    applyTextToggleMulti('underline');
+  }, true);
+
+  document.querySelectorAll('[data-shape-gradient], [data-gradient-color-enabled], [data-gradient-color], [data-gradient-opacity], [data-gradient-opacity-input]').forEach(node => {
+    ['input', 'change', 'keydown'].forEach(eventName => {
+      node.addEventListener(eventName, event => {
+        if (eventName === 'keydown' && event.key !== 'Enter') return;
+        if (!hasMulti('shape')) return;
+        event.preventDefault?.();
+        event.stopImmediatePropagation?.();
+        applyShapeStyleMulti(event);
+        if (eventName === 'keydown') event.target.blur?.();
+      }, true);
+    });
+  });
+
+  document.querySelectorAll('[data-line-arrow-preset]').forEach(btn => {
+    btn.addEventListener('click', event => {
+      if (!hasMulti('line')) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      applyLineArrowPresetMulti(btn.dataset.lineArrowPreset || 'none');
+    }, true);
+  });
+
+  const originalRefreshInspectorV143 = typeof refreshInspector === 'function' ? refreshInspector : null;
+  if (originalRefreshInspectorV143) {
+    window.refreshInspector = refreshInspector = function() {
+      const result = originalRefreshInspectorV143.apply(this, arguments);
+      const targets = activeTargets(null, true);
+      if (targets.length > 1) {
+        const selectedName = q('selectedName');
+        const selectedHint = q('selectedHint');
+        if (selectedName) selectedName.textContent = `已選取 ${targets.length} 個元件`;
+        if (selectedHint) selectedHint.textContent = '多選同步已啟用：右側設定只會套用正在變動的欄位，不會覆蓋其他位置或樣式。';
+      }
+      return result;
+    };
+  }
+
+  document.body.classList.add('v143-multi-selected-setting-sync');
+})();
