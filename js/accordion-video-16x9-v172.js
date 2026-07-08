@@ -84,6 +84,38 @@ body.exported-site .accordion-dropdown-template .accordion-item-head {
     return 0;
   }
 
+  function autoplayYoutubeSrc(src) {
+    if (!src || !/youtube\.com\/embed\//i.test(src)) return src;
+
+    try {
+      const url = new URL(src, window.location.href);
+      url.searchParams.set('autoplay', '1');
+      url.searchParams.set('mute', '1');
+      url.searchParams.set('playsinline', '1');
+      return url.href;
+    } catch (error) {
+      const joiner = src.includes('?') ? '&' : '?';
+      let next = src;
+      if (!/[?&]autoplay=/i.test(next)) next += joiner + 'autoplay=1';
+      if (!/[?&]mute=/i.test(next)) next += '&mute=1';
+      if (!/[?&]playsinline=/i.test(next)) next += '&playsinline=1';
+      return next;
+    }
+  }
+
+  function normalizeYoutubeIframe(iframe) {
+    if (!iframe) return;
+
+    const src = iframe.getAttribute('src') || '';
+    const autoplaySrc = autoplayYoutubeSrc(src);
+    if (autoplaySrc && autoplaySrc !== src) iframe.setAttribute('src', autoplaySrc);
+
+    iframe.setAttribute('width', '560');
+    iframe.setAttribute('height', '315');
+    iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+    iframe.setAttribute('loading', 'eager');
+  }
+
   function normalizeYoutube(el) {
     if (!el || el.dataset?.type !== 'youtube') return;
 
@@ -96,10 +128,7 @@ body.exported-site .accordion-dropdown-template .accordion-item-head {
     }
 
     const iframe = el.querySelector('iframe.editable-youtube, .youtube-inner iframe');
-    if (iframe) {
-      iframe.setAttribute('width', '560');
-      iframe.setAttribute('height', '315');
-    }
+    normalizeYoutubeIframe(iframe);
   }
 
   function normalizeAllYoutube(scope) {
@@ -158,6 +187,21 @@ body.exported-site .accordion-dropdown-template .accordion-item-head {
       window.syncYoutubeWidthControls.__youtube16x9V172 = true;
       try { syncYoutubeWidthControls = window.syncYoutubeWidthControls; } catch (error) {}
     }
+
+    if (typeof window.applyYoutubeEmbedToElement === 'function' && !window.applyYoutubeEmbedToElement.__youtubeAutoplayV179) {
+      const previousApplyYoutubeEmbed = window.applyYoutubeEmbedToElement;
+      window.applyYoutubeEmbedToElement = function() {
+        const result = previousApplyYoutubeEmbed.apply(this, arguments);
+        setTimeout(function(){
+          const current = selectedYoutubeElement();
+          if (current) normalizeYoutube(current);
+          normalizeAllYoutube(document);
+        }, 0);
+        return result;
+      };
+      window.applyYoutubeEmbedToElement.__youtubeAutoplayV179 = true;
+      try { applyYoutubeEmbedToElement = window.applyYoutubeEmbedToElement; } catch (error) {}
+    }
   }
 
   function wrapExportBuilders() {
@@ -192,6 +236,22 @@ body.exported-site .accordion-dropdown-template .accordion-item-head {
     if (/px$/.test(widthStyle)) return parseFloat(widthStyle) || 0;
     return 0;
   }
+  function autoplayYoutubeSrc(src){
+    if (!src || !/youtube\\.com\\/embed\\//i.test(src)) return src;
+    try {
+      var url = new URL(src, window.location.href);
+      url.searchParams.set('autoplay', '1');
+      url.searchParams.set('mute', '1');
+      url.searchParams.set('playsinline', '1');
+      return url.href;
+    } catch (error) {
+      var next = src;
+      if (!/[?&]autoplay=/i.test(next)) next += (next.indexOf('?') >= 0 ? '&' : '?') + 'autoplay=1';
+      if (!/[?&]mute=/i.test(next)) next += '&mute=1';
+      if (!/[?&]playsinline=/i.test(next)) next += '&playsinline=1';
+      return next;
+    }
+  }
   function normalizeYoutube(root){
     qsa('.free-element[data-type="youtube"]', root || document).forEach(function(el){
       el.setAttribute('data-youtube-aspect-ratio', '1.7777777778');
@@ -199,8 +259,13 @@ body.exported-site .accordion-dropdown-template .accordion-item-head {
       var widthPx = widthPxFor(el);
       if (widthPx > 0) el.style.height = Math.round(widthPx / ratio) + 'px';
       qsa('iframe.editable-youtube, .youtube-inner iframe', el).forEach(function(iframe){
+        var src = iframe.getAttribute('src') || '';
+        var autoplaySrc = autoplayYoutubeSrc(src);
+        if (autoplaySrc && autoplaySrc !== src) iframe.setAttribute('src', autoplaySrc);
         iframe.setAttribute('width', '560');
         iframe.setAttribute('height', '315');
+        iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+        iframe.setAttribute('loading', 'eager');
       });
     });
   }
@@ -254,4 +319,17 @@ body.exported-site .accordion-dropdown-template .accordion-item-head {
   }
 
   window.addEventListener('resize', function(){ normalizeAllYoutube(document); });
+
+  if (window.MutationObserver) {
+    let youtubeTimer = null;
+    new MutationObserver(function(){
+      clearTimeout(youtubeTimer);
+      youtubeTimer = setTimeout(function(){ normalizeAllYoutube(document); }, 80);
+    }).observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['src', 'class', 'style']
+    });
+  }
 })();
