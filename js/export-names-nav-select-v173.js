@@ -13,10 +13,14 @@
 }
 
 .nav-dropdown[data-nav-style-mode="hover-title"] .nav-dropdown-menu,
-.nav-dropdown[data-dropdown-style-mode="hover-title"] .nav-dropdown-menu,
+.nav-dropdown[data-dropdown-style-mode="hover-title"] .nav-dropdown-menu {
+  background: var(--nav-menu-bg, #ffffff) !important;
+  filter: none !important;
+}
+
 .nav-dropdown[data-nav-style-mode="hover-title"] .nav-dropdown-option,
 .nav-dropdown[data-dropdown-style-mode="hover-title"] .nav-dropdown-option {
-  background: var(--nav-menu-bg, #ffffff) !important;
+  background: var(--nav-option-bg, transparent) !important;
   color: var(--nav-option-text, #333333) !important;
   filter: none !important;
 }
@@ -25,9 +29,51 @@
 .nav-dropdown[data-dropdown-style-mode="hover-title"] .nav-dropdown-option:hover,
 .nav-dropdown[data-nav-style-mode="hover-title"] .nav-dropdown-option:focus,
 .nav-dropdown[data-dropdown-style-mode="hover-title"] .nav-dropdown-option:focus {
-  background: var(--nav-menu-bg, #ffffff) !important;
+  background: var(--nav-option-hover-bg, var(--nav-option-bg, transparent)) !important;
   color: var(--nav-option-text, #333333) !important;
   filter: none !important;
+}
+
+/* v178: keep the dropdown title text still while the icon changes state. */
+.nav-dropdown .nav-dropdown-title {
+  position: relative !important;
+  padding-right: calc(var(--dropdown-icon-size, 18px) + 18px) !important;
+}
+
+.nav-dropdown[data-dropdown-icon-visible="false"] .nav-dropdown-title,
+.nav-dropdown[data-dropdown-icon-style="none"] .nav-dropdown-title {
+  padding-right: inherit !important;
+}
+
+.nav-dropdown .nav-dropdown-title::after {
+  position: absolute !important;
+  right: 12px !important;
+  top: 50% !important;
+  margin: 0 !important;
+  transform: translateY(-50%) !important;
+}
+
+.nav-dropdown[data-dropdown-icon-style="triangle-line"]:hover .nav-dropdown-title::after,
+.nav-dropdown[data-dropdown-icon-style="triangle-line"].dropdown-open .nav-dropdown-title::after,
+.nav-dropdown[data-dropdown-icon-style="triangle-line"].menu-open .nav-dropdown-title::after {
+  width: calc(var(--dropdown-icon-size, 18px) * .62) !important;
+  height: max(2px, calc(var(--dropdown-icon-size, 18px) * .1)) !important;
+  min-height: 2px !important;
+}
+
+body.nav-dropdown-settings-clean-v177 #selectTitleStyleSectionV122,
+body.nav-dropdown-settings-clean-v177 #selectContentTextStylePanel,
+body.nav-dropdown-settings-clean-v177 #selectOptionBodyBgColor,
+body.nav-dropdown-settings-clean-v177 label[for="selectOptionBodyBgColor"],
+body.nav-dropdown-settings-clean-v177 #selectOptionBodyBgOpacity,
+body.nav-dropdown-settings-clean-v177 #selectOptionBodyBgOpacity + .px-input-row,
+body.nav-dropdown-settings-clean-v177 label[for="selectOptionBodyBgOpacity"],
+body.nav-dropdown-settings-clean-v177 #selectMenuRadius,
+body.nav-dropdown-settings-clean-v177 #selectMenuRadius + .px-input-row,
+body.nav-dropdown-settings-clean-v177 label[for="selectMenuRadius"],
+body.nav-dropdown-settings-clean-v177 #selectOptionBodyMaterial,
+body.nav-dropdown-settings-clean-v177 label[for="selectOptionBodyMaterial"] {
+  display: none !important;
 }
 
 .nav-dropdown[data-nav-style-mode="hover-title"]:hover .nav-dropdown-menu,
@@ -167,6 +213,57 @@
     root.classList.remove('menu-open', 'dropdown-open');
   }
 
+  function currentSelectedElement() {
+    try {
+      return (typeof selectedElement !== 'undefined') ? selectedElement : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function fieldRow(id) {
+    const node = document.getElementById(id);
+    if (!node) return [];
+    const rows = [node];
+    const prev = node.previousElementSibling;
+    if (prev && prev.classList?.contains('simple-label')) rows.push(prev);
+    const next = node.nextElementSibling;
+    if (next && next.classList?.contains('px-input-row')) rows.push(next);
+    return rows;
+  }
+
+  function setRowsHidden(ids, hidden) {
+    ids.flatMap(fieldRow).forEach(node => {
+      node.classList.toggle('d-none', hidden);
+      node.toggleAttribute('hidden', hidden);
+    });
+  }
+
+  function cleanNavDropdownSettingsPanel() {
+    const isNav = currentSelectedElement()?.dataset?.type === 'nav-dropdown';
+    document.body.classList.toggle('nav-dropdown-settings-clean-v177', !!isNav);
+
+    setRowsHidden([
+      'selectOptionBodyBgColor',
+      'selectOptionBodyBgOpacity',
+      'selectMenuRadius',
+      'selectOptionBodyMaterial',
+      'selectContentTextSize',
+      'selectContentTextColor',
+      'selectContentTextHoverColor',
+      'selectContentTextWeight',
+      'selectContentTextLineHeight',
+      'selectContentTextLetterSpacing',
+      'selectContentTextAlign'
+    ], !!isNav);
+
+    if (isNav) {
+      const hoverText = document.getElementById('navDropdownOptionHoverTextColor');
+      const label = hoverText?.previousElementSibling;
+      if (label?.classList?.contains('simple-label')) label.textContent = '標題 hover 文字顏色';
+    }
+  }
+
   function installNavHoverPatch() {
     if (document.__navHoverTitleOnlyV173) return;
     document.__navHoverTitleOnlyV173 = true;
@@ -182,6 +279,17 @@
       const root = event.target.closest && event.target.closest('.nav-dropdown[data-nav-style-mode="hover-title"], .nav-dropdown[data-dropdown-style-mode="hover-title"]');
       if (root) setTimeout(function(){ closeHoverNav(root); }, 0);
     }, true);
+  }
+
+  function installNavSettingsCleanup() {
+    if (document.__navSettingsCleanupV177) return;
+    document.__navSettingsCleanupV177 = true;
+
+    document.addEventListener('click', () => setTimeout(cleanNavDropdownSettingsPanel, 0), true);
+    document.addEventListener('change', () => setTimeout(cleanNavDropdownSettingsPanel, 0), true);
+    document.addEventListener('input', () => setTimeout(cleanNavDropdownSettingsPanel, 0), true);
+    setInterval(cleanNavDropdownSettingsPanel, 500);
+    cleanNavDropdownSettingsPanel();
   }
 
   function qsa(root, selector) {
@@ -414,6 +522,7 @@
     injectCSS();
     installExportFilenamePatch();
     installNavHoverPatch();
+    installNavSettingsCleanup();
     installSelectSwitcherPatch();
     wrapExportBuilders();
   }
