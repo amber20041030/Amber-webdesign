@@ -179,7 +179,9 @@ body.nav-dropdown-settings-clean-v177 label[for="selectOptionBodyMaterial"] {
       'js/font-lock-v170.js',
       'js/accordion-export-all-items-v171.js',
       'js/accordion-video-16x9-v172.js',
-      'js/export-names-nav-select-v173.js'
+      'js/export-names-nav-select-v173.js',
+      'js/element-rotation-v180.js',
+      'js/bootstrap-icon-element-v181.js'
     ];
 
     async function fetchText(path) {
