@@ -787,10 +787,6 @@ function getExportModeSelection() {
     .map(item => item.trim().toLowerCase())
     .filter(item => responsiveModes.includes(item));
 
-  if (!selected.includes('desktop')) {
-    selected.unshift('desktop');
-  }
-
   return Array.from(new Set(selected));
 }
 
@@ -5384,6 +5380,7 @@ function refreshInspector() {
     setValue('elYPx', pxValues.y);
     setValue('elWPx', pxValues.w);
     setValue('elHPx', pxValues.h);
+    relaxShapePositionInputsV194();
 
     const computedStyle = window.getComputedStyle(selectedElement);
     const fontSize = parseFloat(computedStyle.fontSize) || values.fontSize;
@@ -7436,6 +7433,19 @@ function updateSelectedPositionByPx() {
   selectedElement.style.height = hPx + 'px';
 
   refreshInspector();
+}
+
+function relaxShapePositionInputsV194() {
+  if (!selectedElement || selectedElement.dataset?.type !== 'shape') return;
+  const freeInputs = ['elX', 'elW', 'elXPx', 'elWPx'];
+  freeInputs.forEach(id => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.removeAttribute('max');
+    if (id === 'elX' || id === 'elXPx') input.removeAttribute('min');
+    if (id === 'elW') input.setAttribute('max', '500');
+    if (id === 'elWPx') input.setAttribute('max', '6000');
+  });
 }
 
 
@@ -10963,6 +10973,7 @@ sitePage.addEventListener('pointermove', e => {
   }
 
   const isLine = el.dataset.type === 'line';
+  const isShape = el.dataset.type === 'shape';
   const minW = isLine ? 1 : 3;
   const minH = 24;
 
@@ -10982,12 +10993,12 @@ sitePage.addEventListener('pointermove', e => {
     height = minH;
   }
 
-  if (left < 0) {
+  if (!isShape && left < 0) {
     width += left;
     left = 0;
   }
 
-  if (left + width > 100) {
+  if (!isShape && left + width > 100) {
     width = 100 - left;
   }
 
@@ -10999,7 +11010,6 @@ sitePage.addEventListener('pointermove', e => {
   // v25：圖片/形狀四角按住 Shift 等比例縮放；影片四角永遠等比例縮放
   const isImage = el.dataset.type === 'image';
   const isYoutube = el.dataset.type === 'youtube';
-  const isShape = el.dataset.type === 'shape';
   const isCorner = ['nw', 'ne', 'se', 'sw'].includes(dir);
 
   if ((isCorner && e.shiftKey) || (isYoutube && isCorner)) {
@@ -11039,7 +11049,7 @@ sitePage.addEventListener('pointermove', e => {
       top = resizeState.startTop;
     }
 
-    if (left < 0) {
+    if (!isShape && left < 0) {
       left = 0;
     }
 
@@ -11050,7 +11060,7 @@ sitePage.addEventListener('pointermove', e => {
     width = widthPx / resizeState.canvasWidth * 100;
     height = heightPx;
 
-    if (left + width > 100) {
+    if (!isShape && left + width > 100) {
       width = 100 - left;
       height = (width / 100 * resizeState.canvasWidth) / resizeState.aspectRatio;
     }
@@ -13233,6 +13243,8 @@ const exportImageHoverZoomRuntimeV94 = `
 
   initImageHoverZoomRuntimeV94();
 })();
+
+
 `;
 
 const originalBuildExportJSV94 = buildExportJS;
@@ -28406,6 +28418,7 @@ body.exported-site.preview-mode .block-canvas {
       const mapJSON = JSON.stringify(pageFileMap).replace(/<\/script/gi, '<\\/script');
       js += `\n\n/* v161：根目錄分頁連結對應 */\nwindow.PAGE_FILES_V161 = ${mapJSON};\n(function(){\n  function fileFor(id){ return (window.PAGE_FILES_V161 && window.PAGE_FILES_V161[String(id || '')]) || (String(id || '').replace(/[^a-zA-Z0-9_\\-\\u4e00-\\u9fff]/g, '-') + '.html'); }\n  window.renderExportPage = function(pageId){ window.location.href = fileFor(pageId); return true; };\n})();`;
     }
+    js += `\n\n/* v194: keep RWD inner canvas, icon elements, and overflow shapes fixed after reload. */\n(function(){\n  if (window.__rwdIconShapeLockV194) return;\n  window.__rwdIconShapeLockV194 = true;\n  function isRwd(){ return document.body.classList.contains('export-mode-rwd-combined'); }\n  function designWidth(){ return (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) ? 390 : 1920; }\n  function viewportWidth(){ return Math.max(320, window.innerWidth || document.documentElement.clientWidth || designWidth()); }\n  function fixIcon(iconEl){\n    if (!iconEl) return;\n    var color = iconEl.getAttribute('data-icon-color') || iconEl.style.getPropertyValue('--icon-color') || iconEl.style.color || '#212529';\n    var size = iconEl.getAttribute('data-icon-size') || iconEl.style.getPropertyValue('--icon-size') || iconEl.style.fontSize || '56';\n    size = String(size).replace(/px$/,'') || '56';\n    iconEl.style.setProperty('--icon-color', color);\n    iconEl.style.setProperty('--icon-size', size + 'px');\n    iconEl.style.color = color;\n    iconEl.style.opacity = '1';\n    iconEl.style.visibility = 'visible';\n    iconEl.style.background = 'transparent';\n    iconEl.style.overflow = 'visible';\n    var inner = iconEl.querySelector('.icon-inner');\n    if (inner) { inner.style.width = '100%'; inner.style.height = '100%'; inner.style.display = 'flex'; inner.style.alignItems = 'center'; inner.style.justifyContent = 'center'; inner.style.opacity = '1'; inner.style.visibility = 'visible'; inner.style.color = color; }\n    var icon = iconEl.querySelector('.editable-icon');\n    if (icon) { icon.style.display = 'inline-flex'; icon.style.alignItems = 'center'; icon.style.justifyContent = 'center'; icon.style.width = '1em'; icon.style.height = '1em'; icon.style.maxWidth = 'none'; icon.style.fontSize = 'var(--icon-size, 56px)'; icon.style.lineHeight = '1'; icon.style.opacity = '1'; icon.style.visibility = 'visible'; icon.style.color = 'inherit'; }\n  }\n  function apply(){\n    if (!isRwd()) return;\n    var w = designWidth();\n    var scale = Math.min(1, viewportWidth() / w);\n    var page = document.getElementById('sitePage') || document.querySelector('.site-page');\n    var canvas = document.querySelector('.canvas-area') || document.querySelector('.export-preview-canvas-v161') || document.body;\n    document.documentElement.style.setProperty('--fixed-layout-design-width-v167', w + 'px');\n    document.documentElement.style.setProperty('--fixed-layout-scale-v167', String(scale));\n    document.body.style.setProperty('--fixed-layout-design-width-v167', w + 'px');\n    document.body.style.setProperty('--fixed-layout-scale-v167', String(scale));\n    if (page) {\n      page.style.setProperty('--fixed-layout-design-width-v167', w + 'px');\n      page.style.setProperty('--fixed-layout-scale-v167', String(scale));\n      page.style.width = w + 'px';\n      page.style.minWidth = w + 'px';\n      page.style.maxWidth = w + 'px';\n      page.style.zoom = String(scale);\n      page.style.overflow = 'visible';\n      Array.prototype.forEach.call(page.querySelectorAll('.rwd-export-mode-v186'), function(node){ node.style.width = w + 'px'; node.style.minWidth = w + 'px'; node.style.maxWidth = w + 'px'; node.style.overflow = 'visible'; });\n      Array.prototype.forEach.call(page.querySelectorAll('.html-zone,.html-block,.block-canvas'), function(node){ node.style.overflow = 'visible'; });\n      Array.prototype.forEach.call(page.querySelectorAll('.free-element[data-type=\"icon\"]'), fixIcon);\n      if (canvas) canvas.style.minHeight = Math.max(window.innerHeight || 0, Math.ceil(Math.max(page.scrollHeight, page.offsetHeight, window.innerHeight || 0) * scale)) + 'px';\n    }\n  }\n  function schedule(){ requestAnimationFrame(function(){ apply(); setTimeout(apply, 60); setTimeout(apply, 180); setTimeout(apply, 420); setTimeout(apply, 900); }); }\n  window.addEventListener('resize', schedule);\n  window.addEventListener('orientationchange', schedule);\n  if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);\n  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule); else schedule();\n  window.addEventListener('load', schedule);\n})();`;
     return js.replace(/<\/script/gi, '<\\/script');
   }
 
@@ -29015,4 +29028,290 @@ body.exported-site.preview-mode .block-canvas {
     };
     window.buildExportJS = buildExportJS;
   }
+})();
+
+
+/* v186: RWD combined export
+   Exports desktop and mobile designs into the same HTML file.
+*/
+(function patchResponsiveCombinedExportV186(){
+  if (window.__patchResponsiveCombinedExportV186) return;
+  window.__patchResponsiveCombinedExportV186 = true;
+
+  function safePageFileNameV186(id){
+    const raw = String(id || 'page').trim() || 'page';
+    const safe = raw.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    return (safe || 'page') + '.html';
+  }
+
+  function buildRootPageFileMapV186(pageIds, indexPageId){
+    const used = new Set();
+    const map = {};
+    if (indexPageId && pageIds.includes(indexPageId)) {
+      map[indexPageId] = 'index.html';
+      used.add('index.html');
+    }
+    pageIds.forEach(id => {
+      if (map[id]) return;
+      let fileName = safePageFileNameV186(id);
+      const base = fileName.replace(/\.html$/i, '') || 'page';
+      let n = 2;
+      while (used.has(fileName)) {
+        fileName = base + '-' + n + '.html';
+        n += 1;
+      }
+      used.add(fileName);
+      map[id] = fileName;
+    });
+    return map;
+  }
+
+  function cleanHTMLV186(html){
+    if (typeof cleanHTMLForExport === 'function') return cleanHTMLForExport(html || '');
+    return html || '';
+  }
+
+  function collectModePagesV186(){
+    const output = { desktop: {}, mobile: {} };
+    Object.entries(pages || {}).forEach(([id, page]) => {
+      if (typeof normalizeResponsivePage === 'function') normalizeResponsivePage(page);
+      const responsive = page.responsive || {};
+      const desktopData = responsive.desktop || { html: page.html, bg: page.bg || '#ffffff' };
+      const mobileData = responsive.mobile || desktopData;
+      output.desktop[id] = {
+        name: page.name || id,
+        bg: desktopData.bg || page.bg || '#ffffff',
+        html: cleanHTMLV186(desktopData.html || page.html || '')
+      };
+      output.mobile[id] = {
+        name: page.name || id,
+        bg: mobileData.bg || desktopData.bg || page.bg || '#ffffff',
+        html: cleanHTMLV186(mobileData.html || desktopData.html || page.html || '')
+      };
+    });
+    return output;
+  }
+
+  function cssBgV186(value, fallback){
+    return String(value || fallback || '#ffffff').replace(/<\/style/gi, '<\\/style');
+  }
+
+  function buildCombinedBodyHTMLV186(desktopPage, mobilePage){
+    const desktopBg = cssBgV186(desktopPage && desktopPage.bg, '#ffffff');
+    const mobileBg = cssBgV186(mobilePage && mobilePage.bg, desktopBg);
+    const desktopHTML = (desktopPage && desktopPage.html) || '';
+    const mobileHTML = (mobilePage && mobilePage.html) || desktopHTML;
+    return `
+<style id="rwdCombinedExportV186">
+  body.exported-site.export-mode-rwd-combined,
+  body.exported-site.export-mode-rwd-combined #sitePage.site-page {
+    background: ${desktopBg} !important;
+    background-color: ${desktopBg} !important;
+  }
+  body.exported-site.export-mode-rwd-combined {
+    --fixed-layout-design-width-v167: 1920px;
+    --fixed-layout-scale-v167: 1;
+  }
+  body.exported-site.export-mode-rwd-combined #sitePage.site-page {
+    width: var(--fixed-layout-design-width-v167) !important;
+    min-width: var(--fixed-layout-design-width-v167) !important;
+    max-width: var(--fixed-layout-design-width-v167) !important;
+    zoom: var(--fixed-layout-scale-v167) !important;
+    overflow: visible !important;
+  }
+  .rwd-export-mode-v186 {
+    display: block;
+    width: var(--fixed-layout-design-width-v167) !important;
+    min-width: var(--fixed-layout-design-width-v167) !important;
+    max-width: var(--fixed-layout-design-width-v167) !important;
+    overflow: visible !important;
+  }
+  .rwd-export-mobile-v186 { display: none; }
+  @media (max-width: 768px) {
+    body.exported-site.export-mode-rwd-combined {
+      --fixed-layout-design-width-v167: 390px;
+    }
+    body.exported-site.export-mode-rwd-combined,
+    body.exported-site.export-mode-rwd-combined #sitePage.site-page {
+      background: ${mobileBg} !important;
+      background-color: ${mobileBg} !important;
+    }
+    .rwd-export-desktop-v186 { display: none !important; }
+    .rwd-export-mobile-v186 { display: block !important; }
+  }
+  @media (min-width: 769px) {
+    body.exported-site.export-mode-rwd-combined {
+      --fixed-layout-design-width-v167: 1920px;
+    }
+    .rwd-export-desktop-v186 { display: block !important; }
+    .rwd-export-mobile-v186 { display: none !important; }
+  }
+  body.exported-site.export-mode-rwd-combined .free-element,
+  body.exported-site.export-mode-rwd-combined .free-element .inner {
+    box-sizing: border-box !important;
+  }
+  body.exported-site.export-mode-rwd-combined .html-zone,
+  body.exported-site.export-mode-rwd-combined .html-block,
+  body.exported-site.export-mode-rwd-combined .block-canvas {
+    overflow: visible !important;
+  }
+  body.exported-site.export-mode-rwd-combined .free-element img,
+  body.exported-site.export-mode-rwd-combined .free-element picture,
+  body.exported-site.export-mode-rwd-combined .free-element iframe,
+  body.exported-site.export-mode-rwd-combined .editable-image {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+  }
+  body.exported-site.export-mode-rwd-combined .free-element[data-type="icon"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+  body.exported-site.export-mode-rwd-combined .free-element[data-type="icon"] .icon-inner {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: var(--icon-color, currentColor) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  body.exported-site.export-mode-rwd-combined .free-element[data-type="icon"] .editable-icon {
+    width: 1em !important;
+    height: 1em !important;
+    max-width: none !important;
+    font-size: var(--icon-size, 56px) !important;
+    line-height: 1 !important;
+    color: inherit !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+</style>
+<div class="rwd-export-mode-v186 rwd-export-desktop-v186" data-rwd-mode="desktop">
+${desktopHTML}
+</div>
+<div class="rwd-export-mode-v186 rwd-export-mobile-v186" data-rwd-mode="mobile">
+${mobileHTML}
+</div>`;
+  }
+
+  function buildPageJSV186(exportPages, pageId, pageFileMap){
+    const exportPagesJSON = JSON.stringify(exportPages || {}).replace(/<\/script/gi, '<\\/script');
+    let js = buildExportJS(exportPagesJSON, JSON.stringify(pageId)).replace(/<\/script/gi, '<\\/script');
+    const mapJSON = JSON.stringify(pageFileMap || {}).replace(/<\/script/gi, '<\\/script');
+    js += `\n\n/* v186: RWD combined export page links */\nwindow.PAGE_FILES_V186 = ${mapJSON};\n(function(){\n  function fileFor(id){ return (window.PAGE_FILES_V186 && window.PAGE_FILES_V186[String(id || '')]) || (String(id || '').replace(/[^a-zA-Z0-9_\\-\\u4e00-\\u9fff]/g, '-') + '.html'); }\n  window.renderExportPage = function(pageId){ window.location.href = fileFor(pageId); return true; };\n})();`;
+    js += `\n\n/* v193: function panel page + section hash jump and RWD fixed-size export. */\n(function(){\n  if (window.__functionPanelHashAndRwdV193) return;\n  window.__functionPanelHashAndRwdV193 = true;\n  function cleanId(id){ return String(id || '').replace(/^#/, ''); }\n  function enc(id){ return encodeURIComponent(cleanId(id)).replace(/%20/g, '+'); }\n  function fileFor(id){ return (window.PAGE_FILES_V186 && window.PAGE_FILES_V186[String(id || '')]) || (String(id || '').replace(/[^a-zA-Z0-9_\\-\\u4e00-\\u9fff]/g, '-') + '.html'); }\n  function currentFile(){ return String(location.pathname || 'index.html').split('/').pop() || 'index.html'; }\n  function findTarget(id){ var clean = cleanId(id); if (!clean) return null; var target = document.getElementById(clean); if (target) return target; try { target = document.querySelector('[data-id=\"' + CSS.escape(clean) + '\"], [data-block-id=\"' + CSS.escape(clean) + '\"]'); } catch(e) {} return target || null; }\n  function scrollToId(id){ var target = findTarget(id); if (!target) return false; try { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e) { target.scrollIntoView(); } return true; }\n  window.renderExportPage = function(pageId, callback){ var file = fileFor(pageId); if (currentFile() === file) { if (typeof callback === 'function') setTimeout(callback, 30); return true; } window.location.href = file; return true; };\n  function runFunctionJump(el, event){\n    if (!el || el.getAttribute('data-css-page-enabled') !== 'true') return false;\n    var pageId = el.getAttribute('data-css-page-target') || '';\n    var targetId = el.getAttribute('data-css-page-scroll-target') || el.getAttribute('data-css-scroll-target') || '';\n    if (!pageId || !targetId) return false;\n    if (event) { event.preventDefault(); event.stopPropagation(); if (event.stopImmediatePropagation) event.stopImmediatePropagation(); }\n    var file = fileFor(pageId); var hash = enc(targetId);\n    if (currentFile() === file) { if (location.hash !== '#' + hash) history.replaceState(null, '', '#' + hash); setTimeout(function(){ scrollToId(targetId); }, 40); return true; }\n    location.href = file + '#' + hash;\n    return true;\n  }\n  var previousHandlePageAndScroll = typeof window.handlePageAndScroll === 'function' ? window.handlePageAndScroll : null;\n  window.handlePageAndScroll = function(el, event){ return runFunctionJump(el, event) || (previousHandlePageAndScroll ? previousHandlePageAndScroll(el, event) : false); };\n  try { handlePageAndScroll = window.handlePageAndScroll; } catch(e) {}\n  document.addEventListener('click', function(event){ var el = event.target.closest && event.target.closest('[data-css-page-enabled=\"true\"][data-css-page-target]'); if (el) runFunctionJump(el, event); }, true);\n  function scrollHash(){ if (location.hash) setTimeout(function(){ scrollToId(decodeURIComponent(location.hash.slice(1).replace(/\\+/g, ' '))); }, 220); }\n  function applyRwdFixed(){\n    if (!document.body.classList.contains('export-mode-rwd-combined')) return;\n    var mobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;\n    var designWidth = mobile ? 390 : 1920;\n    var viewport = Math.max(320, window.innerWidth || document.documentElement.clientWidth || designWidth);\n    var scale = Math.min(1, viewport / designWidth);\n    var page = document.getElementById('sitePage') || document.querySelector('.site-page');\n    var canvas = document.querySelector('.canvas-area') || document.querySelector('.export-preview-canvas-v161') || document.body;\n    document.documentElement.style.setProperty('--fixed-layout-design-width-v167', designWidth + 'px');\n    document.documentElement.style.setProperty('--fixed-layout-scale-v167', String(scale));\n    document.body.style.setProperty('--fixed-layout-design-width-v167', designWidth + 'px');\n    document.body.style.setProperty('--fixed-layout-scale-v167', String(scale));\n    if (page) {\n      page.style.setProperty('--fixed-layout-design-width-v167', designWidth + 'px');\n      page.style.setProperty('--fixed-layout-scale-v167', String(scale));\n      page.style.width = designWidth + 'px';\n      page.style.minWidth = designWidth + 'px';\n      page.style.maxWidth = designWidth + 'px';\n      page.style.zoom = String(scale);\n      if (canvas) canvas.style.minHeight = Math.max(window.innerHeight || 0, Math.ceil(Math.max(page.scrollHeight, page.offsetHeight, window.innerHeight || 0) * scale)) + 'px';\n    }\n  }\n  function boot(){ applyRwdFixed(); scrollHash(); setTimeout(applyRwdFixed, 120); setTimeout(applyRwdFixed, 360); }\n  window.addEventListener('resize', applyRwdFixed);\n  window.addEventListener('orientationchange', applyRwdFixed);\n  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();\n  window.addEventListener('load', boot);\n})();`;
+    return js.replace(/<\/script/gi, '<\\/script');
+  }
+
+  async function exportResponsiveCombinedHTMLV186(){
+    if (typeof captureCurrentPage === 'function') captureCurrentPage();
+    if (typeof normalizeAllResponsivePages === 'function') normalizeAllResponsivePages();
+    if (typeof window.preservePreviewExportColorsV160 === 'function') {
+      window.preservePreviewExportColorsV160(document.getElementById('sitePage') || document);
+    }
+
+    const modePages = collectModePagesV186();
+    const desktopPages = modePages.desktop;
+    const mobilePages = modePages.mobile;
+    const pageIds = Object.keys(desktopPages);
+    if (!pageIds.length) {
+      alert('目前沒有可匯出的分頁。');
+      return;
+    }
+
+    const indexPageId = desktopPages.home ? 'home' : pageIds[0];
+    const pageFileMap = buildRootPageFileMapV186(pageIds, indexPageId);
+    const cssCode = buildExportCSS();
+
+    if (typeof JSZip === 'undefined') {
+      alert('匯出 ZIP 需要 JSZip，請確認網路可載入 JSZip CDN。');
+      return;
+    }
+
+    const zip = new JSZip();
+    const manifest = {
+      exportedModes: ['desktop', 'mobile'],
+      primaryMode: 'rwd-combined',
+      breakpoint: 'mobile at max-width: 768px; desktop at min-width: 769px',
+      exportType: 'rwd-combined-index-v186',
+      pages: {}
+    };
+
+    const combinedPages = {};
+    Object.entries(desktopPages).forEach(([pageId, page]) => {
+      combinedPages[pageId] = {
+        name: page.name || pageId,
+        bg: page.bg || '#ffffff',
+        html: buildCombinedBodyHTMLV186(page, mobilePages[pageId] || page)
+      };
+    });
+
+    Object.entries(desktopPages).forEach(([id, desktopPage]) => {
+      const mobilePage = mobilePages[id] || desktopPage;
+      const fileName = pageFileMap[id] || safePageFileNameV186(id);
+      const pageJS = buildPageJSV186(combinedPages, id, pageFileMap);
+      const bodyHTML = buildCombinedBodyHTMLV186(desktopPage, mobilePage);
+      zip.file(fileName, buildExportHTML(bodyHTML, desktopPage.bg || '#ffffff', pageJS, './', id, 'rwd-combined'));
+      manifest.pages[id] = {
+        name: desktopPage.name || id,
+        file: fileName,
+        desktopBg: desktopPage.bg || '#ffffff',
+        mobileBg: (mobilePage && mobilePage.bg) || desktopPage.bg || '#ffffff'
+      };
+    });
+
+    zip.folder('css').file('style.css', cssCode);
+    zip.file('page-manifest.json', JSON.stringify(manifest, null, 2));
+    zip.file('README.txt', [
+      'RWD combined export v186',
+      '',
+      'Unzip the whole ZIP, then open index.html.',
+      'Each HTML file contains both desktop and mobile layouts.',
+      'Width 768px and below shows mobile. Width 769px and above shows desktop.',
+      'No separate mobile folder is created.',
+      '',
+      'Pages:',
+      ...Object.entries(desktopPages).map(([id, page]) => '- ' + (pageFileMap[id] || safePageFileNameV186(id)) + ': ' + (page.name || id))
+    ].join('\n'));
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'custom-website-rwd-combined-v186.zip';
+    document.body.appendChild(a);
+    a.click();
+    window.setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+  }
+
+  function replaceExportButtonV186(){
+    const oldBtn = document.getElementById('exportBtn');
+    if (!oldBtn || oldBtn.dataset.v186RwdCombinedExportBound === 'true') return;
+    const newBtn = oldBtn.cloneNode(true);
+    newBtn.dataset.v186RwdCombinedExportBound = 'true';
+    newBtn.addEventListener('click', function(event){
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      exportResponsiveCombinedHTMLV186();
+    }, true);
+    oldBtn.replaceWith(newBtn);
+  }
+
+  replaceExportButtonV186();
+  window.exportResponsiveCombinedHTMLV186 = exportResponsiveCombinedHTMLV186;
+  try { exportHTML = exportResponsiveCombinedHTMLV186; } catch(error) {}
+  window.exportHTML = exportResponsiveCombinedHTMLV186;
+  window.addEventListener('load', replaceExportButtonV186);
+  window.addEventListener('load', () => window.setTimeout(replaceExportButtonV186, 80));
+  window.addEventListener('load', () => window.setTimeout(replaceExportButtonV186, 300));
+
+  const title = document.querySelector('.editor-title');
+  if (title) title.innerHTML = '<i class="bi bi-phone-flip me-1"></i> 自訂網站編輯器 V186 <span class="low-spec-badge">RWD 合併匯出</span>';
+  document.title = '自訂網站編輯器 V186';
 })();

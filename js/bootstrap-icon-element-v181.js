@@ -5,6 +5,7 @@
   const CSS_V181 = `
 .free-element[data-type="icon"] {
   background: transparent;
+  overflow: visible;
 }
 
 .free-element[data-type="icon"] .icon-inner {
@@ -15,6 +16,8 @@
   justify-content: center;
   color: var(--icon-color, #212529);
   line-height: 1;
+  opacity: 1;
+  visibility: visible;
 }
 
 .free-element[data-type="icon"] .editable-icon {
@@ -27,11 +30,30 @@
   font-size: var(--icon-size, 56px);
   line-height: 1;
   pointer-events: none;
+  opacity: 1;
+  visibility: visible;
+  max-width: none;
 }
 
 body.preview-mode .free-element[data-type="icon"],
 body.exported-site .free-element[data-type="icon"] {
   background: transparent !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  overflow: visible !important;
+}
+
+body.exported-site .free-element[data-type="icon"] .icon-inner,
+body.exported-site .free-element[data-type="icon"] .editable-icon {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+body.exported-site .free-element[data-type="icon"] .editable-icon {
+  font-size: var(--icon-size, 56px) !important;
+  width: 1em !important;
+  height: 1em !important;
+  max-width: none !important;
 }`;
 
   const POPULAR_ICONS = [
@@ -236,6 +258,8 @@ body.exported-site .free-element[data-type="icon"] {
     el.style.setProperty('--icon-size', size + 'px');
     el.style.color = color;
     el.style.fontSize = size + 'px';
+    el.style.opacity = '1';
+    el.style.visibility = 'visible';
   }
 
   function syncPanel() {
